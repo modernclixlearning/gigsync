@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Metronome Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1337ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101322",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .dial-ring {
+            background: conic-gradient(from 0deg, #1337ec 0%, #1337ec 33%, #232948 33%, #232948 100%);
+        }
+        .pulse-glow {
+            box-shadow: 0 0 30px 10px rgba(19, 55, 236, 0.3);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center bg-background-light dark:bg-background-dark p-4 justify-between sticky top-0 z-50">
+<div class="text-slate-900 dark:text-white flex size-10 shrink-0 items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined">chevron_left</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Metronome</h2>
+<div class="flex w-10 items-center justify-end">
+<p class="text-primary text-sm font-bold leading-normal tracking-[0.015em] shrink-0 cursor-pointer">Sync</p>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-32">
+<!-- Visual Beat Indicators -->
+<div class="flex justify-center gap-4 py-6">
+<div class="w-4 h-4 rounded-full bg-primary shadow-[0_0_12px_rgba(19,55,236,1)]"></div>
+<div class="w-4 h-4 rounded-full bg-slate-300 dark:bg-[#232948]"></div>
+<div class="w-4 h-4 rounded-full bg-slate-300 dark:bg-[#232948]"></div>
+<div class="w-4 h-4 rounded-full bg-slate-300 dark:bg-[#232948]"></div>
+</div>
+<!-- Central BPM Dial Section -->
+<div class="flex flex-col items-center justify-center px-4 py-8 relative">
+<div class="relative flex items-center justify-center w-72 h-72 rounded-full p-4 border-8 border-[#232948]">
+<!-- Decorative Dial Ring -->
+<div class="absolute inset-0 rounded-full border-4 border-primary opacity-20 pulse-glow"></div>
+<div class="text-center z-10">
+<p class="text-slate-500 dark:text-[#929bc9] text-sm font-medium uppercase tracking-widest mb-[-8px]">Tempo</p>
+<h1 class="text-slate-900 dark:text-white tracking-light text-[72px] font-bold leading-tight">120</h1>
+<p class="text-primary text-xl font-bold mt-[-10px]">BPM</p>
+<p class="text-slate-500 dark:text-[#929bc9] text-sm font-normal mt-2">Allegro</p>
+</div>
+</div>
+<!-- Precision Controls -->
+<div class="flex justify-center gap-8 mt-10 w-full max-w-[320px]">
+<button class="flex size-14 items-center justify-center rounded-full bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white transition-active active:scale-95">
+<span class="material-symbols-outlined text-3xl">remove</span>
+</button>
+<button class="flex flex-1 items-center justify-center rounded-xl bg-primary text-white font-bold text-lg uppercase tracking-wider shadow-lg shadow-primary/30 active:scale-95 transition-transform">
+                    Tap
+                </button>
+<button class="flex size-14 items-center justify-center rounded-full bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white transition-active active:scale-95">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+</div>
+<!-- Settings Groups -->
+<div class="px-4 space-y-8 mt-4">
+<!-- Time Signature Selection -->
+<div>
+<h3 class="text-slate-500 dark:text-[#929bc9] text-xs font-bold uppercase tracking-wider mb-4 px-1">Time Signature</h3>
+<div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+<button class="flex-1 min-w-[70px] py-3 rounded-lg bg-primary text-white font-bold text-center">4/4</button>
+<button class="flex-1 min-w-[70px] py-3 rounded-lg bg-slate-200 dark:bg-[#232948] text-slate-700 dark:text-white font-bold text-center">3/4</button>
+<button class="flex-1 min-w-[70px] py-3 rounded-lg bg-slate-200 dark:bg-[#232948] text-slate-700 dark:text-white font-bold text-center">2/4</button>
+<button class="flex-1 min-w-[70px] py-3 rounded-lg bg-slate-200 dark:bg-[#232948] text-slate-700 dark:text-white font-bold text-center">6/8</button>
+</div>
+</div>
+<!-- Sound Preset Grid -->
+<div>
+<h3 class="text-slate-500 dark:text-[#929bc9] text-xs font-bold uppercase tracking-wider mb-4 px-1">Sound Engine</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-primary bg-primary/10 cursor-pointer">
+<span class="material-symbols-outlined text-primary text-3xl">timer</span>
+<span class="text-sm font-bold text-slate-900 dark:text-white">Woodblock</span>
+</div>
+<div class="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-transparent bg-slate-200 dark:bg-[#232948] cursor-pointer">
+<span class="material-symbols-outlined text-slate-400 text-3xl">radio_button_checked</span>
+<span class="text-sm font-bold text-slate-500 dark:text-[#929bc9]">Digital Click</span>
+</div>
+<div class="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-transparent bg-slate-200 dark:bg-[#232948] cursor-pointer">
+<span class="material-symbols-outlined text-slate-400 text-3xl">layers</span>
+<span class="text-sm font-bold text-slate-500 dark:text-[#929bc9]">Rimshot</span>
+</div>
+<div class="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-transparent bg-slate-200 dark:bg-[#232948] cursor-pointer">
+<span class="material-symbols-outlined text-slate-400 text-3xl">graphic_eq</span>
+<span class="text-sm font-bold text-slate-500 dark:text-[#929bc9]">Modern Hi-Hat</span>
+</div>
+</div>
+</div>
+<!-- Volume Control -->
+<div class="bg-slate-200 dark:bg-[#1a1f35] p-6 rounded-2xl flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-500 dark:text-[#929bc9]">volume_down</span>
+<div class="flex-1 h-2 bg-slate-300 dark:bg-[#232948] rounded-full relative">
+<div class="absolute inset-y-0 left-0 w-3/4 bg-primary rounded-full"></div>
+<div class="absolute top-1/2 left-3/4 -translate-y-1/2 size-5 bg-white rounded-full shadow-lg border-2 border-primary"></div>
+</div>
+<span class="material-symbols-outlined text-slate-500 dark:text-[#929bc9]">volume_up</span>
+</div>
+</div>
+</main>
+<!-- Transport Controls (Floating) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
+<button class="size-20 bg-primary rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(19,55,236,0.4)] transition-transform active:scale-90">
+<span class="material-symbols-outlined text-5xl fill-1">play_arrow</span>
+</button>
+</div>
+<!-- iOS Bottom Navigation Tab Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-background-dark/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex justify-between items-center z-50">
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">library_music</span>
+<span class="text-[10px] font-bold">Library</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">play_circle</span>
+<span class="text-[10px] font-bold">Player</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined fill-1">timer</span>
+<span class="text-[10px] font-bold">Metronome</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold">Settings</span>
+</div>
+</nav>
+<!-- Status Bar Spacer (Safe Area) -->
+<div class="h-8 shrink-0"></div>
+</body></html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Instrument Tuner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1337ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101322",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 dark:text-white overflow-x-hidden">
+<!-- Top App Bar -->
+<div class="flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
+<div class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center">
+<span class="material-symbols-outlined">settings</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Chromatic Tuner</h2>
+<div class="flex w-12 items-center justify-end">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 bg-transparent text-slate-900 dark:text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+</div>
+<!-- Tuning Status / Selected Mode -->
+<div class="flex justify-center px-4 pt-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+<span class="material-symbols-outlined text-[18px]">music_note</span>
+            Standard E Tuning
+        </div>
+</div>
+<!-- Visualizer Section -->
+<div class="relative flex flex-col items-center justify-center py-10 px-4">
+<!-- Needle Gauge Style Visualizer -->
+<div class="w-full max-w-[320px] relative">
+<div class="flex flex-wrap gap-4 px-4 py-6">
+<div class="flex min-w-72 flex-1 flex-col gap-2">
+<div class="flex min-h-[180px] flex-1 flex-col gap-8 py-4">
+<svg fill="none" height="180" preserveaspectratio="none" viewbox="0 0 478 150" width="100%" xmlns="http://www.w3.org/2000/svg">
+<!-- Background Arc -->
+<path d="M20 130 C 20 50, 458 50, 458 130" fill="transparent" stroke="#282b39" stroke-linecap="round" stroke-width="4"></path>
+<!-- Active Frequency Path (Visual Representation) -->
+<path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25" opacity="0.6" stroke="#1337ec" stroke-linecap="round" stroke-width="3"></path>
+<!-- The Needle -->
+<line stroke="#1337ec" stroke-linecap="round" stroke-width="4" x1="239" x2="239" y1="130" y2="30"></line>
+<circle cx="239" cy="130" fill="#1337ec" r="6"></circle>
+</svg>
+<div class="flex justify-between px-2">
+<p class="text-[#9da1b9] text-[13px] font-bold leading-normal tracking-[0.015em]">-50</p>
+<p class="text-primary text-[13px] font-bold leading-normal tracking-[0.015em]">0</p>
+<p class="text-[#9da1b9] text-[13px] font-bold leading-normal tracking-[0.015em]">+50</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Big Note Display -->
+<div class="mt-[-20px] z-20 text-center">
+<h1 class="text-slate-900 dark:text-white tracking-light text-[110px] font-bold leading-none px-4 drop-shadow-[0_0_15px_rgba(19,55,236,0.3)]">E2</h1>
+<p class="text-[#9da1b9] text-xl font-normal leading-normal mt-2">82.41 Hz</p>
+</div>
+</div>
+<!-- Pitch Variance Metrics -->
+<div class="flex justify-center gap-10 px-4 py-4 mb-4">
+<div class="text-center">
+<p class="text-[#9da1b9] text-xs uppercase tracking-widest font-bold">Variance</p>
+<p class="text-primary text-xl font-bold">-0.2 cents</p>
+</div>
+<div class="text-center">
+<p class="text-[#9da1b9] text-xs uppercase tracking-widest font-bold">Accuracy</p>
+<p class="text-slate-900 dark:text-white text-xl font-bold">99.8%</p>
+</div>
+</div>
+<!-- Settings Controls -->
+<div class="p-4 flex flex-col gap-3">
+<!-- Auto-next Toggle -->
+<div class="flex flex-1 flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 dark:border-[#3b3f54] bg-white dark:bg-[#111218] p-5 sm:flex-row sm:items-center">
+<div class="flex flex-col gap-1">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-tight">Auto-next string</p>
+<p class="text-[#9da1b9] text-sm font-normal leading-normal">Automatically switch to the next string when in tune</p>
+</div>
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-slate-200 dark:bg-[#282b39] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+<!-- Reference Pitch -->
+<div class="flex flex-1 flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 dark:border-[#3b3f54] bg-white dark:bg-[#111218] p-5 sm:flex-row sm:items-center">
+<div class="flex flex-col gap-1">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-tight">Reference Pitch</p>
+<p class="text-[#9da1b9] text-sm font-normal leading-normal">Standard concert pitch calibration</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="size-8 rounded-full border border-slate-200 dark:border-[#3b3f54] flex items-center justify-center text-[#9da1b9]">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="text-slate-900 dark:text-white font-bold">440Hz</span>
+<button class="size-8 rounded-full border border-slate-200 dark:border-[#3b3f54] flex items-center justify-center text-[#9da1b9]">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Main Action Button -->
+<div class="px-4 py-6">
+<button class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-5 rounded-xl text-xl flex items-center justify-center gap-3 shadow-lg shadow-primary/20 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[28px] fill-[1]">mic</span>
+            Stop Tuning
+        </button>
+</div>
+<!-- Spacing for navigation bar -->
+<div class="h-24"></div>
+<!-- Bottom Navigation Bar (iOS style) -->
+<div class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg border-t border-slate-200 dark:border-[#1e2235] px-6 pb-8 pt-3 flex justify-between items-center z-50">
+<div class="flex flex-col items-center gap-1 text-[#9da1b9]">
+<span class="material-symbols-outlined">library_music</span>
+<span class="text-[10px] font-bold">Songs</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-[#9da1b9]">
+<span class="material-symbols-outlined">lyrics</span>
+<span class="text-[10px] font-bold">Chords</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-primary">
+<div class="relative">
+<span class="material-symbols-outlined">graphic_eq</span>
+<div class="absolute -top-1 -right-1 size-2 bg-primary rounded-full"></div>
+</div>
+<span class="text-[10px] font-bold">Tuner</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-[#9da1b9]">
+<span class="material-symbols-outlined">timer</span>
+<span class="text-[10px] font-bold">Tempo</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-[#9da1b9]">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-[10px] font-bold">Profile</span>
+</div>
+</div>
+</body></html>

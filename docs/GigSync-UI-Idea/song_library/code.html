@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Song Library</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1337ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101322",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Spline Sans', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<div class="flex flex-col gap-2 p-4 pb-2">
+<div class="flex items-center h-12 justify-between">
+<div class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-start">
+<span class="material-symbols-outlined text-2xl">menu</span>
+</div>
+<div class="flex w-12 items-center justify-end">
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-2xl">add</span>
+</button>
+</div>
+</div>
+<h1 class="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight">Song Library</h1>
+</div>
+<!-- Search Bar -->
+<div class="px-4 py-2">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full overflow-hidden shadow-sm">
+<div class="text-slate-400 dark:text-[#9da1b9] flex border-none bg-white dark:bg-[#282b39] items-center justify-center pl-4">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden text-slate-900 dark:text-white focus:outline-0 focus:ring-0 border-none bg-white dark:bg-[#282b39] h-full placeholder:text-slate-400 dark:placeholder:text-[#9da1b9] px-4 pl-2 text-base font-normal leading-normal" placeholder="Search songs, artists, or genres" value=""/>
+</div>
+</label>
+</div>
+<!-- Chips / Filters -->
+<div class="flex gap-3 px-4 py-3 overflow-x-auto no-scrollbar">
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-4">
+<p class="text-white text-sm font-semibold leading-normal">All Songs</p>
+<span class="material-symbols-outlined text-white text-lg">keyboard_arrow_down</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#282b39] px-4 border border-slate-200 dark:border-transparent">
+<p class="text-slate-600 dark:text-white text-sm font-medium leading-normal">Recent</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#282b39] px-4 border border-slate-200 dark:border-transparent">
+<p class="text-slate-600 dark:text-white text-sm font-medium leading-normal">Favorites</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#282b39] px-4 border border-slate-200 dark:border-transparent">
+<p class="text-slate-600 dark:text-white text-sm font-medium leading-normal">BPM</p>
+<span class="material-symbols-outlined text-slate-600 dark:text-white text-lg">swap_vert</span>
+</button>
+</div>
+</header>
+<!-- Main List Content -->
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- List Item 1 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 shrink-0 size-12 shadow-md">
+<span class="material-symbols-outlined text-2xl">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Bohemian Rhapsody</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">Queen</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-primary/10 dark:bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider">72 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#282b39] shrink-0 size-12">
+<span class="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Hotel California</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">Eagles</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">74 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#282b39] shrink-0 size-12">
+<span class="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Stairway to Heaven</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">Led Zeppelin</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">82 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+<!-- List Item 4 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#282b39] shrink-0 size-12">
+<span class="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Blinding Lights</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">The Weeknd</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">171 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+<!-- List Item 5 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#282b39] shrink-0 size-12">
+<span class="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Superstition</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">Stevie Wonder</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">101 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+<!-- List Item 6 -->
+<div class="flex items-center gap-4 px-4 min-h-[80px] py-3 justify-between border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-slate-200 dark:bg-[#282b39] shrink-0 size-12">
+<span class="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">music_note</span>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-slate-900 dark:text-white text-base font-semibold leading-tight line-clamp-1">Imagine</p>
+<p class="text-slate-500 dark:text-[#9da1b9] text-sm font-normal leading-normal line-clamp-1">John Lennon</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">76 BPM</span>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-600">chevron_right</span>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-background-dark/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-6 pb-6 pt-2">
+<div class="flex justify-between items-center max-w-lg mx-auto">
+<div class="flex flex-col items-center gap-1 cursor-pointer text-primary">
+<span class="material-symbols-outlined text-2xl">library_music</span>
+<span class="text-[10px] font-bold">Library</span>
+</div>
+<div class="flex flex-col items-center gap-1 cursor-pointer text-slate-400 dark:text-[#9da1b9]">
+<span class="material-symbols-outlined text-2xl">play_circle</span>
+<span class="text-[10px] font-medium">Player</span>
+</div>
+<div class="flex flex-col items-center gap-1 cursor-pointer text-slate-400 dark:text-[#9da1b9]">
+<span class="material-symbols-outlined text-2xl">timer</span>
+<span class="text-[10px] font-medium">Metronome</span>
+</div>
+<div class="flex flex-col items-center gap-1 cursor-pointer text-slate-400 dark:text-[#9da1b9]">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</div>
+</div>
+</nav>
+<!-- FAB for mobile feel -->
+<div class="fixed bottom-24 right-4 z-40">
+<button class="size-14 rounded-full bg-primary text-white shadow-2xl flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+</body></html>

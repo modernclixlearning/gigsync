@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* GigSync Design System - Custom CSS Variables */
+@theme {
+  /* Primary Colors */
+  --color-primary: #1337ec;
+  --color-primary-dark: #0d2bb3;
+  --color-primary-light: #4d5ff0;
+  --color-primary-foreground: #ffffff;
+
+  /* Light Mode Backgrounds */
+  --color-background-light: #f6f6f8;
+  --color-background-light-secondary: #ffffff;
+  --color-background-light-tertiary: #f1f1f3;
+
+  /* Dark Mode Backgrounds */
+  --color-background-dark: #101322;
+  --color-background-dark-secondary: #1a1f35;
+  --color-background-dark-tertiary: #232948;
+  --color-background-performance: #05060b;
+
+  /* Text Colors */
+  --color-foreground-light: #0f172a;
+  --color-foreground-light-secondary: #64748b;
+  --color-foreground-dark: #ffffff;
+  --color-foreground-dark-secondary: #929bc9;
+
+  /* Border Colors */
+  --color-border-light: #e2e8f0;
+  --color-border-dark: #1e2235;
+
+  /* Card Colors */
+  --color-card-light: #ffffff;
+  --color-card-dark: #111218;
+
+  /* State Colors */
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Fonts */
+  --font-display: "Spline Sans", system-ui, sans-serif;
+  --font-tuner: "Space Grotesk", monospace;
+}
+
+/* Base Styles */
+* {
+  border-color: var(--color-border-light);
+}
+
+.dark * {
+  border-color: var(--color-border-dark);
+}
+
+body {
+  font-family: var(--font-display);
+  background-color: var(--color-background-light);
+  color: var(--color-foreground-light);
+}
+
+.dark body {
+  background-color: var(--color-background-dark);
+  color: var(--color-foreground-dark);
+}
+
+/* Performance mode - deeper black */
+.performance-mode {
+  background-color: var(--color-background-performance) !important;
+}

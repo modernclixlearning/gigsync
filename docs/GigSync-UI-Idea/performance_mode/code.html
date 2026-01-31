@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Performance Mode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1337ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#05060b", // Deeper black for performance
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Spline Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-white font-display">
+<!-- Metronome Pulse Bar (High Visibility) -->
+<div class="fixed top-0 left-0 right-0 z-50">
+<div class="bg-primary/20 backdrop-blur-md border-b border-primary/30 flex flex-col">
+<div class="flex items-center justify-between px-4 py-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">timer</span>
+<p class="text-xs font-bold tracking-widest uppercase text-primary">Pulse 124 BPM</p>
+</div>
+<p class="text-xs font-mono text-primary">4/4</p>
+</div>
+<!-- The actual flashing indicator -->
+<div class="h-1.5 w-full bg-background-dark">
+<div class="h-full bg-primary shadow-[0_0_15px_rgba(19,55,236,0.8)]" style="width: 25%;"></div>
+</div>
+</div>
+</div>
+<div class="relative flex flex-col min-h-screen pt-12 pb-24">
+<!-- TopAppBar: Song Info -->
+<header class="flex items-center justify-between px-4 py-4 sticky top-12 bg-background-dark/80 backdrop-blur-sm z-40">
+<button class="flex items-center justify-center size-10 rounded-full bg-white/5">
+<span class="material-symbols-outlined text-white">chevron_left</span>
+</button>
+<div class="text-center">
+<h2 class="text-white text-lg font-bold leading-tight tracking-tight">Neon Lights</h2>
+<p class="text-primary text-xs font-bold uppercase tracking-widest">Key: G Major (Capo 2)</p>
+</div>
+<button class="flex items-center justify-center size-10 rounded-full bg-white/5">
+<span class="material-symbols-outlined text-white">more_vert</span>
+</button>
+</header>
+<!-- Main Performance Lyrics Area -->
+<main class="flex-1 px-6 pt-8 overflow-y-auto no-scrollbar">
+<!-- Section Marker -->
+<div class="mb-10">
+<span class="text-primary text-sm font-black uppercase tracking-[0.2em] border-b-2 border-primary pb-1">Intro</span>
+<div class="mt-6 flex flex-wrap gap-x-8 gap-y-2">
+<span class="text-3xl font-bold text-primary">G</span>
+<span class="text-3xl font-bold text-primary">D</span>
+<span class="text-3xl font-bold text-primary">Em</span>
+<span class="text-3xl font-bold text-primary">C</span>
+</div>
+</div>
+<!-- Verse -->
+<div class="mb-12">
+<div class="mb-8">
+<div class="flex flex-col gap-1">
+<span class="text-xl font-bold text-primary ml-1">G</span>
+<p class="text-4xl font-bold leading-tight text-white/90">In the city of</p>
+</div>
+</div>
+<div class="mb-8">
+<div class="flex flex-col gap-1">
+<span class="text-xl font-bold text-primary ml-1">D</span>
+<p class="text-4xl font-bold leading-tight text-white/90">Blinding lights</p>
+</div>
+</div>
+<div class="mb-8">
+<div class="flex flex-col gap-1">
+<span class="text-xl font-bold text-primary ml-1">Em</span>
+<p class="text-4xl font-bold leading-tight text-white/90">Walking on the</p>
+</div>
+</div>
+<div class="mb-8">
+<div class="flex flex-col gap-1">
+<span class="text-xl font-bold text-primary ml-1">C</span>
+<p class="text-4xl font-bold leading-tight text-white/90">Edge of time</p>
+</div>
+</div>
+</div>
+<!-- Chorus - High Contrast Mode -->
+<div class="mb-12 p-6 rounded-xl bg-primary/10 border-l-4 border-primary">
+<span class="text-primary text-xs font-black uppercase tracking-widest block mb-6">[ Chorus ]</span>
+<div class="space-y-10">
+<div>
+<span class="text-2xl font-black text-primary block mb-1">G       D</span>
+<p class="text-4xl font-bold leading-tight text-white">Neon lights will</p>
+</div>
+<div>
+<span class="text-2xl font-black text-primary block mb-1">Em      C</span>
+<p class="text-4xl font-bold leading-tight text-white">Guide us home</p>
+</div>
+</div>
+</div>
+<!-- Next Up Preview -->
+<div class="mt-12 opacity-40">
+<span class="text-xs font-bold uppercase tracking-widest text-white/60">Coming Up Next</span>
+<p class="text-2xl font-bold text-white mt-1">Midnight Serenade</p>
+</div>
+</main>
+<!-- Floating Playback & Progress -->
+<div class="fixed bottom-24 left-4 right-4 z-40">
+<div class="bg-white/10 backdrop-blur-xl rounded-2xl p-4 border border-white/10 shadow-2xl">
+<div class="flex items-center justify-between mb-3 px-1">
+<span class="text-[10px] font-bold text-white/60">02:45</span>
+<div class="flex-1 mx-4 h-1.5 bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[65%]" style="box-shadow: 0 0 10px rgba(19,55,236,0.5)"></div>
+</div>
+<span class="text-[10px] font-bold text-white/60">-01:15</span>
+</div>
+<div class="flex items-center justify-around">
+<button class="size-12 flex items-center justify-center rounded-full text-white/80">
+<span class="material-symbols-outlined text-3xl">skip_previous</span>
+</button>
+<button class="size-16 flex items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/40">
+<span class="material-symbols-outlined text-4xl">pause</span>
+</button>
+<button class="size-12 flex items-center justify-center rounded-full text-white/80">
+<span class="material-symbols-outlined text-3xl">skip_next</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Mobile Navigation Bottom Bar (Minimized) -->
+<nav class="fixed bottom-0 left-0 right-0 bg-background-dark/95 border-t border-white/5 px-6 pb-6 pt-3 flex justify-between items-center z-50">
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined">library_music</span>
+<span class="text-[10px] font-medium">Library</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined">play_circle</span>
+<span class="text-[10px] font-bold">Player</span>
+</div>
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined">timer</span>
+<span class="text-[10px] font-medium">Metronome</span>
+</div>
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</div>
+</nav>
+</div>
+<!-- Background decorative blur -->
+<div class="fixed top-[-10%] right-[-10%] w-[50%] h-[40%] bg-primary/10 blur-[120px] pointer-events-none rounded-full"></div>
+<div class="fixed bottom-[-5%] left-[-5%] w-[40%] h-[30%] bg-primary/5 blur-[100px] pointer-events-none rounded-full"></div>
+</body></html>
