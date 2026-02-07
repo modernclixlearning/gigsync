@@ -62,6 +62,39 @@ function MetronomePage() {
         </div>
       </header>
 
+      {/* Error Message */}
+      {metronome.error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="mx-4 mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-red-600 dark:text-red-400 text-xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                Error de audio
+              </p>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                {metronome.error}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                // Clear error by attempting to start again
+                if (!metronome.isPlaying) {
+                  metronome.start()
+                }
+              }}
+              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium"
+            >
+              Reintentar
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Main Content */}
       <main className="px-4 pb-32">
         {!showSettings ? (

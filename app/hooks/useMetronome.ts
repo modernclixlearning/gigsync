@@ -10,6 +10,7 @@ export interface MetronomeState {
   volume: number
   accentFirst: boolean
   subdivisions: boolean
+  error: string | null
 }
 
 export interface UseMetronomeReturn extends MetronomeState {
@@ -47,31 +48,43 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
     volume: 0.8,
     accentFirst: true,
     subdivisions: false,
+    error: null,
   })
 
   const synthRef = useRef<Tone.Synth | null>(null)
   const loopRef = useRef<Tone.Loop | null>(null)
   const beatIndexRef = useRef(0)
+  const isInitializedRef = useRef(false)
 
   // Initialize synth
   useEffect(() => {
-    synthRef.current = new Tone.Synth({
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.1,
-      },
-    }).toDestination()
+    try {
+      synthRef.current = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.1,
+          sustain: 0,
+          release: 0.1,
+        },
+      }).toDestination()
+      isInitializedRef.current = true
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to initialize audio synthesizer'
+      setState((prev) => ({ ...prev, error: errorMessage }))
+      isInitializedRef.current = false
+    }
 
     return () => {
       if (loopRef.current) {
         loopRef.current.dispose()
+        loopRef.current = null
       }
       if (synthRef.current) {
         synthRef.current.dispose()
+        synthRef.current = null
       }
+      isInitializedRef.current = false
     }
   }, [])
 
@@ -84,12 +97,22 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
 
   // Update BPM
   useEffect(() => {
-    Tone.getTransport().bpm.value = state.bpm
+    if (isInitializedRef.current) {
+      try {
+        Tone.getTransport().bpm.value = state.bpm
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update BPM'
+        setState((prev) => ({ ...prev, error: errorMessage }))
+      }
+    }
   }, [state.bpm])
 
-  const start = useCallback(async () => {
-    await Tone.start()
-    
+  // Helper function to create and start the loop
+  const createLoop = useCallback(() => {
+    if (!isInitializedRef.current || !synthRef.current) {
+      return
+    }
+
     const { beats } = parseTimeSignature(state.timeSignature)
     const soundConfig = SOUNDS[state.sound]
     
@@ -97,39 +120,117 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
 
     if (loopRef.current) {
       loopRef.current.dispose()
+      loopRef.current = null
     }
 
     const interval = state.subdivisions ? '8n' : '4n'
     const beatsPerMeasure = state.subdivisions ? beats * 2 : beats
 
     loopRef.current = new Tone.Loop((time: number) => {
+      if (!synthRef.current) return
+
       const isAccent = state.accentFirst && beatIndexRef.current === 0
       const frequency = isAccent ? soundConfig.accent : soundConfig.normal
       
-      if (frequency > 0 && synthRef.current) {
+      if (frequency > 0) {
         synthRef.current.triggerAttackRelease(frequency, '32n', time)
       }
 
-      const currentBeat = state.subdivisions 
-        ? Math.floor(beatIndexRef.current / 2) + 1
-        : beatIndexRef.current + 1
+      // Improved beat calculation for subdivisions
+      let currentBeat: number
+      if (state.subdivisions) {
+        // For subdivisions, map every 2 ticks to 1 beat
+        currentBeat = Math.floor(beatIndexRef.current / 2) + 1
+      } else {
+        // For regular beats, use index directly
+        currentBeat = beatIndexRef.current + 1
+      }
 
       setState((prev: MetronomeState) => ({ ...prev, currentBeat }))
       
       beatIndexRef.current = (beatIndexRef.current + 1) % beatsPerMeasure
     }, interval).start(0)
-
-    Tone.getTransport().start()
-    setState((prev: MetronomeState) => ({ ...prev, isPlaying: true, currentBeat: 1 }))
   }, [state.timeSignature, state.sound, state.accentFirst, state.subdivisions])
 
-  const stop = useCallback(() => {
-    Tone.getTransport().stop()
-    if (loopRef.current) {
-      loopRef.current.stop()
+  // Restart loop when critical settings change while playing
+  useEffect(() => {
+    if (state.isPlaying && isInitializedRef.current) {
+      try {
+        createLoop()
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update metronome settings'
+        setState((prev) => ({ ...prev, error: errorMessage }))
+      }
     }
-    beatIndexRef.current = 0
-    setState((prev: MetronomeState) => ({ ...prev, isPlaying: false, currentBeat: 0 }))
+  }, [state.isPlaying, state.sound, state.accentFirst, state.subdivisions, createLoop])
+
+  const start = useCallback(async () => {
+    if (!isInitializedRef.current || !synthRef.current) {
+      setState((prev) => ({ 
+        ...prev, 
+        error: 'Audio synthesizer not initialized. Please refresh the page.' 
+      }))
+      return
+    }
+
+    try {
+      // Check if Tone.js context is suspended and resume if needed
+      if (Tone.context.state === 'suspended') {
+        await Tone.context.resume()
+      }
+
+      // Start Tone.js audio context (requires user interaction)
+      await Tone.start()
+      
+      // Validate Transport state
+      const transport = Tone.getTransport()
+      if (!transport) {
+        throw new Error('Transport not available')
+      }
+
+      createLoop()
+      transport.start()
+      setState((prev: MetronomeState) => ({ 
+        ...prev, 
+        isPlaying: true, 
+        currentBeat: 1,
+        error: null 
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to start metronome. Please interact with the page first (click anywhere) and try again.'
+      setState((prev: MetronomeState) => ({ 
+        ...prev, 
+        isPlaying: false,
+        error: errorMessage 
+      }))
+      console.error('Metronome start error:', error)
+    }
+  }, [createLoop])
+
+  const stop = useCallback(() => {
+    try {
+      if (isInitializedRef.current) {
+        const transport = Tone.getTransport()
+        if (transport && transport.state !== 'stopped') {
+          transport.stop()
+        }
+      }
+      if (loopRef.current) {
+        loopRef.current.stop()
+      }
+      beatIndexRef.current = 0
+      setState((prev: MetronomeState) => ({ 
+        ...prev, 
+        isPlaying: false, 
+        currentBeat: 0,
+        error: null 
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to stop metronome'
+      setState((prev) => ({ ...prev, error: errorMessage }))
+    }
   }, [])
 
   const toggle = useCallback(async () => {
@@ -150,7 +251,7 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
   }, [])
 
   const setSound = useCallback((sound: MetronomeState['sound']) => {
-    setState((prev: MetronomeState) => ({ ...prev, sound }))
+    setState((prev: MetronomeState) => ({ ...prev, sound, error: null }))
   }, [])
 
   const setVolume = useCallback((volume: number) => {
@@ -159,11 +260,11 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
   }, [])
 
   const setAccentFirst = useCallback((accentFirst: boolean) => {
-    setState((prev: MetronomeState) => ({ ...prev, accentFirst }))
+    setState((prev: MetronomeState) => ({ ...prev, accentFirst, error: null }))
   }, [])
 
   const toggleSubdivisions = useCallback(() => {
-    setState((prev: MetronomeState) => ({ ...prev, subdivisions: !prev.subdivisions }))
+    setState((prev: MetronomeState) => ({ ...prev, subdivisions: !prev.subdivisions, error: null }))
   }, [])
 
   return {

@@ -18,7 +18,7 @@ import { Route as SongSongIdRouteImport } from './routes/song.$songId'
 import { Route as SongEditSongIdRouteImport } from './routes/song-edit.$songId'
 import { Route as SetlistsSetlistIdRouteImport } from './routes/setlists/$setlistId'
 import { Route as ProfileSettingsRouteImport } from './routes/profile/settings'
-import { Route as SongSongIdEditRouteImport } from './routes/song_.$songId.edit'
+import { Route as SongSongIdEditRouteImport } from './routes/song.$songId.edit'
 import { Route as SetlistsSetlistIdPlayRouteImport } from './routes/setlists/$setlistId/play'
 
 const TunerRoute = TunerRouteImport.update({
@@ -67,7 +67,7 @@ const ProfileSettingsRoute = ProfileSettingsRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const SongSongIdEditRoute = SongSongIdEditRouteImport.update({
-  id: '/song_/$songId/edit',
+  id: '/song/$songId/edit',
   path: '/song/$songId/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -115,7 +115,7 @@ export interface FileRoutesById {
   '/profile/': typeof ProfileIndexRoute
   '/setlists/': typeof SetlistsIndexRoute
   '/setlists/$setlistId/play': typeof SetlistsSetlistIdPlayRoute
-  '/song_/$songId/edit': typeof SongSongIdEditRoute
+  '/song/$songId/edit': typeof SongSongIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,7 +156,7 @@ export interface FileRouteTypes {
     | '/profile/'
     | '/setlists/'
     | '/setlists/$setlistId/play'
-    | '/song_/$songId/edit'
+    | '/song/$songId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,8 +237,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/song_/$songId/edit': {
-      id: '/song_/$songId/edit'
+    '/song/$songId/edit': {
+      id: '/song/$songId/edit'
       path: '/song/$songId/edit'
       fullPath: '/song/$songId/edit'
       preLoaderRoute: typeof SongSongIdEditRouteImport
