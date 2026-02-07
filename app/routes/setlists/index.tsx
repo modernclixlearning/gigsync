@@ -12,10 +12,16 @@ export const Route = createFileRoute('/setlists/')({
 function SetlistsPage() {
   const { setlists, isLoading, createSetlist } = useSetlists()
   const [showForm, setShowForm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleCreateSetlist = async (data: CreateSetlistInput) => {
-    await createSetlist(data)
-    setShowForm(false)
+    try {
+      setError(null)
+      await createSetlist(data)
+      setShowForm(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create setlist')
+    }
   }
 
   if (isLoading) {
@@ -42,6 +48,29 @@ function SetlistsPage() {
           </button>
         </div>
       </header>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mx-4 mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <div className="flex items-start gap-3">
+            <span className="text-red-600 dark:text-red-400 text-xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                Error
+              </p>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                {error}
+              </p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <main className="px-4 py-6 pb-24">

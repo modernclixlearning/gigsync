@@ -1,3 +1,5 @@
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { cn } from '~/lib/utils'
 import type { Song } from '~/types'
 
@@ -9,6 +11,21 @@ interface SongItemProps {
 }
 
 export function SongItem({ song, index, onRemove, onReorder }: SongItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: song.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
   const formatDuration = (seconds: number) => {
     const min = Math.floor(seconds / 60)
     const sec = seconds % 60
@@ -17,14 +34,21 @@ export function SongItem({ song, index, onRemove, onReorder }: SongItemProps) {
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
         'flex items-center gap-3 p-3 rounded-xl',
         'border border-slate-200 dark:border-[#3b3f54]',
-        'bg-white dark:bg-[#111218]'
+        'bg-white dark:bg-[#111218]',
+        isDragging && 'shadow-lg'
       )}
     >
       {/* Drag Handle */}
-      <span className="cursor-grab text-slate-400 hover:text-slate-600">
+      <span
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600"
+      >
         <span className="material-symbols-outlined">drag_indicator</span>
       </span>
 

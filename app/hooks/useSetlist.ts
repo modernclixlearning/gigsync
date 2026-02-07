@@ -41,10 +41,23 @@ export function useSetlist(setlistId: string): UseSetlistReturn {
   // Mutation: Add song
   const addSongMutation = useMutation({
     mutationFn: async (songId: string) => {
-      if (!setlist) return
+      if (!setlist) {
+        throw new Error('Setlist not found')
+      }
+      
+      // Validate song exists
       const song = await db.songs.get(songId)
+      if (!song) {
+        throw new Error('Song not found')
+      }
+      
+      // Validate song is not already in setlist
+      if (setlist.songIds.includes(songId)) {
+        throw new Error('Song is already in this setlist')
+      }
+      
       const newSongIds = [...setlist.songIds, songId]
-      const newDuration = setlist.totalDuration + (song?.duration ?? 0)
+      const newDuration = setlist.totalDuration + (song.duration ?? 0)
       await db.setlists.update(setlistId, {
         songIds: newSongIds,
         totalDuration: newDuration
@@ -59,7 +72,15 @@ export function useSetlist(setlistId: string): UseSetlistReturn {
   // Mutation: Remove song
   const removeSongMutation = useMutation({
     mutationFn: async (songId: string) => {
-      if (!setlist) return
+      if (!setlist) {
+        throw new Error('Setlist not found')
+      }
+      
+      // Validate song is in setlist
+      if (!setlist.songIds.includes(songId)) {
+        throw new Error('Song is not in this setlist')
+      }
+      
       const song = await db.songs.get(songId)
       const newSongIds = setlist.songIds.filter((id: string) => id !== songId)
       const newDuration = Math.max(0, setlist.totalDuration - (song?.duration ?? 0))
@@ -77,16 +98,45 @@ export function useSetlist(setlistId: string): UseSetlistReturn {
   // Mutation: Reorder songs
   const reorderMutation = useMutation({
     mutationFn: async (songIds: string[]) => {
-      await db.setlists.update(setlistId, { songIds })
+      if (!setlist) {
+        throw new Error('Setlist not found')
+      }
+      
+      // Validate all song IDs exist
+      const allSongs = await db.songs.bulkGet(songIds)
+      const missingSongs = songIds.filter((id, index) => !allSongs[index])
+      if (missingSongs.length > 0) {
+        throw new Error(`Some songs not found: ${missingSongs.join(', ')}`)
+      }
+      
+      // Recalculate totalDuration based on new order
+      const totalDuration = allSongs.reduce((sum, song) => {
+        return sum + (song?.duration ?? 0)
+      }, 0)
+      
+      await db.setlists.update(setlistId, { 
+        songIds,
+        totalDuration 
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setlist', setlistId] })
+      queryClient.invalidateQueries({ queryKey: ['setlists'] })
     }
   })
 
   // Mutation: Update setlist
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateSetlistInput) => {
+      if (!setlist) {
+        throw new Error('Setlist not found')
+      }
+      
+      // Validate name if provided
+      if (data.name !== undefined && !data.name.trim()) {
+        throw new Error('Setlist name cannot be empty')
+      }
+      
       await db.setlists.update(setlistId, data)
     },
     onSuccess: () => {

@@ -16,6 +16,9 @@ function parseChordPro(content: string): ChordProSong {
     artist: '',
     lines: []
   }
+  
+  // Track if artist was explicitly set (not from subtitle)
+  let artistExplicitlySet = false
 
   for (const line of lines) {
     const trimmed = line.trim()
@@ -34,11 +37,19 @@ function parseChordPro(content: string): ChordProSong {
         case 't':
           song.title = value.trim()
           break
-        case 'subtitle':
-        case 'st':
         case 'artist':
         case 'a':
           song.artist = value.trim()
+          artistExplicitlySet = true
+          break
+        case 'subtitle':
+        case 'st':
+          // Use subtitle as fallback only when artist was never explicitly set
+          // This prevents data loss when both directives are present
+          // Artist always has priority over subtitle, regardless of order
+          if (!artistExplicitlySet) {
+            song.artist = value.trim()
+          }
           break
         case 'key':
           song.key = value.trim()
