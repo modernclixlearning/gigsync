@@ -8,7 +8,15 @@ interface SongFormProps {
   submitLabel?: string
 }
 
-const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const KEYS = [
+  'C', 'Cm', 'C#', 'C#m', 
+  'D', 'Dm', 'D#', 'D#m', 
+  'E', 'Em', 
+  'F', 'Fm', 'F#', 'F#m', 
+  'G', 'Gm', 'G#', 'G#m', 
+  'A', 'Am', 'A#', 'A#m', 
+  'B', 'Bm'
+]
 const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '2/4', '5/4', '7/8']
 
 export function SongForm({

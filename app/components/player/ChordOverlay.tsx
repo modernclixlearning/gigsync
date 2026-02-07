@@ -108,7 +108,7 @@ export function ChordOverlay({ lyrics, transpose = 0, className }: ChordOverlayP
           <div key={index} className="relative">
             {/* Chord line */}
             {line.chords && line.chords.length > 0 && (
-              <div className="relative h-5 text-sm font-bold text-indigo-500 dark:text-indigo-400">
+              <div className="relative font-bold text-indigo-500 dark:text-indigo-400" style={{ height: '1.2em', fontSize: '0.85em' }}>
                 {line.chords.map((chord, i) => (
                   <span
                     key={i}

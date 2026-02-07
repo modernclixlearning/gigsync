@@ -20,6 +20,11 @@ function parseChordPro(content: string): ChordProSong {
   for (const line of lines) {
     const trimmed = line.trim()
 
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue
+    }
+
     // Parse directives like {title: ...}, {artist: ...}
     const directiveMatch = trimmed.match(/^\{(\w+):\s*(.+)\}$/)
     if (directiveMatch) {
@@ -29,6 +34,8 @@ function parseChordPro(content: string): ChordProSong {
         case 't':
           song.title = value.trim()
           break
+        case 'subtitle':
+        case 'st':
         case 'artist':
         case 'a':
           song.artist = value.trim()
@@ -47,14 +54,17 @@ function parseChordPro(content: string): ChordProSong {
       continue
     }
 
-    // Skip other directives
+    // Skip other directives like {c:...}, {comment:...}, etc.
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       continue
     }
 
     // Parse lyrics line with chords in brackets
     const parsedLine = parseChordProLine(trimmed)
-    song.lines.push(parsedLine)
+    // Only add non-empty lines
+    if (parsedLine.text.trim() || parsedLine.chords.length > 0) {
+      song.lines.push(parsedLine)
+    }
   }
 
   return song

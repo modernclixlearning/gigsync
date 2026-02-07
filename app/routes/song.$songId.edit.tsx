@@ -75,6 +75,30 @@ function SongEditPage() {
   }
 
   const handleImport = (chordProSong: ChordProSong) => {
+    // Reconstruct lines with chords in ChordPro format [Chord]
+    const reconstructLine = (line: { text: string; chords: { chord: string; position: number }[] }) => {
+      if (line.chords.length === 0) return line.text
+      
+      let result = ''
+      let lastPos = 0
+      
+      // Sort chords by position
+      const sortedChords = [...line.chords].sort((a, b) => a.position - b.position)
+      
+      for (const { chord, position } of sortedChords) {
+        // Add text before this chord position
+        result += line.text.slice(lastPos, position)
+        // Add the chord in brackets
+        result += `[${chord}]`
+        lastPos = position
+      }
+      
+      // Add remaining text
+      result += line.text.slice(lastPos)
+      
+      return result
+    }
+    
     setFormData((prev) => ({
       ...prev,
       title: chordProSong.title || prev.title,
@@ -82,7 +106,7 @@ function SongEditPage() {
       key: chordProSong.key || prev.key,
       bpm: chordProSong.tempo || prev.bpm,
       timeSignature: chordProSong.timeSignature || prev.timeSignature,
-      lyrics: chordProSong.lines.map((line) => line.text).join('\n')
+      lyrics: chordProSong.lines.map(reconstructLine).join('\n')
     }))
     setShowImporter(false)
   }
