@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useMicrophone } from './useMicrophone'
 import type { 
   TunerState, 
@@ -157,6 +157,18 @@ export function useTuner(): UseTunerReturn {
 
   const animationFrameRef = useRef<number | null>(null)
   const bufferRef = useRef<Float32Array | null>(null)
+  const calibrationRef = useRef<CalibrationSettings>(state.calibration)
+
+  // Keep calibration ref in sync with state
+  useEffect(() => {
+    calibrationRef.current = state.calibration
+  }, [state.calibration])
+
+  // Memoize calibration to avoid unnecessary re-renders
+  const calibration = useMemo(() => state.calibration, [
+    state.calibration.referenceFrequency,
+    state.calibration.sensitivity,
+  ])
 
   // Update state based on microphone state
   useEffect(() => {
@@ -169,13 +181,35 @@ export function useTuner(): UseTunerReturn {
 
   // Pitch detection loop
   useEffect(() => {
-    if (!microphone.isActive || !microphone.analyser || !microphone.sampleRate) {
+    // Validate prerequisites before starting
+    if (!microphone.isActive) {
       setState(prev => ({ ...prev, isListening: false, pitch: null }))
       return
     }
 
     const analyser = microphone.analyser
     const sampleRate = microphone.sampleRate
+
+    // Verify analyser and sampleRate are available
+    if (!analyser || !sampleRate) {
+      setState(prev => ({ ...prev, isListening: false, pitch: null }))
+      return
+    }
+
+    // Verify AudioContext is running
+    const audioContext = microphone.audioContext
+    if (!audioContext || audioContext.state !== 'running') {
+      setState(prev => ({
+        ...prev,
+        isListening: false,
+        pitch: null,
+        error: audioContext?.state === 'suspended'
+          ? 'Audio processing suspended. Please interact with the page to resume.'
+          : null,
+      }))
+      return
+    }
+
     const bufferLength = analyser.fftSize
 
     // Initialize buffer if needed
@@ -183,28 +217,57 @@ export function useTuner(): UseTunerReturn {
       bufferRef.current = new Float32Array(bufferLength)
     }
 
-    setState(prev => ({ ...prev, isListening: true }))
+    setState(prev => ({ ...prev, isListening: true, error: null }))
 
     const detectLoop = () => {
-      if (!bufferRef.current) return
+      // Verify analyser is still available and context is running
+      if (!analyser || !bufferRef.current) {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+          animationFrameRef.current = null
+        }
+        return
+      }
+
+      // Check AudioContext state
+      if (audioContext && audioContext.state !== 'running') {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+          animationFrameRef.current = null
+        }
+        setState(prev => ({
+          ...prev,
+          isListening: false,
+          pitch: null,
+          error: audioContext.state === 'suspended'
+            ? 'Audio processing suspended. Please interact with the page to resume.'
+            : null,
+        }))
+        return
+      }
 
       // Get time domain data
       analyser.getFloatTimeDomainData(bufferRef.current)
 
-      // Detect pitch using YIN algorithm
+      // Detect pitch using YIN algorithm with current calibration
       const result = detectPitch(
         bufferRef.current, 
         sampleRate,
-        state.calibration.sensitivity
+        calibrationRef.current.sensitivity
       )
 
       if (result && result.confidence > 0.5) {
-        const noteInfo = frequencyToNote(result.frequency, state.calibration.referenceFrequency)
+        const noteInfo = frequencyToNote(
+          result.frequency, 
+          calibrationRef.current.referenceFrequency
+        )
         if (noteInfo) {
           setState(prev => ({
             ...prev,
             pitch: { ...noteInfo, confidence: result.confidence },
           }))
+        } else {
+          setState(prev => ({ ...prev, pitch: null }))
         }
       } else {
         // Clear pitch if no confident detection
@@ -222,7 +285,7 @@ export function useTuner(): UseTunerReturn {
         animationFrameRef.current = null
       }
     }
-  }, [microphone.isActive, microphone.analyser, microphone.sampleRate, state.calibration])
+  }, [microphone.isActive, microphone.analyser, microphone.sampleRate, microphone.audioContext, calibration])
 
   const start = useCallback(async () => {
     await microphone.start()

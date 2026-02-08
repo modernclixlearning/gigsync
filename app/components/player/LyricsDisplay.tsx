@@ -5,9 +5,24 @@ interface LyricsDisplayProps {
   className?: string
 }
 
+// Check if a string inside brackets is a valid chord (not a section header)
+// Valid chords: [A], [Am], [A#m7], [Bb], [G7sus4], [C/E], etc.
+// Section headers: [Chorus], [Verse], [Bridge] - these are NOT chords
+function isValidChord(chordText: string): boolean {
+  // Pattern: A-G note, optional #/b, then either:
+  // - Nothing (standalone note)
+  // - Valid chord suffix (m, maj, min, sus, dim, aug, add, numbers, slash chords)
+  // Does NOT match words like "Chorus", "Verse" that have lowercase letters
+  // that aren't part of valid chord suffixes
+  return /^[A-G][#b]?(?:m(?:aj|in|7|9|11|13)?|sus[24]?|dim|aug|add[49]?|[0-9]+|\/[A-G][#b]?)?$/i.test(chordText)
+}
+
 // Strip ChordPro chord brackets from a line, e.g., "[Am]Hello [G]world" -> "Hello world"
 function stripChords(line: string): string {
-  return line.replace(/\[([A-G][#b]?[^\[\]]*)\]/g, '')
+  // Match brackets and check if content is a valid chord
+  return line.replace(/\[([^\]]+)\]/g, (match, content) => {
+    return isValidChord(content) ? '' : match
+  })
 }
 
 export function LyricsDisplay({ lyrics, className }: LyricsDisplayProps) {
@@ -16,11 +31,15 @@ export function LyricsDisplay({ lyrics, className }: LyricsDisplayProps) {
   return (
     <div className={cn('space-y-4', className)}>
       {lines.map((line, index) => {
-        // Strip chord brackets from the line
-        const cleanLine = stripChords(line)
+        const trimmedLine = line.trim()
         
         // Check if line is a section header (e.g., [Verse], [Chorus])
-        const isSectionHeader = /^\[.+\]$/.test(cleanLine.trim())
+        // Section headers are lines that contain ONLY [text] where the text is NOT a valid chord
+        const isSectionHeader = /^\[.+\]$/.test(trimmedLine) && 
+          !isValidChord(trimmedLine.replace(/[\[\]]/g, ''))
+        
+        // Strip chords from the line (chords will be removed, section headers preserved)
+        const cleanLine = stripChords(line)
         
         // Check if line is empty
         const isEmpty = cleanLine.trim() === ''
