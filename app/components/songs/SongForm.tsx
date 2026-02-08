@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { cn } from '~/lib/utils'
 import type { CreateSongInput } from '~/types'
 
@@ -25,12 +26,20 @@ export function SongForm({
   onSubmit,
   submitLabel = 'Save'
 }: SongFormProps) {
+  // Local state for tags input to allow typing commas
+  const [tagsInput, setTagsInput] = useState(data.tags?.join(', ') ?? '')
+  
+  // Sync local state when external data changes (e.g., from ChordPro import)
+  useEffect(() => {
+    setTagsInput(data.tags?.join(', ') ?? '')
+  }, [data.tags?.join(',')])
+
   const handleChange = (field: keyof CreateSongInput, value: string | number | string[]) => {
     onChange({ ...data, [field]: value })
   }
 
-  const handleTagsChange = (tagsString: string) => {
-    const tags = tagsString
+  const handleTagsBlur = () => {
+    const tags = tagsInput
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean)
@@ -156,21 +165,50 @@ export function SongForm({
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Duration (seconds)
+            Duration
           </label>
-          <input
-            type="number"
-            value={data.duration}
-            onChange={(e) => handleChange('duration', parseInt(e.target.value) || 0)}
-            min={0}
-            className={cn(
-              'w-full px-4 py-3 rounded-xl',
-              'bg-white dark:bg-[#1a1f36]',
-              'border border-slate-200 dark:border-slate-700',
-              'text-slate-900 dark:text-white',
-              'focus:outline-none focus:ring-2 focus:ring-indigo-500'
-            )}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={Math.floor((data.duration ?? 0) / 60)}
+              onChange={(e) => {
+                const minutes = parseInt(e.target.value) || 0
+                const seconds = (data.duration ?? 0) % 60
+                handleChange('duration', minutes * 60 + seconds)
+              }}
+              min={0}
+              max={99}
+              placeholder="0"
+              className={cn(
+                'w-20 px-3 py-3 rounded-xl text-center',
+                'bg-white dark:bg-[#1a1f36]',
+                'border border-slate-200 dark:border-slate-700',
+                'text-slate-900 dark:text-white',
+                'focus:outline-none focus:ring-2 focus:ring-indigo-500'
+              )}
+            />
+            <span className="text-slate-500 dark:text-slate-400 font-medium">:</span>
+            <input
+              type="number"
+              value={(data.duration ?? 0) % 60}
+              onChange={(e) => {
+                const minutes = Math.floor((data.duration ?? 0) / 60)
+                const seconds = Math.min(59, Math.max(0, parseInt(e.target.value) || 0))
+                handleChange('duration', minutes * 60 + seconds)
+              }}
+              min={0}
+              max={59}
+              placeholder="00"
+              className={cn(
+                'w-20 px-3 py-3 rounded-xl text-center',
+                'bg-white dark:bg-[#1a1f36]',
+                'border border-slate-200 dark:border-slate-700',
+                'text-slate-900 dark:text-white',
+                'focus:outline-none focus:ring-2 focus:ring-indigo-500'
+              )}
+            />
+            <span className="text-xs text-slate-400 dark:text-slate-500">min : sec</span>
+          </div>
         </div>
       </div>
 
@@ -181,8 +219,9 @@ export function SongForm({
         </label>
         <input
           type="text"
-          value={data.tags?.join(', ') ?? ''}
-          onChange={(e) => handleTagsChange(e.target.value)}
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          onBlur={handleTagsBlur}
           placeholder="rock, classic, favorite"
           className={cn(
             'w-full px-4 py-3 rounded-xl',

@@ -44,7 +44,7 @@ function SongsLibraryPage() {
             Song Library
           </h1>
           <Link
-            {...routeHelpers.songEdit('new')}
+            {...routeHelpers.songNew()}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-xl',
               'bg-indigo-500 text-white',
@@ -93,7 +93,7 @@ function SongsLibraryPage() {
                 : 'Add your first song to get started'}
             </p>
             <Link
-              {...routeHelpers.songEdit('new')}
+              {...routeHelpers.songNew()}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-xl',
                 'bg-indigo-500 text-white',

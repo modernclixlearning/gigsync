@@ -1,118 +1,11 @@
 import { useState, useCallback } from 'react'
 import { Upload, FileText, X, Check } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import type { ChordProSong, LyricLine, ChordPosition } from '~/types'
+import { parseChordProLegacy, type ChordProSong } from '~/lib/chordpro'
 
 interface ChordProImporterProps {
   onImport: (song: ChordProSong) => void
   onCancel: () => void
-}
-
-// Parse ChordPro format
-function parseChordPro(content: string): ChordProSong {
-  const lines = content.split('\n')
-  const song: ChordProSong = {
-    title: '',
-    artist: '',
-    lines: []
-  }
-  
-  // Track if artist was explicitly set (not from subtitle)
-  let artistExplicitlySet = false
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue
-    }
-
-    // Parse directives like {title: ...}, {artist: ...}
-    const directiveMatch = trimmed.match(/^\{(\w+):\s*(.+)\}$/)
-    if (directiveMatch) {
-      const [, directive, value] = directiveMatch
-      switch (directive.toLowerCase()) {
-        case 'title':
-        case 't':
-          song.title = value.trim()
-          break
-        case 'artist':
-        case 'a':
-          song.artist = value.trim()
-          artistExplicitlySet = true
-          break
-        case 'subtitle':
-        case 'st':
-          // Use subtitle as fallback only when artist was never explicitly set
-          // This prevents data loss when both directives are present
-          // Artist always has priority over subtitle, regardless of order
-          if (!artistExplicitlySet) {
-            song.artist = value.trim()
-          }
-          break
-        case 'key':
-          song.key = value.trim()
-          break
-        case 'tempo':
-        case 'bpm':
-          song.tempo = parseInt(value.trim()) || undefined
-          break
-        case 'time':
-          song.timeSignature = value.trim()
-          break
-      }
-      continue
-    }
-
-    // Skip other directives like {c:...}, {comment:...}, etc.
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      continue
-    }
-
-    // Parse lyrics line with chords in brackets
-    const parsedLine = parseChordProLine(trimmed)
-    // Only add non-empty lines
-    if (parsedLine.text.trim() || parsedLine.chords.length > 0) {
-      song.lines.push(parsedLine)
-    }
-  }
-
-  return song
-}
-
-function parseChordProLine(line: string): LyricLine {
-  const chords: ChordPosition[] = []
-  let cleanText = ''
-  let currentPos = 0
-
-  // Match chords in brackets [Chord]
-  const regex = /\[([^\]]+)\]/g
-  let lastIndex = 0
-  let match
-
-  while ((match = regex.exec(line)) !== null) {
-    // Add text before this chord
-    const textBefore = line.slice(lastIndex, match.index)
-    cleanText += textBefore
-    currentPos += textBefore.length
-
-    // Record chord position
-    chords.push({
-      chord: match[1],
-      position: currentPos
-    })
-
-    lastIndex = match.index + match[0].length
-  }
-
-  // Add remaining text
-  cleanText += line.slice(lastIndex)
-
-  return {
-    text: cleanText,
-    chords
-  }
 }
 
 export function ChordProImporter({ onImport, onCancel }: ChordProImporterProps) {
@@ -122,7 +15,7 @@ export function ChordProImporter({ onImport, onCancel }: ChordProImporterProps) 
 
   const handleParse = useCallback(() => {
     if (!content.trim()) return
-    const parsed = parseChordPro(content)
+    const parsed = parseChordProLegacy(content)
     setPreview(parsed)
   }, [content])
 

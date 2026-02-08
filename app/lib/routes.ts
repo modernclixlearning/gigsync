@@ -25,7 +25,14 @@ export const routeHelpers = {
   }),
 
   /**
-   * Ruta para editar una canción
+   * Ruta para crear una canción nueva
+   */
+  songNew: () => ({
+    to: '/songs/new' as const,
+  }),
+
+  /**
+   * Ruta para editar una canción existente
    */
   songEdit: (songId: string) => ({
     to: '/song/$songId/edit' as const,
