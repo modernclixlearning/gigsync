@@ -5,6 +5,7 @@ import { cn } from '~/lib/utils'
 import { useSong, useSongLibrary } from '~/hooks/useSongs'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
+import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, UpdateSongInput, ChordProSong } from '~/types'
 
 export const Route = createFileRoute('/song/$songId/edit')({
@@ -53,10 +54,10 @@ function SongEditPage() {
     try {
       if (isNewSong) {
         const newId = await createSong(formData)
-        navigate({ to: '/song/$songId', params: { songId: newId } })
+        navigate(routeHelpers.song(newId))
       } else {
         await updateSong(formData as UpdateSongInput)
-        navigate({ to: '/song/$songId', params: { songId } })
+        navigate(routeHelpers.song(songId))
       }
     } catch (error) {
       console.error('Failed to save song:', error)
@@ -67,7 +68,7 @@ function SongEditPage() {
     if (!isNewSong && confirm('Are you sure you want to delete this song?')) {
       try {
         await deleteSong(songId)
-        navigate({ to: '/' })
+        navigate({ to: ROUTES.HOME })
       } catch (error) {
         console.error('Failed to delete song:', error)
       }
@@ -125,7 +126,7 @@ function SongEditPage() {
       <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between px-4 py-4">
           <button
-            onClick={() => navigate({ to: isNewSong ? '/' : '/song/$songId', params: { songId } })}
+            onClick={() => navigate(isNewSong ? { to: ROUTES.HOME } : routeHelpers.song(songId))}
             className="p-2 -ml-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />

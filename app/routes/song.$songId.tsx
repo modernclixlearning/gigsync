@@ -7,6 +7,7 @@ import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
 import { PlayerControls } from '~/components/player/PlayerControls'
 import { useAutoScroll } from '~/components/player/AutoScroll'
+import { ROUTES, routeHelpers } from '~/lib/routes'
 
 export const Route = createFileRoute('/song/$songId')({
   component: SongPlayerPage
@@ -49,7 +50,7 @@ function SongPlayerPage() {
           Song not found
         </h2>
         <Link
-          to="/"
+          to={ROUTES.HOME}
           className="text-indigo-500 hover:text-indigo-600"
         >
           Back to library
@@ -64,7 +65,7 @@ function SongPlayerPage() {
       <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between px-4 py-4">
           <button
-            onClick={() => navigate({ to: '/' })}
+            onClick={() => navigate({ to: ROUTES.HOME })}
             className="p-2 -ml-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -89,8 +90,7 @@ function SongPlayerPage() {
               </div>
             )}
             <Link
-              to="/song/$songId/edit"
-              params={{ songId: song.id }}
+              {...routeHelpers.songEdit(song.id)}
               className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             >
               <Settings className="w-5 h-5" />

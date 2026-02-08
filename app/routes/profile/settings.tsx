@@ -8,6 +8,8 @@ import { TunerSettings } from '~/components/profile/TunerSettings'
 import { PerformanceSettings } from '~/components/profile/PerformanceSettings'
 import { PlayerSettings } from '~/components/profile/PlayerSettings'
 import { DataSettings } from '~/components/profile/DataSettings'
+import { BottomNav } from '~/components/navigation'
+import { ROUTES } from '~/lib/routes'
 
 export const Route = createFileRoute('/profile/settings')({
   component: SettingsPage,
@@ -102,7 +104,7 @@ function SettingsPage() {
         <div className="flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
             <Link
-              to="/profile"
+              to={ROUTES.PROFILE}
               className="p-2 -ml-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <svg
@@ -254,37 +256,7 @@ function SettingsPage() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#101322]/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 z-20">
-        <div className="flex items-center justify-around px-6 py-3">
-          <NavItem href="/" icon="📚" label="Library" />
-          <NavItem href="/setlists" icon="🎵" label="Setlists" />
-          <NavItem href="/metronome" icon="⏱️" label="Metronome" />
-          <NavItem href="/tuner" icon="🎸" label="Tuner" />
-          <NavItem href="/profile" icon="👤" label="Profile" active />
-        </div>
-      </nav>
+      <BottomNav />
     </div>
-  )
-}
-
-interface NavItemProps {
-  href: string
-  icon: string
-  label: string
-  active?: boolean
-}
-
-function NavItem({ href, icon, label, active = false }: NavItemProps) {
-  return (
-    <a
-      href={href}
-      className={cn(
-        'flex flex-col items-center gap-1',
-        active ? 'text-primary' : 'text-slate-400 dark:text-[#9da1b9]'
-      )}
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-[10px] font-bold">{label}</span>
-    </a>
   )
 }

@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { useSetlists } from '~/hooks/useSetlists'
 import { SetlistCard } from '~/components/setlists/SetlistCard'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
+import { BottomNav } from '~/components/navigation'
+import { routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput } from '~/types'
 
 export const Route = createFileRoute('/setlists/')({
@@ -83,7 +85,7 @@ function SetlistsPage() {
         ) : (
           <div className="grid gap-4">
             {setlists.map((setlist) => (
-              <Link key={setlist.id} to="/setlists/$setlistId" params={{ setlistId: setlist.id }}>
+              <Link key={setlist.id} {...routeHelpers.setlist(setlist.id)}>
                 <SetlistCard setlist={setlist} />
               </Link>
             ))}
@@ -98,6 +100,9 @@ function SetlistsPage() {
           onCancel={() => setShowForm(false)}
         />
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   )
 }

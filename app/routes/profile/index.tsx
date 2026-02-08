@@ -6,6 +6,8 @@ import { useStats } from '~/hooks/useStats'
 import { ProfileHeader } from '~/components/profile/ProfileHeader'
 import { ProfileStats } from '~/components/profile/ProfileStats'
 import { ProfileForm } from '~/components/profile/ProfileForm'
+import { BottomNav } from '~/components/navigation'
+import { ROUTES } from '~/lib/routes'
 
 export const Route = createFileRoute('/profile/')({
   component: ProfilePage,
@@ -41,7 +43,7 @@ function ProfilePage() {
             Profile
           </h1>
           <Link
-            to="/profile/settings"
+            to={ROUTES.PROFILE_SETTINGS}
             className={cn(
               'px-3 py-1.5 rounded-lg text-sm font-medium',
               'text-primary hover:bg-primary/10',
@@ -91,7 +93,7 @@ function ProfilePage() {
               </h3>
               <div className="space-y-2">
                 <Link
-                  to="/profile/settings"
+                  to={ROUTES.PROFILE_SETTINGS}
                   className={cn(
                     'flex items-center gap-3 p-4',
                     'bg-white dark:bg-[#111218]',
@@ -164,37 +166,7 @@ function ProfilePage() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#101322]/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 z-20">
-        <div className="flex items-center justify-around px-6 py-3">
-          <NavItem href="/" icon="📚" label="Library" />
-          <NavItem href="/setlists" icon="🎵" label="Setlists" />
-          <NavItem href="/metronome" icon="⏱️" label="Metronome" />
-          <NavItem href="/tuner" icon="🎸" label="Tuner" />
-          <NavItem href="/profile" icon="👤" label="Profile" active />
-        </div>
-      </nav>
+      <BottomNav />
     </div>
-  )
-}
-
-interface NavItemProps {
-  href: string
-  icon: string
-  label: string
-  active?: boolean
-}
-
-function NavItem({ href, icon, label, active = false }: NavItemProps) {
-  return (
-    <a
-      href={href}
-      className={cn(
-        'flex flex-col items-center gap-1',
-        active ? 'text-primary' : 'text-slate-400 dark:text-[#9da1b9]'
-      )}
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-[10px] font-bold">{label}</span>
-    </a>
   )
 }

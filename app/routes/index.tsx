@@ -6,6 +6,8 @@ import { useSongLibrary } from '~/hooks/useSongs'
 import { SongCard } from '~/components/library/SongCard'
 import { SongFilters } from '~/components/library/SongFilters'
 import { SongSearch } from '~/components/library/SongSearch'
+import { BottomNav } from '~/components/navigation'
+import { routeHelpers } from '~/lib/routes'
 import type { Song } from '~/types'
 
 export const Route = createFileRoute('/')({
@@ -42,8 +44,7 @@ function SongsLibraryPage() {
             Song Library
           </h1>
           <Link
-            to="/song/$songId/edit"
-            params={{ songId: 'new' }}
+            {...routeHelpers.songEdit('new')}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-xl',
               'bg-indigo-500 text-white',
@@ -92,8 +93,7 @@ function SongsLibraryPage() {
                 : 'Add your first song to get started'}
             </p>
             <Link
-              to="/song/$songId/edit"
-              params={{ songId: 'new' }}
+              {...routeHelpers.songEdit('new')}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-xl',
                 'bg-indigo-500 text-white',
@@ -110,8 +110,7 @@ function SongsLibraryPage() {
             {filteredSongs.map((song) => (
               <Link
                 key={song.id}
-                to="/song/$songId"
-                params={{ songId: song.id }}
+                {...routeHelpers.song(song.id)}
               >
                 <SongCard
                   song={song}
@@ -125,20 +124,7 @@ function SongsLibraryPage() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a1f36] border-t border-slate-200 dark:border-slate-800 safe-area-pb">
-        <div className="flex items-center justify-around py-2">
-          <Link
-            to="/"
-            className={cn(
-              'flex flex-col items-center gap-1 px-6 py-2 rounded-lg',
-              'text-indigo-500'
-            )}
-          >
-            <Music2 className="w-6 h-6" />
-            <span className="text-xs font-medium">Library</span>
-          </Link>
-        </div>
-      </nav>
+      <BottomNav />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { NoteIndicator } from '~/components/tuner/NoteIndicator'
 import { ChromaticDial } from '~/components/tuner/ChromaticDial'
 import { TuningPresets } from '~/components/tuner/TuningPresets'
 import { CalibrationControl } from '~/components/tuner/CalibrationControl'
+import { BottomNav } from '~/components/navigation'
 
 export const Route = createFileRoute('/tuner')({
   component: TunerPage,
@@ -201,6 +202,9 @@ function TunerPage() {
           </div>
         )}
       </main>
+
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   )
 }

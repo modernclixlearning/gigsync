@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '~/lib/utils'
 import { useSetlist } from '~/hooks/useSetlist'
+import { routeHelpers } from '~/lib/routes'
 
 export const Route = createFileRoute('/setlists/$setlistId/play')({
   component: SetlistPlayPage,
@@ -26,7 +27,7 @@ function SetlistPlayPage() {
   }, [currentIndex, songs.length])
 
   const handleExit = useCallback(() => {
-    navigate({ to: '/setlists/$setlistId', params: { setlistId } })
+    navigate(routeHelpers.setlist(setlistId))
   }, [navigate, setlistId])
 
   // Keyboard navigation

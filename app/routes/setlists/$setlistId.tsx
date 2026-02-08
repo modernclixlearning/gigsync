@@ -8,6 +8,7 @@ import { SongItem } from '~/components/setlists/SongItem'
 import { SetlistStats } from '~/components/setlists/SetlistStats'
 import { SongForm } from '~/components/setlists/SongForm'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
+import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput, UpdateSetlistInput } from '~/types'
 
 export const Route = createFileRoute('/setlists/$setlistId')({
@@ -97,7 +98,7 @@ function SetlistDetailPage() {
     try {
       setError(null)
       await deleteSetlist(setlistId)
-      navigate({ to: '/setlists' })
+      navigate({ to: ROUTES.SETLISTS })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete setlist')
       setShowDeleteConfirm(false)
@@ -105,7 +106,7 @@ function SetlistDetailPage() {
   }
 
   const handlePlayMode = () => {
-    navigate({ to: '/setlists/$setlistId/play', params: { setlistId } })
+    navigate(routeHelpers.setlistPlay(setlistId))
   }
 
   if (isLoading || !setlist) {
@@ -122,7 +123,7 @@ function SetlistDetailPage() {
       <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <Link to="/setlists" className="text-slate-400 hover:text-slate-600">
+            <Link to={ROUTES.SETLISTS} className="text-slate-400 hover:text-slate-600">
               <span className="material-symbols-outlined">arrow_back</span>
             </Link>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">

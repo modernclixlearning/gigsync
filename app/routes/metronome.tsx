@@ -8,6 +8,7 @@ import { BPMControl } from '~/components/metronome/BPMControl'
 import { TimeSignatureSelector } from '~/components/metronome/TimeSignatureSelector'
 import { SoundSelector } from '~/components/metronome/SoundSelector'
 import { TapTempo } from '~/components/metronome/TapTempo'
+import { BottomNav } from '~/components/navigation'
 import type { MetronomeSound } from '~/components/metronome/SoundSelector'
 
 export const Route = createFileRoute('/metronome')({
@@ -266,37 +267,7 @@ function MetronomePage() {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#101322]/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 z-20">
-        <div className="flex items-center justify-around px-6 py-3">
-          <NavItem href="/" icon="📚" label="Library" />
-          <NavItem href="/setlists" icon="🎵" label="Setlists" />
-          <NavItem href="/metronome" icon="⏱️" label="Metronome" active />
-          <NavItem href="/tuner" icon="🎸" label="Tuner" />
-          <NavItem href="/profile" icon="👤" label="Profile" />
-        </div>
-      </nav>
+      <BottomNav />
     </div>
-  )
-}
-
-interface NavItemProps {
-  href: string
-  icon: string
-  label: string
-  active?: boolean
-}
-
-function NavItem({ href, icon, label, active = false }: NavItemProps) {
-  return (
-    <a
-      href={href}
-      className={cn(
-        'flex flex-col items-center gap-1',
-        active ? 'text-primary' : 'text-slate-400 dark:text-[#9da1b9]'
-      )}
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-[10px] font-bold">{label}</span>
-    </a>
   )
 }
