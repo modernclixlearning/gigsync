@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useTuner } from '../useTuner'
 import { useMicrophone } from '../useMicrophone'
-import { MockAudioContext, MockMediaStream } from '~/tests/mocks/webAudio'
+import { MockAudioContext, MockMediaStream } from '@tests/mocks/webAudio'
 import { DEFAULT_CALIBRATION } from '~/types/tuner'
 
 // Mock useMicrophone
@@ -188,7 +188,7 @@ describe('useTuner', () => {
   it('should toggle listening', async () => {
     mockMicrophone.isActive = false
     vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
-    const { result } = renderHook(() => useTuner())
+    const { result, rerender } = renderHook(() => useTuner())
 
     await act(async () => {
       await result.current.toggle()
@@ -197,15 +197,18 @@ describe('useTuner', () => {
     expect(mockMicrophone.start).toHaveBeenCalled()
 
     mockMicrophone.isActive = true
+    mockMicrophone.analyser = mockAnalyser
+    mockMicrophone.audioContext = mockAudioContext as any
     vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
-    const { result: result2 } = renderHook(() => useTuner())
+    
+    rerender()
 
     await waitFor(() => {
-      expect(result2.current.isListening).toBe(true)
+      expect(result.current.isListening).toBe(true)
     })
 
-    act(() => {
-      result2.current.toggle()
+    await act(async () => {
+      await result.current.toggle()
     })
 
     expect(mockMicrophone.stop).toHaveBeenCalled()

@@ -103,16 +103,16 @@ describe('BPMControl', () => {
   it('should apply custom min and max values', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    render(<BPMControl value={50} min={40} max={200} onChange={onChange} />)
+    const { rerender } = render(
+      <BPMControl value={50} min={40} max={200} onChange={onChange} />
+    )
 
     const incrementButton = screen.getByLabelText('Increase BPM')
     await user.click(incrementButton)
 
     expect(onChange).toHaveBeenCalledWith(51)
 
-    const { rerender } = render(
-      <BPMControl value={200} min={40} max={200} onChange={onChange} />
-    )
+    rerender(<BPMControl value={200} min={40} max={200} onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Increase BPM'))
     expect(onChange).not.toHaveBeenCalledWith(201)

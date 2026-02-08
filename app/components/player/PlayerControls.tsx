@@ -170,6 +170,7 @@ export function PlayerControls({
         {/* Center - Play/Pause */}
         <button
           onClick={onPlayPause}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
           className={cn(
             'p-4 rounded-full transition-colors',
             isPlaying
@@ -198,6 +199,7 @@ export function PlayerControls({
 
           <button
             onClick={() => setShowSettings(!showSettings)}
+            aria-label={showSettings ? 'Hide settings' : 'Show settings'}
             className={cn(
               'p-3 rounded-xl transition-colors',
               showSettings

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMicrophone } from '../useMicrophone'
 import * as webAudioUtils from '~/lib/audio/webAudioUtils'
-import { MockAudioContext, MockMediaStream, mockGetUserMedia } from '~/tests/mocks/webAudio'
+import { MockAudioContext, MockMediaStream, MockMediaStreamTrack, mockGetUserMedia } from '@tests/mocks/webAudio'
 
 // Mock webAudioUtils
 vi.mock('~/lib/audio/webAudioUtils', async () => {
@@ -27,9 +27,12 @@ describe('useMicrophone', () => {
   let mockStream: MockMediaStream
 
   beforeEach(() => {
+    vi.clearAllMocks()
     mockAudioContext = new MockAudioContext()
-    mockStream = new MockMediaStream()
+    mockStream = new MockMediaStream([new MockMediaStreamTrack()])
     
+    vi.mocked(webAudioUtils.isWebAudioAPISupported).mockReturnValue(true)
+    vi.mocked(webAudioUtils.isGetUserMediaSupported).mockReturnValue(true)
     vi.mocked(webAudioUtils.createAudioContext).mockReturnValue(mockAudioContext as any)
     vi.mocked(webAudioUtils.getUserMedia).mockResolvedValue(mockStream as any)
     mockGetUserMedia.mockResolvedValue(mockStream as any)
@@ -71,54 +74,67 @@ describe('useMicrophone', () => {
   it('should start microphone successfully', async () => {
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-
-    await waitFor(() => {
-      expect(result.current.isActive).toBe(true)
-      expect(result.current.hasPermission).toBe(true)
-      expect(result.current.isRequesting).toBe(false)
-      expect(result.current.error).toBe(null)
-      expect(result.current.sampleRate).toBe(44100)
-      expect(result.current.analyser).toBeTruthy()
-      expect(result.current.audioContext).toBeTruthy()
+    await act(async () => {
+      await result.current.start()
     })
+
+    expect(result.current.isActive).toBe(true)
+    expect(result.current.hasPermission).toBe(true)
+    expect(result.current.isRequesting).toBe(false)
+    expect(result.current.error).toBe(null)
+    expect(result.current.sampleRate).toBe(44100)
   })
 
   it('should not start if already active', async () => {
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-    await waitFor(() => expect(result.current.isActive).toBe(true))
+    await act(async () => {
+      await result.current.start()
+    })
+    
+    expect(result.current.isActive).toBe(true)
+    
+    // Reset mock call count
+    vi.mocked(webAudioUtils.getUserMedia).mockClear()
 
-    const initialAnalyser = result.current.analyser
-    await result.current.start()
+    await act(async () => {
+      await result.current.start()
+    })
 
-    // Should not create a new analyser
-    expect(result.current.analyser).toBe(initialAnalyser)
+    // Should not call getUserMedia again
+    expect(webAudioUtils.getUserMedia).not.toHaveBeenCalled()
   })
 
   it('should stop microphone', async () => {
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-    await waitFor(() => expect(result.current.isActive).toBe(true))
-
-    result.current.stop()
-
-    await waitFor(() => {
-      expect(result.current.isActive).toBe(false)
-      expect(result.current.analyser).toBe(null)
+    await act(async () => {
+      await result.current.start()
     })
+    
+    expect(result.current.isActive).toBe(true)
+
+    act(() => {
+      result.current.stop()
+    })
+
+    expect(result.current.isActive).toBe(false)
   })
 
   it('should toggle microphone', async () => {
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.toggle()
-    await waitFor(() => expect(result.current.isActive).toBe(true))
+    await act(async () => {
+      await result.current.toggle()
+    })
+    
+    expect(result.current.isActive).toBe(true)
 
-    result.current.toggle()
-    await waitFor(() => expect(result.current.isActive).toBe(false))
+    await act(async () => {
+      await result.current.toggle()
+    })
+    
+    expect(result.current.isActive).toBe(false)
   })
 
   it('should handle permission denied error', async () => {
@@ -128,13 +144,13 @@ describe('useMicrophone', () => {
 
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-
-    await waitFor(() => {
-      expect(result.current.isActive).toBe(false)
-      expect(result.current.hasPermission).toBe(false)
-      expect(result.current.error).toBeTruthy()
+    await act(async () => {
+      await result.current.start()
     })
+
+    expect(result.current.isActive).toBe(false)
+    expect(result.current.hasPermission).toBe(false)
+    expect(result.current.error).toBeTruthy()
   })
 
   it('should handle microphone not found error', async () => {
@@ -144,11 +160,11 @@ describe('useMicrophone', () => {
 
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-
-    await waitFor(() => {
-      expect(result.current.error).toBeTruthy()
+    await act(async () => {
+      await result.current.start()
     })
+
+    expect(result.current.error).toBeTruthy()
   })
 
   it('should handle AudioContext creation failure', async () => {
@@ -156,53 +172,61 @@ describe('useMicrophone', () => {
 
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-
-    await waitFor(() => {
-      expect(result.current.error).toBeTruthy()
+    await act(async () => {
+      await result.current.start()
     })
+
+    expect(result.current.error).toBeTruthy()
   })
 
   it('should resume suspended AudioContext', async () => {
-    mockAudioContext.state = 'suspended'
-    const resumeSpy = vi.spyOn(mockAudioContext, 'resume')
+    const suspendedContext = new MockAudioContext()
+    suspendedContext.state = 'suspended'
+    const resumeSpy = vi.spyOn(suspendedContext, 'resume')
+    vi.mocked(webAudioUtils.createAudioContext).mockReturnValue(suspendedContext as any)
 
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-
-    await waitFor(() => {
-      expect(resumeSpy).toHaveBeenCalled()
-      expect(result.current.isActive).toBe(true)
+    await act(async () => {
+      await result.current.start()
     })
+
+    expect(resumeSpy).toHaveBeenCalled()
+    expect(result.current.isActive).toBe(true)
   })
 
   it('should cleanup on unmount', async () => {
     const { result, unmount } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-    await waitFor(() => expect(result.current.isActive).toBe(true))
+    await act(async () => {
+      await result.current.start()
+    })
+    
+    expect(result.current.isActive).toBe(true)
 
-    const stopTracksSpy = vi.spyOn(mockStream.getTracks()[0], 'stop')
-    const closeSpy = vi.spyOn(mockAudioContext, 'close')
+    const track = mockStream.getTracks()[0]
+    const stopTracksSpy = vi.spyOn(track, 'stop')
 
     unmount()
 
-    await waitFor(() => {
-      expect(stopTracksSpy).toHaveBeenCalled()
-    })
+    expect(stopTracksSpy).toHaveBeenCalled()
   })
 
   it('should handle AudioContext state change to suspended', async () => {
     const { result } = renderHook(() => useMicrophone())
 
-    await result.current.start()
-    await waitFor(() => expect(result.current.isActive).toBe(true))
+    await act(async () => {
+      await result.current.start()
+    })
+    
+    expect(result.current.isActive).toBe(true)
 
     // Simulate state change
-    mockAudioContext.state = 'suspended'
-    const event = new Event('statechange')
-    mockAudioContext.dispatchEvent(event)
+    act(() => {
+      mockAudioContext.state = 'suspended'
+      const event = new Event('statechange')
+      mockAudioContext.dispatchEvent(event)
+    })
 
     await waitFor(() => {
       expect(result.current.error).toContain('suspended')

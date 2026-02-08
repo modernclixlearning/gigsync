@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlayerControls } from '../PlayerControls'
@@ -109,7 +109,7 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     render(<PlayerControls {...defaultProps} />)
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings/i })
     await user.click(settingsButton)
 
     expect(screen.getByText('Scroll Speed')).toBeInTheDocument()
@@ -129,7 +129,7 @@ describe('PlayerControls', () => {
     )
 
     // Open settings
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings/i })
     await user.click(settingsButton)
 
     // Find and click increment button
@@ -152,7 +152,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const speedControls = screen.getByText('Scroll Speed').parentElement
@@ -171,7 +171,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const speedControls = screen.getByText('Scroll Speed').parentElement
@@ -190,7 +190,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const fontSizeControls = screen.getByText('Font Size').parentElement
@@ -205,7 +205,7 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     render(<PlayerControls {...defaultProps} fontSize={12} />)
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const fontSizeControls = screen.getByText('Font Size').parentElement
@@ -217,7 +217,7 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     render(<PlayerControls {...defaultProps} fontSize={32} />)
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const fontSizeControls = screen.getByText('Font Size').parentElement
@@ -232,15 +232,22 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} transpose={0} onTranspose={onTranspose} />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeControls = screen.getByText('Transpose').parentElement
-    const incrementButton = transposeControls?.querySelectorAll('button')[1]
-    if (incrementButton) {
-      await user.click(incrementButton)
-      expect(onTranspose).toHaveBeenCalledWith(1)
-    }
+    // Find the transpose controls section
+    const transposeLabel = screen.getByText('Transpose')
+    const transposeControls = transposeLabel.parentElement
+    expect(transposeControls).toBeTruthy()
+    
+    // Find the increment button (third button in the controls div)
+    const buttons = transposeControls?.querySelectorAll('button') || []
+    expect(buttons.length).toBeGreaterThanOrEqual(3)
+    
+    const incrementButton = buttons[2] // Third button is the increment (+)
+    await user.click(incrementButton)
+    
+    expect(onTranspose).toHaveBeenCalledWith(1)
   })
 
   it('should transpose down', async () => {
@@ -250,7 +257,7 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} transpose={0} onTranspose={onTranspose} />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const transposeControls = screen.getByText('Transpose').parentElement
@@ -272,7 +279,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
     const transposeControls = screen.getByText('Transpose').parentElement
@@ -295,18 +302,24 @@ describe('PlayerControls', () => {
     expect(screen.queryByTitle('Reset transpose')).not.toBeInTheDocument()
   })
 
-  it('should display transpose value correctly', () => {
+  it('should display transpose value correctly', async () => {
+    const user = userEvent.setup()
     const { rerender } = render(
       <PlayerControls {...defaultProps} transpose={3} />
     )
 
-    const settingsButton = screen.getByRole('button', { name: /chevron/i })
-    userEvent.click(settingsButton)
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
+    await user.click(settingsButton)
 
+    // The transpose value is displayed in a button
     expect(screen.getByText('+3')).toBeInTheDocument()
 
     rerender(<PlayerControls {...defaultProps} transpose={-2} />)
-    userEvent.click(screen.getByRole('button', { name: /chevron/i }))
+    // Settings panel should still be open, but if not, click again
+    if (!screen.queryByText('-2')) {
+      const settingsButton2 = screen.getByRole('button', { name: /show settings|hide settings/i })
+      await user.click(settingsButton2)
+    }
 
     expect(screen.getByText('-2')).toBeInTheDocument()
   })

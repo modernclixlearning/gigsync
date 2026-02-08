@@ -79,6 +79,7 @@ const mockTone = {
   Transport: {
     get: vi.fn(() => mockTransport),
   },
+  getTransport: vi.fn(() => mockTransport),
   Loop: MockLoop,
   context: mockContext,
   start: vi.fn().mockResolvedValue(undefined),

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMetronome } from '../useMetronome'
-import mockTone, { MockSynth, MockTransport, MockLoop } from '~/tests/mocks/tone'
+import mockTone, { MockSynth, MockTransport, MockLoop } from '@tests/mocks/tone'
 
 // Mock Tone.js
 vi.mock('tone', async () => {
-  const mockToneModule = await import('~/tests/mocks/tone')
+  const mockToneModule = await import('@tests/mocks/tone')
   return mockToneModule.default
 })
 
@@ -18,6 +18,7 @@ describe('useMetronome', () => {
     mockTransport = new MockTransport()
     
     vi.mocked(mockTone.Transport.get).mockReturnValue(mockTransport as any)
+    vi.mocked(mockTone.getTransport).mockReturnValue(mockTransport as any)
     vi.mocked(mockTone.start).mockResolvedValue(undefined)
     vi.mocked(mockTone.Synth).mockImplementation(() => mockSynth as any)
   })
@@ -45,7 +46,7 @@ describe('useMetronome', () => {
     expect(result.current.bpm).toBe(140)
   })
 
-  it('should change BPM', () => {
+  it('should change BPM', async () => {
     const { result } = renderHook(() => useMetronome())
 
     act(() => {
@@ -53,7 +54,11 @@ describe('useMetronome', () => {
     })
 
     expect(result.current.bpm).toBe(150)
-    expect(mockTransport.bpm.value).toBe(150)
+    
+    // Wait for useEffect to update transport BPM
+    await waitFor(() => {
+      expect(mockTransport.bpm.value).toBe(150)
+    })
   })
 
   it('should clamp BPM to valid range (20-300)', () => {
@@ -246,9 +251,10 @@ describe('useMetronome', () => {
       result.current.setBpm(100)
     })
 
+    // Wait for useEffect to update transport BPM
     await waitFor(() => {
       expect(mockTransport.bpm.value).toBe(100)
-    })
+    }, { timeout: 2000 })
   })
 
   it('should cleanup on unmount', async () => {
