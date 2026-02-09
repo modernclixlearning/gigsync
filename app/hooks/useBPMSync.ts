@@ -42,6 +42,14 @@ export function useBPMSync({
   const loopRef = useRef<Tone.Loop | null>(null)
   const previousBeatRef = useRef(0)
   const previousBarRef = useRef(0)
+  const onBeatChangeRef = useRef(onBeatChange)
+  const onBarChangeRef = useRef(onBarChange)
+  
+  // Keep callback refs up to date without triggering effect re-runs
+  useEffect(() => {
+    onBeatChangeRef.current = onBeatChange
+    onBarChangeRef.current = onBarChange
+  })
   
   // Parse time signature
   const [beatsPerBar] = timeSignature.split('/').map(Number)
@@ -66,7 +74,6 @@ export function useBPMSync({
       // Get current position from Transport
       const bars = Tone.Transport.position.toString().split(':')[0]
       const beats = Tone.Transport.position.toString().split(':')[1]
-      const sixteenths = Tone.Transport.position.toString().split(':')[2]
       
       const barNumber = parseInt(bars, 10)
       const beatNumber = parseInt(beats, 10)
@@ -83,12 +90,12 @@ export function useBPMSync({
         
         // Fire callbacks if beat/bar changed
         if (absoluteBeat !== previousBeatRef.current) {
-          onBeatChange?.(absoluteBeat)
+          onBeatChangeRef.current?.(absoluteBeat)
           previousBeatRef.current = absoluteBeat
         }
         
         if (barNumber !== previousBarRef.current) {
-          onBarChange?.(barNumber)
+          onBarChangeRef.current?.(barNumber)
           previousBarRef.current = barNumber
         }
       }, time)
@@ -100,7 +107,7 @@ export function useBPMSync({
     return () => {
       loop.dispose()
     }
-  }, [beatsPerBar, onBeatChange, onBarChange])
+  }, [beatsPerBar])
   
   // Sync with isPlaying prop
   useEffect(() => {

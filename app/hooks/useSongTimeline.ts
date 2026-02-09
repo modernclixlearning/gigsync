@@ -3,7 +3,7 @@
  * Manages song timeline calculation and element positioning
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SongTimeline, TimelineElement, TimelineCalculationOptions } from '~/types/timeline'
 import { createSongTimeline, applyCustomDurations } from '~/lib/timeline/calculator'
 
@@ -43,26 +43,31 @@ export function useSongTimeline({
   calculationOptions
 }: UseSongTimelineOptions): UseSongTimelineReturn {
   const [timeline, setTimeline] = useState<SongTimeline | null>(null)
-  const [elementPositions, setElementPositions] = useState<Map<string, number>>(new Map())
+  const elementPositionsRef = useRef<Map<string, number>>(new Map())
   const [customDurations, setCustomDurations] = useState<Map<string, number>>(new Map())
+  const customDurationsRef = useRef(customDurations)
   const [error, setError] = useState<Error | null>(null)
   
-  // Memoize options to avoid recalculation on every render
-  const options = useMemo(() => ({
-    ...DEFAULT_OPTIONS,
-    ...calculationOptions
-  }), [calculationOptions])
+  // Stabilize options by serializing - avoids infinite loop from inline objects
+  const optionsKey = JSON.stringify(calculationOptions ?? {})
+  
+  // Keep customDurations ref in sync
+  useEffect(() => {
+    customDurationsRef.current = customDurations
+  }, [customDurations])
   
   // Calculate timeline when inputs change
   useEffect(() => {
     try {
+      const options = { ...DEFAULT_OPTIONS, ...JSON.parse(optionsKey) }
       let newTimeline = createSongTimeline(lyrics, bpm, timeSignature, options)
       
       // Apply custom durations if they exist
-      if (customDurations.size > 0) {
+      const durations = customDurationsRef.current
+      if (durations.size > 0) {
         newTimeline = {
           ...newTimeline,
-          elements: applyCustomDurations(newTimeline.elements, customDurations)
+          elements: applyCustomDurations(newTimeline.elements, durations)
         }
       }
       
@@ -73,7 +78,7 @@ export function useSongTimeline({
       setError(err as Error)
       setTimeline(null)
     }
-  }, [lyrics, bpm, timeSignature, options, customDurations])
+  }, [lyrics, bpm, timeSignature, optionsKey])
   
   // Find element at specific beat
   const getElementAtBeat = useCallback((beat: number): TimelineElement | null => {
@@ -89,17 +94,14 @@ export function useSongTimeline({
     const element = getElementAtBeat(beat)
     if (!element) return 0
     
-    const position = elementPositions.get(element.id)
+    const position = elementPositionsRef.current.get(element.id)
     return position ?? 0
-  }, [getElementAtBeat, elementPositions])
+  }, [getElementAtBeat])
   
   // Update element position (called after DOM measurement)
+  // Uses ref instead of state to avoid re-renders
   const updateElementPosition = useCallback((elementId: string, position: number) => {
-    setElementPositions(prev => {
-      const next = new Map(prev)
-      next.set(elementId, position)
-      return next
-    })
+    elementPositionsRef.current.set(elementId, position)
   }, [])
   
   // Set custom duration for an element
