@@ -3,10 +3,10 @@ import { useEffect, useRef } from 'react'
 import { ArrowLeft, Settings, Play, Pause, Music2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
+import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
 import { PlayerControls } from '~/components/player/PlayerControls'
-import { useAutoScroll } from '~/components/player/AutoScroll'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 
 export const Route = createFileRoute('/song/$songId/')({
@@ -20,11 +20,19 @@ function SongPlayerPage() {
   const player = useSongPlayer()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll hook
-  useAutoScroll({
+  // Smart auto-scroll hook (BPM-synchronized)
+  const autoScroll = useSmartAutoScroll({
+    lyrics: song?.lyrics || '',
+    bpm: song?.bpm || 120,
+    timeSignature: song?.timeSignature || '4/4',
+    isPlaying: player.state.isPlaying,
+    isEnabled: player.state.isAutoScrollEnabled,
     containerRef: scrollContainerRef,
-    isEnabled: player.state.isAutoScrollEnabled && player.state.isPlaying,
-    speed: player.state.autoScrollSpeed
+    calculationOptions: {
+      defaultBarsPerLine: 2,
+      defaultBeatsPerChord: 4,
+      intelligentEstimation: false // Start with simple mode
+    }
   })
 
   // Increment play count when song starts playing
