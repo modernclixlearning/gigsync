@@ -29,7 +29,7 @@ describe('useMicrophone', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAudioContext = new MockAudioContext()
-    mockStream = new MockMediaStream([new MockMediaStreamTrack()])
+    mockStream = new MockMediaStream([new MockMediaStreamTrack() as unknown as MediaStreamTrack])
     
     vi.mocked(webAudioUtils.isWebAudioAPISupported).mockReturnValue(true)
     vi.mocked(webAudioUtils.isGetUserMediaSupported).mockReturnValue(true)

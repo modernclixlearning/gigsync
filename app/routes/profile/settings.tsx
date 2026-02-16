@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { cn } from '~/lib/utils'
+import { db } from '~/lib/db'
 import { useSettings } from '~/hooks/useSettings'
 import { AppearanceSettings } from '~/components/profile/AppearanceSettings'
 import { MetronomeSettings } from '~/components/profile/MetronomeSettings'
@@ -28,12 +29,17 @@ function SettingsPage() {
     resetSettings,
   } = useSettings()
 
-  const handleExportData = useCallback(() => {
-    // Export all data as JSON
+  const handleExportData = useCallback(async () => {
+    const songs = await db.songs.toArray()
+    const setlists = await db.setlists.toArray()
+
     const data = {
+      version: 1,
       profile: localStorage.getItem('gigsync_profile'),
       settings: localStorage.getItem('gigsync_settings'),
       stats: localStorage.getItem('gigsync_stats'),
+      songs,
+      setlists,
       exportedAt: new Date().toISOString(),
     }
 
@@ -72,6 +78,16 @@ function SettingsPage() {
           localStorage.setItem('gigsync_stats', data.stats)
         }
 
+        // Restore IndexedDB data (songs and setlists)
+        if (data.songs && Array.isArray(data.songs)) {
+          await db.songs.clear()
+          await db.songs.bulkAdd(data.songs)
+        }
+        if (data.setlists && Array.isArray(data.setlists)) {
+          await db.setlists.clear()
+          await db.setlists.bulkAdd(data.setlists)
+        }
+
         // Reload to apply changes
         window.location.reload()
       } catch (error) {
@@ -82,10 +98,12 @@ function SettingsPage() {
     input.click()
   }, [])
 
-  const handleDeleteAllData = useCallback(() => {
+  const handleDeleteAllData = useCallback(async () => {
     localStorage.removeItem('gigsync_profile')
     localStorage.removeItem('gigsync_settings')
     localStorage.removeItem('gigsync_stats')
+    await db.songs.clear()
+    await db.setlists.clear()
     window.location.reload()
   }, [])
 

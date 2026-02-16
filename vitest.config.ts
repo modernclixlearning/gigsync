@@ -5,7 +5,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [
-    viteReact(),
+    viteReact() as any,
     tsConfigPaths({
       projects: ['./tsconfig.json'],
     }),

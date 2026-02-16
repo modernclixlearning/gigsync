@@ -18,6 +18,14 @@ describe('PlayerControls', () => {
     transpose: 0,
     onTranspose: vi.fn(),
     onResetTranspose: vi.fn(),
+    metronomeSoundEnabled: false,
+    onToggleMetronomeSound: vi.fn(),
+    smartScrollContextWindow: 33,
+    onSmartScrollContextWindowChange: vi.fn(),
+    smartScrollSmoothness: 70,
+    onSmartScrollSmoothnessChange: vi.fn(),
+    showBeatIndicatorDebug: false,
+    onToggleBeatIndicatorDebug: vi.fn(),
   }
 
   beforeEach(() => {

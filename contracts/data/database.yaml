@@ -184,7 +184,7 @@ data_integrity:
     setlist_songs:
       type: "Many-to-many via songIds array"
       enforcement: "Application level (hooks)"
-      cascade: "No automatic cascade - orphan handling in hooks"
+      cascade: "Song delete: cascade in useSongs.deleteSong (remove from setlists, recalc totalDuration)"
       validation: "Verify songIds exist before adding to setlist"
 
   rules:

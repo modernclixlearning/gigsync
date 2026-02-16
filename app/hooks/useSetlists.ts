@@ -88,7 +88,7 @@ export function useSetlists(): UseSetlistsReturn {
         throw new Error('Setlist name cannot be empty')
       }
       
-      await db.setlists.update(id, data)
+      await db.setlists.update(id, data as any)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setlists'] })

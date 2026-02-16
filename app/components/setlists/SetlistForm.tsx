@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cn } from '~/lib/utils'
+import { createSetlistSchema } from '~/lib/schemas'
 import type { CreateSetlistInput, Setlist } from '~/types'
 
 interface SetlistFormProps {
@@ -17,13 +18,20 @@ export function SetlistForm({ setlist, onSubmit, onCancel }: SetlistFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
 
-    onSubmit({
+    const raw = {
       name: name.trim(),
       venue: venue.trim() || undefined,
       date: date ? new Date(date) : undefined,
-    })
+    }
+
+    const result = createSetlistSchema.safeParse(raw)
+    if (!result.success) {
+      alert(result.error.issues[0].message)
+      return
+    }
+
+    onSubmit(result.data)
   }
 
   return (

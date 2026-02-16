@@ -49,10 +49,13 @@ export const routeHelpers = {
 
   /**
    * Ruta para modo play de un setlist
+   * @param setlistId - ID del setlist
+   * @param index - Índice opcional de canción para deep linking (0-based)
    */
-  setlistPlay: (setlistId: string) => ({
+  setlistPlay: (setlistId: string, index?: number) => ({
     to: '/setlists/$setlistId/play' as const,
     params: { setlistId },
+    search: index !== undefined && index >= 0 ? { index } : undefined,
   }),
 } as const
 

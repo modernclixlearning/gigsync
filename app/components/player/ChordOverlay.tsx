@@ -68,6 +68,10 @@ function ChordOverlayLine({ line, transpose, elementId }: { line: AnyParsedLine;
     )
   }
 
+  if (line.type === 'directive') {
+    return null
+  }
+
   // Lyric line with chord overlay
   return (
     <div className="relative" data-element-id={elementId}>

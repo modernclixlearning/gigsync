@@ -20,6 +20,7 @@ describe('calculateElementDuration', () => {
       raw: '[Intro | 4 bars]',
       section: {
         name: 'Intro',
+        type: 'intro',
         bars: 4,
         chordBars: []
       }
@@ -126,7 +127,7 @@ First line`
     })
 
     // Should not include directive elements
-    const hasDirective = timeline.elements.some(el => el.type === 'directive')
+    const hasDirective = timeline.elements.some(el => (el.type as string) === 'directive')
     expect(hasDirective).toBe(false)
   })
 

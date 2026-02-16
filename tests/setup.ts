@@ -30,10 +30,10 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 }))
 
 // Mock requestAnimationFrame
-global.requestAnimationFrame = vi.fn((cb) => {
-  return setTimeout(cb, 16)
+global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
+  return setTimeout(cb, 16) as unknown as number
 })
 
-global.cancelAnimationFrame = vi.fn((id) => {
+global.cancelAnimationFrame = vi.fn((id: number) => {
   clearTimeout(id)
 })

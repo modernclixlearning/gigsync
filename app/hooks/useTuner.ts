@@ -247,7 +247,7 @@ export function useTuner(): UseTunerReturn {
       }
 
       // Get time domain data
-      analyser.getFloatTimeDomainData(bufferRef.current)
+      analyser.getFloatTimeDomainData(bufferRef.current as Float32Array<ArrayBuffer>)
 
       // Detect pitch using YIN algorithm with current calibration
       const result = detectPitch(

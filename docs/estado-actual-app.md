@@ -185,8 +185,8 @@ Según el plan de implementación, la Fase 7 incluye:
 
 **Features pendientes según business-rules.yaml**:
 1. **Setlist Management mejoras**:
-   - Eliminar canción de DB debería actualizarse en setlists (TODO mencionado)
-   - Mejorar modo play de setlist
+   - ✅ Eliminar canción de DB actualiza setlists (cascada implementada en `deleteSong`)
+   - ✅ Mejorar modo play de setlist (player completo integrado, navegación prev/next, teclado)
 
 2. **Profile/Settings**:
    - Stats calculadas desde IndexedDB (actualmente hardcodeadas)

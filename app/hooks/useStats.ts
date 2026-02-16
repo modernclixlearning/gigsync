@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { UserStats } from '~/types/profile'
+import { db } from '~/lib/db'
 
 export interface UseStatsReturn {
   stats: UserStats
@@ -26,29 +27,26 @@ export function useStats(): UseStatsReturn {
   const [error, setError] = useState<Error | null>(null)
 
   const calculateStats = useCallback(async (): Promise<UserStats> => {
-    // TODO: In the future, calculate real stats from songs and setlists in IndexedDB
-    // For now, return mock stats or stored stats
     try {
+      const totalSongs = await db.songs.count()
+      const totalSetlists = await db.setlists.count()
+
+      // Find the most played song
+      const allSongs = await db.songs.toArray()
+      const topSong = allSongs.sort((a, b) => b.timesPlayed - a.timesPlayed)[0]
+
+      // Get practice minutes and session date from localStorage (session-based)
       const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (parsed.lastSessionDate) {
-          parsed.lastSessionDate = new Date(parsed.lastSessionDate)
-        }
-        return parsed
-      }
-      
-      // Return mock data for demo purposes
+      const parsed = stored ? JSON.parse(stored) : null
+
       return {
-        totalSongs: 12,
-        totalSetlists: 3,
-        mostPlayedSong: {
-          id: '1',
-          title: 'Hotel California',
-          playCount: 15,
-        },
-        totalPracticeMinutes: 240,
-        lastSessionDate: new Date(),
+        totalSongs,
+        totalSetlists,
+        mostPlayedSong: topSong && topSong.timesPlayed > 0
+          ? { id: topSong.id, title: topSong.title, playCount: topSong.timesPlayed }
+          : undefined,
+        totalPracticeMinutes: parsed?.totalPracticeMinutes ?? 0,
+        lastSessionDate: parsed?.lastSessionDate ? new Date(parsed.lastSessionDate) : undefined,
       }
     } catch {
       return getDefaultStats()

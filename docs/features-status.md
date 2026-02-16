@@ -1,7 +1,7 @@
 # 📋 Estado de Features: GigSync
 
 **Última actualización**: 16 de Febrero, 2026  
-**Rama actual**: `feature/smart-autoscroll`
+**Rama actual**: `master`
 
 ---
 
@@ -138,11 +138,17 @@ Este documento consolida todas las features implementadas y pendientes de GigSyn
 - ✅ CRUD de setlists con IndexedDB
 - ✅ Duración total calculada
 - ✅ Reordenar con drag & drop (@dnd-kit)
-- ✅ Modo play secuencial
+- ✅ Modo play secuencial con player completo (letras, acordes, autoscroll, transposición)
+- ✅ Navegación siguiente/anterior con teclado (← → ESC)
+- ✅ Cascada al eliminar canción: setlists se actualizan automáticamente (songIds, totalDuration)
+- ✅ Deep linking: `/setlists/$setlistId/play?index=N` para iniciar en canción específica
 
 **Archivos principales**:
 - `app/routes/setlists.tsx`
+- `app/routes/setlists/$setlistId/play.tsx`
+- `app/components/player/SongPlayerContent.tsx`
 - `app/hooks/useSetlists.ts`
+- `app/hooks/useSongs.ts` (deleteSong con cascada)
 
 ---
 
@@ -327,14 +333,14 @@ Este documento consolida todas las features implementadas y pendientes de GigSyn
 
 ## 🔧 Mejoras Pendientes - Otras Features
 
-### 1. Setlist Management Mejoras ⚠️
+### 1. Setlist Management Mejoras ✅
 
 **Prioridad**: Media  
-**Estado**: Parcialmente completo
+**Estado**: Completo
 
-**Mejoras sugeridas**:
+**Mejoras implementadas**:
 - ✅ Eliminar canción de DB actualiza setlists (cascada implementada en `deleteSong`)
-- Mejorar modo play de setlist
+- ✅ Mejorar modo play de setlist (player completo con letras/acordes/autoscroll, navegación prev/next, teclado, deep linking)
 
 **Ubicación en documentación**:
 - `docs/estado-actual-app.md` (líneas 186-188)

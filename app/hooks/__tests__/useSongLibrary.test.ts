@@ -152,13 +152,13 @@ describe('useSongLibrary - deleteSong cascade', () => {
     const sl2Update = updateCalls.find((c: unknown[]) => c[0] === 'sl2')
 
     expect(sl1Update).toBeDefined()
-    expect(sl1Update[1]).toEqual({
+    expect(sl1Update![1]).toEqual({
       songIds: ['s2'],
       totalDuration: 180
     })
 
     expect(sl2Update).toBeDefined()
-    expect(sl2Update[1]).toEqual({
+    expect(sl2Update![1]).toEqual({
       songIds: [],
       totalDuration: 0
     })

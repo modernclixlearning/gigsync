@@ -136,8 +136,17 @@ describe('useTuner', () => {
     const { result } = renderHook(() => useTuner())
 
     const preset = {
+      id: 'guitar-standard',
       name: 'Standard',
-      notes: ['E', 'A', 'D', 'G', 'B', 'E'],
+      instrument: 'guitar' as const,
+      notes: [
+        { note: 'E' as const, octave: 2 },
+        { note: 'A' as const, octave: 2 },
+        { note: 'D' as const, octave: 3 },
+        { note: 'G' as const, octave: 3 },
+        { note: 'B' as const, octave: 3 },
+        { note: 'E' as const, octave: 4 },
+      ],
     }
 
     act(() => {
@@ -151,8 +160,17 @@ describe('useTuner', () => {
     const { result } = renderHook(() => useTuner())
 
     const preset = {
+      id: 'guitar-standard',
       name: 'Standard',
-      notes: ['E', 'A', 'D', 'G', 'B', 'E'],
+      instrument: 'guitar' as const,
+      notes: [
+        { note: 'E' as const, octave: 2 },
+        { note: 'A' as const, octave: 2 },
+        { note: 'D' as const, octave: 3 },
+        { note: 'G' as const, octave: 3 },
+        { note: 'B' as const, octave: 3 },
+        { note: 'E' as const, octave: 4 },
+      ],
     }
 
     act(() => {

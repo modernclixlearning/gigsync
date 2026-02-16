@@ -128,7 +128,7 @@ global.window.AudioContext = global.AudioContext
 
 // Mock navigator.mediaDevices.getUserMedia
 const mockGetUserMedia = vi.fn().mockResolvedValue(
-  new MockMediaStream([new MockMediaStreamTrack()])
+  new MockMediaStream([new MockMediaStreamTrack() as unknown as MediaStreamTrack])
 )
 
 Object.defineProperty(navigator, 'mediaDevices', {

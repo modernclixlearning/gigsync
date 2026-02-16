@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { cn } from '~/lib/utils'
+import { createSongSchema } from '~/lib/schemas'
 import { useSongLibrary } from '~/hooks/useSongs'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
@@ -31,9 +32,15 @@ function NewSongPage() {
 
   const handleSubmit = async () => {
     try {
-      const newId = await createSong(formData)
+      const validated = createSongSchema.parse(formData)
+      const newId = await createSong(validated)
       navigate(routeHelpers.song(newId))
     } catch (error) {
+      if (error instanceof Error && 'issues' in error) {
+        const zodError = error as import('zod').ZodError
+        alert(zodError.issues[0].message)
+        return
+      }
       console.error('Failed to create song:', error)
     }
   }

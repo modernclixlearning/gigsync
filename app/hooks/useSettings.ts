@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import type { AppSettings, DEFAULT_SETTINGS } from '~/types/profile'
+import type { AppSettings } from '~/types/profile'
+import { DEFAULT_SETTINGS } from '~/types/profile'
 
 export interface UseSettingsReturn {
   settings: AppSettings | null
