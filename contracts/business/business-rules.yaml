@@ -120,7 +120,7 @@ business_rules:
         - "Canciones reordenables via drag-and-drop (@dnd-kit)"
         - "Una cancion puede estar en multiples setlists"
         - "Eliminar cancion del setlist NO elimina la cancion"
-        - "Eliminar una cancion de la DB deberia actualizarse en setlists (TODO)"
+        - "Eliminar una cancion de la DB actualiza setlists (cascada)"
         - "totalDuration se recalcula al agregar/quitar/reordenar canciones"
 
     play_mode:

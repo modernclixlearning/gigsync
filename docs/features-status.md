@@ -330,10 +330,10 @@ Este documento consolida todas las features implementadas y pendientes de GigSyn
 ### 1. Setlist Management Mejoras ⚠️
 
 **Prioridad**: Media  
-**Estado**: Pendiente
+**Estado**: Parcialmente completo
 
 **Mejoras sugeridas**:
-- Eliminar canción de DB debería actualizarse en setlists (TODO mencionado)
+- ✅ Eliminar canción de DB actualiza setlists (cascada implementada en `deleteSong`)
 - Mejorar modo play de setlist
 
 **Ubicación en documentación**:

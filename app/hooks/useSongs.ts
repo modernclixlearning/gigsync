@@ -83,13 +83,36 @@ export function useSongLibrary(): UseSongLibraryReturn {
     }
   })
 
-  // Mutation: Delete song
+  // Mutation: Delete song (with cascade: remove from setlists and recalc totalDuration)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const song = await db.songs.get(id)
+      if (!song) {
+        throw new Error('Song not found')
+      }
+
+      // Cascade: update setlists that contain this song before deleting
+      const allSetlists = await db.setlists.toArray()
+      const affectedSetlists = allSetlists.filter((s) => s.songIds.includes(id))
+
+      for (const setlist of affectedSetlists) {
+        const newSongIds = setlist.songIds.filter((sid) => sid !== id)
+        const newDuration = Math.max(
+          0,
+          setlist.totalDuration - (song?.duration ?? 0)
+        )
+        await db.setlists.update(setlist.id, {
+          songIds: newSongIds,
+          totalDuration: newDuration
+        })
+      }
+
       await db.songs.delete(id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['songs'] })
+      queryClient.invalidateQueries({ queryKey: ['setlists'] })
+      queryClient.invalidateQueries({ queryKey: ['setlist'] })
     }
   })
 
