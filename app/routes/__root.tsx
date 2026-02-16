@@ -8,6 +8,7 @@ import {
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import appCss from "~/styles/globals.css?url";
+import { useThemeEffect } from "~/hooks/useThemeEffect";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -37,8 +38,14 @@ export const Route = createRootRouteWithContext<{
       },
     ],
   }),
+  component: RootComponent,
   shellComponent: RootDocument,
 });
+
+function RootComponent() {
+  useThemeEffect();
+  return <Outlet />;
+}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

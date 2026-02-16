@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* GigSync Design System - Custom CSS Variables */
 @theme {
   /* Primary Colors */
