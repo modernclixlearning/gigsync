@@ -29,6 +29,15 @@ export type { UseSetlistReturn } from './useSetlist'
 export { useSongLibrary, useSong, useSongPlayer } from './useSongs'
 export type { UseSongLibraryReturn, UseSongReturn, UseSongPlayerReturn } from './useSongs'
 
+export { useSongTimeline } from './useSongTimeline'
+export type { UseSongTimelineReturn, UseSongTimelineOptions } from './useSongTimeline'
+
+export { useBPMSync } from './useBPMSync'
+export type { UseBPMSyncReturn, UseBPMSyncOptions } from './useBPMSync'
+
+export { useSmartAutoScroll } from './useSmartAutoScroll'
+export type { UseSmartAutoScrollReturn, UseSmartAutoScrollOptions } from './useSmartAutoScroll'
+
 // Tuner Hooks
 export { useTuner } from './useTuner'
 export type { UseTunerReturn } from './useTuner'

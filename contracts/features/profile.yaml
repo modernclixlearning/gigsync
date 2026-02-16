@@ -1,0 +1,195 @@
+# contracts/features/profile.yaml
+type: feature
+version: "1.0.0"
+contract: profile
+
+metadata:
+  description: "Perfil de usuario y configuracion de la aplicacion"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../core/styles.yaml"
+    - "../business/business-rules.yaml"
+
+module:
+  name: "profile"
+  description: "Perfil del musico, preferencias y estadisticas"
+
+  structure:
+    routes:
+      - "app/routes/profile/index.tsx      # Profile view"
+      - "app/routes/profile/settings.tsx   # App settings"
+
+    components:
+      - "app/components/profile/ProfileForm.tsx           # Edit profile form"
+      - "app/components/profile/ProfileHeader.tsx         # Profile display header"
+      - "app/components/profile/ProfileStats.tsx          # Usage statistics"
+      - "app/components/profile/AppearanceSettings.tsx    # Theme, language"
+      - "app/components/profile/DataSettings.tsx          # Export, backup"
+      - "app/components/profile/MetronomeSettings.tsx     # Metronome defaults"
+      - "app/components/profile/PerformanceSettings.tsx   # Performance mode"
+      - "app/components/profile/PlayerSettings.tsx        # Player defaults"
+      - "app/components/profile/TunerSettings.tsx         # Tuner calibration"
+      - "app/components/profile/SettingsSection.tsx       # Reusable section wrapper"
+
+    hooks:
+      - "app/hooks/useProfile.ts      # Profile CRUD (localStorage)"
+      - "app/hooks/useSettings.ts     # Settings CRUD (localStorage)"
+      - "app/hooks/useStats.ts        # Usage statistics"
+      - "app/hooks/useOfflineSync.ts  # Cloud sync (TODO)"
+
+models:
+  UserProfile:
+    source: "app/types/profile.ts"
+    storage: "localStorage"
+    fields:
+      id: { type: "string" }
+      name: { type: "string", required: true }
+      instrument: { type: "Instrument", required: true, default: "Guitar" }
+      band: { type: "string", optional: true }
+      avatar: { type: "string", optional: true, description: "Base64 or local URL" }
+      createdAt: { type: "Date" }
+      updatedAt: { type: "Date" }
+
+  AppSettings:
+    source: "app/types/profile.ts"
+    storage: "localStorage"
+    fields:
+      id: { type: "string" }
+      theme: { type: "enum", values: ["light", "dark", "auto"], default: "auto" }
+      language: { type: "enum", values: ["es", "en"], default: "en" }
+      metronome: { type: "MetronomePreferences" }
+      tuner: { type: "TunerPreferences" }
+      performance: { type: "PerformancePreferences" }
+      player: { type: "PlayerPreferences" }
+      sync: { type: "SyncPreferences" }
+      updatedAt: { type: "Date" }
+
+  MetronomePreferences:
+    fields:
+      defaultBpm: { type: "number", default: 120 }
+      defaultTimeSignature: { type: "string", default: "4/4" }
+      sound: { type: "enum", values: ["classic", "woodblock", "sticks", "electronic", "silent"], default: "classic" }
+      volume: { type: "number", default: 80, range: "0-100" }
+      subdivisions: { type: "boolean", default: false }
+      accentFirst: { type: "boolean", default: true }
+
+  TunerPreferences:
+    fields:
+      calibration: { type: "number", default: 440, description: "A4 Hz" }
+      defaultTuning: { type: "string", default: "Standard" }
+      showFrequency: { type: "boolean", default: true }
+
+  PerformancePreferences:
+    fields:
+      fontSize: { type: "number", default: 100, range: "100-200", unit: "%" }
+      theme: { type: "enum", values: ["dark", "extreme-dark"], default: "dark" }
+      autoScrollSpeed: { type: "number", default: 5, range: "1-10" }
+      showChords: { type: "boolean", default: true }
+      showMetronome: { type: "boolean", default: true }
+
+  PlayerPreferences:
+    fields:
+      scrollBehavior: { type: "enum", values: ["auto", "manual"], default: "auto" }
+      scrollSensitivity: { type: "number", default: 5, range: "1-10" }
+      defaultZoom: { type: "number", default: 100, range: "100-200", unit: "%" }
+
+  SyncPreferences:
+    fields:
+      enableCloudBackup: { type: "boolean", default: false }
+      autoSync: { type: "boolean", default: false }
+      lastSyncDate: { type: "Date", optional: true }
+    status: "TODO - placeholder, sync not implemented"
+
+  UserStats:
+    source: "app/types/profile.ts"
+    fields:
+      totalSongs: { type: "number" }
+      totalSetlists: { type: "number" }
+      mostPlayedSong: { type: "{ id, title, playCount }", optional: true }
+      totalPracticeMinutes: { type: "number" }
+      lastSessionDate: { type: "Date", optional: true }
+    status: "TODO - currently hardcoded, needs IndexedDB aggregation"
+
+constants:
+  INSTRUMENTS:
+    source: "app/types/profile.ts"
+    values: ["Guitar", "Bass", "Vocals", "Drums", "Keyboard", "Piano", "Saxophone", "Trumpet", "Violin", "Cello", "Ukulele", "Other"]
+    type: "as const"
+
+  TUNINGS:
+    source: "app/types/profile.ts"
+    values: ["Standard", "Drop D", "Drop C", "Half Step Down", "Full Step Down", "Open G", "Open D", "DADGAD"]
+    type: "as const"
+
+  DEFAULT_PROFILE:
+    source: "app/types/profile.ts"
+    values:
+      name: ""
+      instrument: "Guitar"
+      band: ""
+
+  DEFAULT_SETTINGS:
+    source: "app/types/profile.ts"
+    description: "Complete default settings object with all sub-preferences"
+
+hooks:
+  useProfile:
+    location: "app/hooks/useProfile.ts"
+    description: "Profile CRUD with localStorage persistence"
+    storage: "localStorage"
+    returns:
+      - "profile: UserProfile"
+      - "isLoading: boolean"
+      - "error: Error | null"
+      - "updateProfile: (updates: Partial<UserProfile>) => void"
+      - "resetProfile: () => void"
+
+  useSettings:
+    location: "app/hooks/useSettings.ts"
+    description: "App settings with localStorage persistence"
+    storage: "localStorage"
+    returns:
+      - "settings: AppSettings"
+      - "isLoading: boolean"
+      - "updateSettings: (updates: Partial<AppSettings>) => void"
+      - "resetSettings: () => void"
+
+  useStats:
+    location: "app/hooks/useStats.ts"
+    description: "Usage statistics (TODO: calculate from IndexedDB)"
+    returns:
+      - "stats: UserStats"
+    todo: "Calculate real stats from songs and setlists in IndexedDB"
+
+  useOfflineSync:
+    location: "app/hooks/useOfflineSync.ts"
+    description: "Cloud sync placeholder"
+    todo: "Implement actual sync logic with cloud backend"
+
+routes:
+  profile:
+    path: "/profile"
+    features:
+      - "Profile header with avatar, name, instrument, band"
+      - "Usage statistics"
+      - "Link to settings"
+      - "Edit profile form"
+
+  settings:
+    path: "/profile/settings"
+    features:
+      - "Appearance: theme (light/dark/auto), language"
+      - "Metronome defaults: BPM, time signature, sound, volume"
+      - "Tuner: calibration, default tuning"
+      - "Performance mode: theme, font size, autoscroll, chords"
+      - "Player: scroll behavior, sensitivity, zoom"
+      - "Data: export, backup (TODO)"
+    note: "Settings page is very large (~9400 lines) - candidate for refactoring"
+
+testing:
+  coverage_focus:
+    - "Profile persistence to localStorage"
+    - "Settings defaults initialization"
+    - "Settings updates (partial and nested)"
+    - "Edge cases: corrupted localStorage, missing fields"

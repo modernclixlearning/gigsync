@@ -1,0 +1,228 @@
+# contracts/core/styles.yaml
+type: core
+version: "1.0.0"
+contract: styles-guidelines
+
+metadata:
+  description: "Guias de estilo visual y sistema de diseno de GigSync"
+  last_updated: "2025-02-16"
+
+design_system:
+  approach: "utility-first with CSS custom properties (design tokens)"
+  framework: "tailwindcss v4"
+  vite_plugin: "@tailwindcss/vite"
+  global_styles: "app/styles/globals.css"
+  class_merging: "cn() helper from app/lib/utils.ts (clsx + tailwind-merge)"
+  variant_system: "class-variance-authority (cva)"
+
+colors:
+  primary:
+    base: "#1337ec"
+    dark: "#0d2bb3"
+    light: "#4d5ff0"
+    foreground: "#ffffff"
+
+  backgrounds:
+    light:
+      primary: "#f6f6f8"
+      secondary: "#ffffff"
+      tertiary: "#f1f1f3"
+    dark:
+      primary: "#101322"
+      secondary: "#1a1f35"
+      tertiary: "#232948"
+    performance: "#05060b"  # Extreme dark for OLED/stage use
+
+  text:
+    light:
+      primary: "#0f172a"
+      secondary: "#64748b"
+    dark:
+      primary: "#ffffff"
+      secondary: "#929bc9"
+
+  borders:
+    light: "#e2e8f0"
+    dark: "#1e2235"
+
+  cards:
+    light: "#ffffff"
+    dark: "#111218"
+
+  semantic:
+    success: "#10b981"
+    error: "#ef4444"
+    warning: "#f59e0b"
+    info: "#3b82f6"
+
+  css_variable_pattern: "--color-[category]-[variant]"
+
+  rules:
+    - "Usar CSS custom properties definidas en @theme de globals.css"
+    - "NUNCA hardcodear colores en componentes"
+    - "Proveer modos claro, oscuro y performance"
+    - "Performance mode usa negro puro para OLED en escenario"
+
+typography:
+  fonts:
+    display:
+      family: "Spline Sans"
+      variable: "--font-display"
+      weights: [300, 400, 500, 600, 700]
+      fallback: "system-ui, sans-serif"
+      usage: "Todo el texto principal de la app"
+    tuner:
+      family: "Space Grotesk"
+      variable: "--font-tuner"
+      weights: [400, 500, 600, 700]
+      fallback: "monospace"
+      usage: "Afinador, frecuencias, datos numericos musicales"
+
+  loading: "Google Fonts via <link> en __root.tsx"
+
+  rules:
+    - "Usar font-display para texto general"
+    - "Usar font-tuner para datos numericos del afinador y metronomo"
+    - "Maximo 3 tamanos de fuente por vista"
+
+border_radius:
+  tokens:
+    sm: "0.25rem"
+    md: "0.5rem"
+    lg: "0.75rem"
+    xl: "1rem"
+    2xl: "1.5rem"
+    full: "9999px"
+  variable_pattern: "--radius-[size]"
+
+theme_system:
+  modes:
+    light:
+      selector: "default (no class)"
+      background: "var(--color-background-light)"
+      text: "var(--color-foreground-light)"
+    dark:
+      selector: ".dark class on html/body"
+      background: "var(--color-background-dark)"
+      text: "var(--color-foreground-dark)"
+    performance:
+      selector: ".performance-mode class"
+      background: "var(--color-background-performance)"
+      description: "Negro profundo para uso en escenario con pantallas OLED"
+
+  settings_integration:
+    general_theme: "'light' | 'dark' | 'auto'"
+    performance_theme: "'dark' | 'extreme-dark'"
+
+  rules:
+    - "Dark mode como modo principal (app para musicos en escenario)"
+    - "Performance mode para uso en vivo - contraste maximo"
+    - "Borders se aplican via * selector global en dark/light"
+
+component_styling:
+  approach: "Tailwind utility classes inline"
+  class_merging:
+    helper: "cn() from ~/lib/utils"
+    usage: |
+      import { cn } from '~/lib/utils'
+      <div className={cn('flex items-center', isActive && 'text-primary', className)} />
+
+  variants:
+    library: "class-variance-authority (cva)"
+    pattern: |
+      const buttonVariants = cva(
+        'inline-flex items-center justify-center rounded-md text-sm font-medium',
+        {
+          variants: {
+            variant: {
+              default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+              ghost: 'hover:bg-background-dark-secondary',
+            },
+            size: {
+              default: 'h-10 px-4 py-2',
+              sm: 'h-9 px-3',
+              lg: 'h-11 px-8',
+              icon: 'h-10 w-10',
+            },
+          },
+          defaultVariants: {
+            variant: 'default',
+            size: 'default',
+          },
+        }
+      )
+
+  rules:
+    - "Componer estilos con clases Tailwind, NO crear clases CSS custom"
+    - "Extraer COMPONENTES antes que clases CSS"
+    - "Usar cn() para combinar clases condicionales"
+    - "Usar cva() para variantes de componentes"
+    - "Aceptar className como prop para extension"
+
+layout:
+  approach: "Mobile-first responsive design"
+  target: "PWA standalone en dispositivos moviles"
+
+  breakpoints:
+    sm: "640px"
+    md: "768px"
+    lg: "1024px"
+
+  navigation:
+    type: "Bottom navigation bar (BottomNav)"
+    items: "Home, Setlists, Metronome, Tuner, Profile"
+    component: "app/components/navigation/BottomNav.tsx"
+
+  rules:
+    - "Mobile-first: disenar para movil, escalar a desktop"
+    - "Bottom nav siempre visible excepto en modo performance"
+    - "Contenido scrollable con padding inferior para nav"
+    - "Usar CSS Grid para layouts principales"
+    - "Flexbox para componentes y distribuciones simples"
+
+animations:
+  library: "framer-motion"
+  approach: "Sutiles y con proposito"
+
+  rules:
+    - "Respetar prefers-reduced-motion"
+    - "Animaciones cortas (< 300ms) para feedback UI"
+    - "Usar framer-motion para transiciones complejas"
+    - "CSS transitions para hover/focus simples"
+    - "60fps minimo"
+
+accessibility:
+  target: "WCAG AA"
+  color_contrast: "4.5:1 minimo para texto"
+  focus_indicators: "Visibles con ring-2 ring-offset-2"
+  touch_targets: "Minimo 44x44px"
+  keyboard_navigation: "Tab order logico"
+
+  rules:
+    - "aria-label para iconos sin texto"
+    - "Semantic HTML: <button> para acciones, <a> para navegacion"
+    - "Headings jerarquicos"
+    - "Performance mode: alto contraste para lectura en escenario oscuro"
+
+file_organization:
+  global_styles:
+    location: "app/styles/globals.css"
+    content:
+      - "@import 'tailwindcss'"
+      - "@theme { } block with CSS custom properties"
+      - "Base styles for body, dark mode, performance mode"
+
+  component_styles: "Tailwind classes inline en JSX"
+  no_css_modules: true
+  no_styled_components: true
+  no_separate_css_files: true
+
+best_practices:
+  - "Utility-first: componer estilos con clases Tailwind"
+  - "Extraer componentes antes que clases CSS customizadas"
+  - "Usar design tokens (CSS variables) para valores tematicos"
+  - "Consistencia sobre creatividad individual"
+  - "Responsive por defecto, mobile-first"
+  - "Dark mode como ciudadano de primera clase"
+  - "Performance mode para escenario como diferenciador"
+  - "Tailwind v4 usa @theme en lugar de tailwind.config.ts"

@@ -1,0 +1,201 @@
+# contracts/features/songs.yaml
+type: feature
+version: "1.0.0"
+contract: songs
+
+metadata:
+  description: "Gestion de canciones - CRUD, ChordPro, busqueda y filtrado"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../core/naming.yaml"
+    - "../data/database.yaml"
+    - "../business/business-rules.yaml"
+    - "../shared/domain-types.yaml"
+
+module:
+  name: "songs"
+  description: "Biblioteca de canciones con soporte ChordPro"
+
+  structure:
+    routes:
+      - "app/routes/index.tsx              # Song Library (home page)"
+      - "app/routes/songs.new.tsx           # Create new song"
+      - "app/routes/song.$songId.tsx        # Song layout wrapper"
+      - "app/routes/song.$songId.index.tsx  # Song player view"
+      - "app/routes/song.$songId.edit.tsx   # Edit song"
+
+    components:
+      library:
+        - "app/components/library/SongCard.tsx"
+        - "app/components/library/SongFilters.tsx"
+        - "app/components/library/SongSearch.tsx"
+      songs:
+        - "app/components/songs/SongForm.tsx"
+        - "app/components/songs/ChordProImporter.tsx"
+
+    hooks:
+      - "app/hooks/useSongLibrary.ts   # CRUD + filtering"
+      - "app/hooks/useSong.ts          # Single song operations"
+
+    types:
+      - "app/types/setlist.ts          # Song, Setlist interfaces"
+      - "app/types/song.ts             # CreateSongInput, UpdateSongInput, SongPlayerState, filters"
+
+    lib:
+      - "app/lib/chordpro/parser.ts       # ChordPro format parser"
+      - "app/lib/chordpro/types.ts        # Parser type definitions"
+      - "app/lib/chordpro/instrumental.ts # Instrumental section parsing"
+      - "app/lib/chordpro/transpose.ts    # Chord transposition"
+      - "app/lib/chordpro/index.ts        # Module exports"
+
+models:
+  Song:
+    source: "app/types/setlist.ts"
+    db_table: "songs"
+    fields:
+      id: { type: "string", pk: true, generated: "uuid v4" }
+      title: { type: "string", required: true, indexed: true }
+      artist: { type: "string", required: true, indexed: true }
+      bpm: { type: "number", required: true, indexed: true, default: 120 }
+      key: { type: "string", required: true, indexed: true, default: "C" }
+      timeSignature: { type: "string", required: true, default: "4/4" }
+      duration: { type: "number", required: true, default: 0 }
+      lyrics: { type: "string", required: true, description: "ChordPro format" }
+      tags: { type: "string[]", indexed: true, multi_entry: true }
+      lastPlayed: { type: "Date", optional: true }
+      timesPlayed: { type: "number", required: true, default: 0 }
+      notes: { type: "string", optional: true }
+      createdAt: { type: "Date", required: true, indexed: true }
+      updatedAt: { type: "Date", required: true }
+
+  CreateSongInput:
+    source: "app/types/song.ts"
+    fields:
+      title: { type: "string", required: true }
+      artist: { type: "string", required: true }
+      bpm: { type: "number", optional: true }
+      key: { type: "string", optional: true }
+      timeSignature: { type: "string", optional: true }
+      duration: { type: "number", optional: true }
+      lyrics: { type: "string", optional: true }
+      tags: { type: "string[]", optional: true }
+      notes: { type: "string", optional: true }
+
+  UpdateSongInput:
+    source: "app/types/song.ts"
+    description: "Same as CreateSongInput but all fields optional"
+
+  SongFilterOptions:
+    source: "app/types/song.ts"
+    fields:
+      filter: { type: "SongFilter", values: ["all", "recent", "favorites", "byKey", "byArtist"] }
+      searchQuery: { type: "string" }
+      selectedKey: { type: "string", optional: true }
+      selectedArtist: { type: "string", optional: true }
+      selectedTags: { type: "string[]", optional: true }
+
+hooks:
+  useSongLibrary:
+    location: "app/hooks/useSongLibrary.ts"
+    description: "CRUD operations and filtering for song library"
+    returns:
+      - "songs: Song[]"
+      - "isLoading: boolean"
+      - "error: Error | null"
+      - "createSong: (input: CreateSongInput) => Promise<string>"
+      - "updateSong: (id: string, input: UpdateSongInput) => Promise<void>"
+      - "deleteSong: (id: string) => Promise<void>"
+      - "filterSongs: (options: SongFilterOptions) => Song[]"
+
+  useSong:
+    location: "app/hooks/useSong.ts"
+    description: "Single song operations"
+    params: "songId: string"
+    returns:
+      - "song: Song | null"
+      - "isLoading: boolean"
+      - "error: Error | null"
+
+chordpro:
+  parser:
+    location: "app/lib/chordpro/parser.ts"
+    input: "string (raw ChordPro text)"
+    output: "ParsedSong"
+    features:
+      - "Parse directives: {title}, {artist}, {key}, {tempo}, {capo}, {time}"
+      - "Parse section headers: [Verse], [Chorus], [Bridge]"
+      - "Parse inline chords: [Am]text[G]more text"
+      - "Parse chord-only lines: | Am | G | C | F |"
+      - "Parse instrumental sections: [Intro | 4 bars]"
+      - "Detect empty lines for visual spacing"
+
+  transpose:
+    location: "app/lib/chordpro/transpose.ts"
+    features:
+      - "Transpose by semitones (-12 to +12)"
+      - "Maintain chord quality (major, minor, 7th, etc.)"
+      - "Handle enharmonic equivalents"
+      - "Transpose bass notes in slash chords"
+
+  instrumental:
+    location: "app/lib/chordpro/instrumental.ts"
+    features:
+      - "Parse bar notation: [Intro | 4 bars]"
+      - "Extract chord bars from instrumental sections"
+      - "Support repeat counts"
+
+  types:
+    location: "app/lib/chordpro/types.ts"
+    key_types:
+      - "AnyParsedLine (discriminated union: section | instrumental | lyric | chords-only | directive | empty)"
+      - "ParsedSong { directives, lines }"
+      - "ChordProDirectives { title, artist, key, tempo, timeSignature, capo, ... }"
+      - "InstrumentalSection { name, type, bars, chordBars, repeatCount }"
+      - "ParsedChord { root, accidental, suffix, bass }"
+      - "SectionType union type"
+
+routes:
+  home:
+    path: "/"
+    component: "Song Library"
+    features:
+      - "Search bar for title/artist"
+      - "Filter chips (all, recent, favorites, by key, by artist)"
+      - "Song cards grid/list"
+      - "FAB to create new song"
+      - "Tap song card to open player"
+
+  create:
+    path: "/songs/new"
+    features:
+      - "Song form with title, artist, bpm, key, time signature"
+      - "Lyrics editor (ChordPro format)"
+      - "ChordPro import button"
+      - "Tag editor"
+      - "Save button"
+
+  view:
+    path: "/song/$songId"
+    features:
+      - "Lyrics display with chord overlay"
+      - "Player controls (play/pause, autoscroll)"
+      - "Transpose controls"
+      - "Font size adjustment"
+      - "Edit button"
+
+  edit:
+    path: "/song/$songId/edit"
+    features:
+      - "Same as create form, pre-filled with song data"
+      - "Save and delete buttons"
+
+testing:
+  tests:
+    - "app/lib/chordpro/__tests__/parser.test.ts    # Parser unit tests"
+    - "app/hooks/__tests__/ (song hooks)"
+  coverage_focus:
+    - "ChordPro parser with all section types"
+    - "Transpose correctness"
+    - "Filter combinations"
+    - "Edge cases: empty lyrics, invalid chords, special characters"

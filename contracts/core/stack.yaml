@@ -1,0 +1,196 @@
+# contracts/core/stack.yaml
+type: core
+version: "1.0.0"
+contract: stack
+
+metadata:
+  description: "Stack tecnologico de GigSync"
+  last_updated: "2025-02-16"
+  owner: "gigsync-team"
+
+project:
+  name: "gigsync"
+  version: "0.1.0"
+  type: "module"
+  private: true
+  side_effects: false
+  description: "PWA offline-first para musicos - gestion de canciones, setlists, metronomo y afinador"
+  language: "es"
+
+stack:
+  runtime:
+    node_version: "20.x"
+    package_manager: "npm"
+
+  framework:
+    primary: "tanstack-start"
+    version: "^1.157.17"
+    description: "Full-stack SSR React framework"
+    src_directory: "app"
+
+    router:
+      name: "@tanstack/react-router"
+      version: "^1.157.17"
+      strategy: "file-based"
+      features:
+        - "Type-safe routes"
+        - "SSR Query integration"
+        - "Intent-based preloading"
+        - "Scroll restoration"
+      query_config:
+        stale_time: "5 minutes"
+        gc_time: "30 minutes"
+        default_preload: "intent"
+
+    server_state:
+      name: "@tanstack/react-query"
+      version: "^5.90.20"
+      purpose: "Server state management and caching"
+      ssr_integration: "@tanstack/react-router-ssr-query"
+
+  ui:
+    react:
+      version: "^19.0.0"
+      jsx: "react-jsx"
+
+    styling:
+      framework: "tailwindcss"
+      version: "^4.1.18"
+      vite_plugin: "@tailwindcss/vite"
+      approach: "utility-first with CSS variables"
+      class_merging:
+        - "clsx: ^2.1.1"
+        - "tailwind-merge: ^2.6.0"
+      variants: "class-variance-authority: ^0.7.1"
+
+    icons: "lucide-react: ^0.469.0"
+    animations: "framer-motion: ^11.15.0"
+
+    drag_and_drop:
+      core: "@dnd-kit/core: ^6.3.1"
+      sortable: "@dnd-kit/sortable: ^10.0.0"
+      utilities: "@dnd-kit/utilities: ^3.2.2"
+
+  database:
+    type: "IndexedDB (offline-first)"
+    orm: "dexie"
+    version: "^4.0.10"
+    hooks: "dexie-react-hooks: ^1.1.7"
+    name: "gigsync"
+    no_server_database: true
+    tables:
+      songs:
+        indexes: "id, title, artist, bpm, key, *tags, createdAt"
+      setlists:
+        indexes: "id, name, venue, date, createdAt"
+
+  audio:
+    synthesis:
+      name: "tone"
+      version: "^15.0.4"
+      purpose: "Metronome, sound synthesis, Web Audio API"
+    pitch_detection:
+      name: "pitchfinder"
+      version: "^2.3.4"
+      purpose: "Chromatic tuner pitch detection"
+    web_audio_api: "Feature detection and cross-browser compatibility"
+
+  validation:
+    library: "zod"
+    version: "^3.24.2"
+    purpose: "Schema validation and runtime type checking"
+
+  utilities:
+    uuid:
+      name: "uuid"
+      version: "^11.0.4"
+      purpose: "Unique ID generation for songs, setlists"
+
+  build:
+    bundler: "vite"
+    version: "^7.3.1"
+    server: "nitro: 3.0.1-alpha.2"
+    typescript: "^5.7.2"
+    dev_port: 3000
+    plugins:
+      - "tailwindcss()"
+      - "vite-tsconfig-paths"
+      - "tanstackStart({ srcDirectory: 'app' })"
+      - "viteReact()"
+      - "nitro()"
+    build_command: "vite build && tsc --noEmit"
+
+  testing:
+    runner: "vitest"
+    version: "^2.1.8"
+    environment: "jsdom: ^25.0.1"
+    ui: "@vitest/ui: ^2.1.8"
+    component_testing: "@testing-library/react: ^16.1.0"
+    dom_matchers: "@testing-library/jest-dom: ^6.6.3"
+    user_events: "@testing-library/user-event: ^14.5.2"
+    coverage_provider: "v8"
+    setup_file: "./tests/setup.ts"
+    test_pattern: "**/__tests__/**/*.{test,spec}.{ts,tsx}"
+    globals: true
+
+  typescript:
+    version: "^5.7.2"
+    strict: true
+    target: "ES2022"
+    module: "ESNext"
+    module_resolution: "Bundler"
+    jsx: "react-jsx"
+    no_emit: true
+    path_aliases:
+      "~/*": "./app/*"
+
+  pwa:
+    manifest: "public/manifest.json"
+    standalone: true
+    background_color: "#101322"
+    theme_color: "#1337ec"
+    language: "es"
+    icons:
+      - "192x192 (maskable)"
+      - "512x512 (maskable)"
+
+scripts:
+  dev: "vite dev"
+  build: "vite build && tsc --noEmit"
+  preview: "vite preview"
+  start: "node .output/server/index.mjs"
+  test: "vitest run"
+  test_watch: "vitest"
+  test_ui: "vitest --ui"
+  test_coverage: "vitest run --coverage"
+
+directory_structure:
+  app:
+    components: "React components organized by feature domain"
+    hooks: "Custom React hooks (feature-organized)"
+    lib: "Utility libraries and engines (chordpro, timeline, audio, db)"
+    routes: "TanStack Router file-based routes"
+    styles: "Global CSS with Tailwind and design tokens"
+    types: "Centralized TypeScript type definitions"
+  tests:
+    setup: "Vitest global setup and mocks"
+    mocks: "Test mocks"
+    utils: "Test utilities"
+  public: "Static assets, PWA manifest, icons"
+  docs: "Project documentation"
+
+constraints:
+  - "Todas las dependencias deben tener versiones explicitas con ^"
+  - "Usar solo dependencias activamente mantenidas"
+  - "Preferir dependencias con TypeScript nativo"
+  - "Offline-first: la app debe funcionar sin conexion a internet"
+  - "No hay backend server - todo es local con IndexedDB"
+  - "PWA-ready: manifest y service worker configurados"
+  - "SSR con TanStack Start pero datos locales via Dexie"
+  - "Tree-shakeable: sideEffects false en package.json"
+
+dependencies:
+  references:
+    - "naming.yaml"
+    - "styles.yaml"
+    - "git-strategy.yaml"

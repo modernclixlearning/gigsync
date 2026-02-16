@@ -1,0 +1,244 @@
+# contracts/core/naming.yaml
+type: core
+version: "1.0.0"
+contract: naming-conventions
+
+metadata:
+  description: "Convenciones de nomenclatura de GigSync"
+  last_updated: "2025-02-16"
+
+general:
+  code_language: "english"
+  comments_language: "spanish"
+  documentation_language: "spanish"
+  casing_default: "camelCase"
+
+  prohibited_terms:
+    - "data"      # Demasiado generico
+    - "info"      # Demasiado generico
+    - "manager"   # Antipatron
+    - "helper"    # Antipatron
+    - "utils"     # Antipatron - usar nombres especificos (excepcion: lib/utils.ts para cn())
+
+files:
+  components:
+    pattern: "PascalCase.tsx"
+    location: "app/components/[feature]/"
+    examples:
+      - "SongCard.tsx"
+      - "BPMControl.tsx"
+      - "TunerNeedle.tsx"
+      - "SetlistForm.tsx"
+    colocated_tests: "app/components/[feature]/__tests__/Component.test.tsx"
+
+  hooks:
+    pattern: "camelCase con prefijo 'use'"
+    location: "app/hooks/"
+    examples:
+      - "useMetronome.ts"
+      - "useSongLibrary.ts"
+      - "useSmartAutoScroll.ts"
+      - "useTapTempo.ts"
+    colocated_tests: "app/hooks/__tests__/useHook.test.ts"
+
+  routes:
+    pattern: "TanStack Router file-based conventions"
+    location: "app/routes/"
+    examples:
+      - "__root.tsx          # Root layout"
+      - "index.tsx           # Home page (/)"
+      - "metronome.tsx       # Static route (/metronome)"
+      - "song.$songId.tsx    # Dynamic param layout"
+      - "song.$songId.edit.tsx  # Nested dynamic route"
+      - "setlists/index.tsx  # Directory index route"
+
+  library_modules:
+    pattern: "camelCase.ts"
+    location: "app/lib/"
+    examples:
+      - "db.ts"
+      - "routes.ts"
+      - "utils.ts"
+    subdirectories:
+      - "chordpro/    # parser.ts, types.ts, instrumental.ts, transpose.ts"
+      - "timeline/    # calculator.ts, utils.ts"
+      - "audio/       # webAudioUtils.ts"
+
+  types:
+    pattern: "camelCase.ts (domain name)"
+    location: "app/types/"
+    examples:
+      - "profile.ts"
+      - "setlist.ts"
+      - "song.ts"
+      - "tuner.ts"
+      - "timeline.ts"
+      - "index.ts     # Re-exports"
+
+  styles:
+    pattern: "camelCase.css"
+    location: "app/styles/"
+    examples:
+      - "globals.css"
+
+  tests:
+    pattern: "mismo nombre + .test.ts(x)"
+    location: "Colocated en __tests__/ junto al source"
+    examples:
+      - "BPMControl.test.tsx"
+      - "PlayerControls.test.tsx"
+      - "parser.test.ts"
+      - "calculator.test.ts"
+
+code:
+  variables:
+    pattern: "camelCase descriptivo"
+    rules:
+      - "Nombres completos, no abreviaturas"
+      - "Booleanos con prefijo is/has/should/can"
+      - "Arrays en plural"
+      - "Funciones con verbos"
+    examples:
+      good:
+        - "const songTitle = 'My Song'"
+        - "const isPlaying = true"
+        - "const selectedTags = []"
+        - "function fetchSongs() {}"
+      bad:
+        - "const sng = 'My Song'"
+        - "const playing = true"
+        - "const tag = []"
+        - "function data() {}"
+
+  functions:
+    pattern: "camelCase con verbo"
+    prefixes:
+      queries: ["get", "fetch", "find", "search", "list"]
+      mutations: ["create", "update", "delete", "remove", "add"]
+      validations: ["validate", "check", "verify", "ensure"]
+      transformations: ["format", "transform", "convert", "parse", "transpose"]
+      handlers: ["handle", "on"]
+      calculations: ["calculate", "compute"]
+    examples:
+      - "getSongById(id: string)"
+      - "createSetlist(data: CreateSetlistInput)"
+      - "parseChordPro(text: string)"
+      - "transposeChord(chord: string, semitones: number)"
+      - "handleSubmit(event: FormEvent)"
+      - "calculateTimeline(song: ParsedSong)"
+
+  interfaces:
+    pattern: "PascalCase sustantivo, sin prefijo I"
+    examples:
+      good:
+        - "interface Song {}"
+        - "interface PitchInfo {}"
+        - "interface TimelineElement {}"
+      bad:
+        - "interface ISong {}"
+
+  types:
+    pattern: "PascalCase"
+    suffixes:
+      props: "Props"
+      state: "State"
+      input: "Input"
+      options: "Options"
+      filter: "Filter | FilterOptions"
+    examples:
+      - "type SongPlayerState = {}"
+      - "type CreateSongInput = {}"
+      - "type SongFilterOptions = {}"
+      - "type NoteName = 'C' | 'C#' | ..."
+      - "type SectionType = 'verse' | 'chorus' | ..."
+
+  enums:
+    pattern: "Preferir union types sobre enums"
+    examples:
+      good:
+        - "type SongFilter = 'all' | 'recent' | 'favorites'"
+        - "type SectionType = 'verse' | 'chorus' | 'bridge'"
+      avoid:
+        - "enum SongFilter { All, Recent }"
+
+  constants:
+    pattern: "SCREAMING_SNAKE_CASE o PascalCase para objetos/arrays"
+    examples:
+      - "const ROUTES = { HOME: '/', ... } as const"
+      - "const INSTRUMENTS = ['Guitar', 'Bass', ...] as const"
+      - "const DEFAULT_SETTINGS: AppSettings = { ... }"
+      - "const DEFAULT_CALIBRATION: CalibrationSettings = { ... }"
+      - "const DEFAULT_TUNING_PRESETS: TuningPreset[] = [...]"
+
+  react_components:
+    pattern: "PascalCase, function declaration o arrow function"
+    props:
+      naming: "ComponentNameProps"
+      definition: "interface o type"
+    examples:
+      - "export function SongCard({ song }: SongCardProps) {}"
+      - "export function BPMControl({ bpm, onChange }: BPMControlProps) {}"
+
+  hooks_return:
+    pattern: "Objeto con propiedades descriptivas"
+    standard_returns:
+      query_hooks: "{ data, isLoading, error, ...mutations }"
+      state_hooks: "{ state, isLoading, error, updateFn, resetFn }"
+      audio_hooks: "{ isActive, isListening, start, stop, error }"
+
+routes:
+  constants:
+    location: "app/lib/routes.ts"
+    pattern: "ROUTES object + routeHelpers functions"
+    examples:
+      static: "ROUTES.HOME, ROUTES.METRONOME, ROUTES.TUNER"
+      dynamic: "routeHelpers.song(songId), routeHelpers.setlistPlay(setlistId)"
+
+  path_params:
+    pattern: "$paramName (TanStack Router convention)"
+    examples:
+      - "$songId"
+      - "$setlistId"
+
+css:
+  custom_properties:
+    pattern: "--color-[semantic]-[variant]"
+    examples:
+      - "--color-primary"
+      - "--color-primary-dark"
+      - "--color-background-dark-secondary"
+      - "--color-foreground-light"
+      - "--radius-md"
+      - "--font-display"
+
+  tailwind_classes:
+    approach: "Utility-first, compose with cn() helper"
+    example: "cn('flex items-center gap-2', isActive && 'text-primary', className)"
+
+git:
+  branches:
+    pattern: "[type]/[description]"
+    types: ["feature", "bugfix", "hotfix", "refactor", "docs", "chore"]
+    examples:
+      - "feature/smart-autoscroll"
+      - "bugfix/infinite-rerender-loop"
+      - "chore/update-dependencies"
+
+  commits:
+    pattern: "type(scope): description"
+    types: ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf"]
+    language: "English preferred, Spanish acceptable"
+    examples:
+      - "feat(player): implement smart autoscroll with BPM sync"
+      - "fix(hooks): resolve infinite re-render loop in autoscroll"
+      - "test(timeline): add comprehensive tests for calculator"
+
+validation:
+  rules:
+    - "Los nombres deben ser autoexplicativos"
+    - "Evitar abreviaturas excepto universales (ID, URL, API, BPM, Hz)"
+    - "Preferir nombres completos sobre cortos"
+    - "Mantener consistencia dentro del mismo modulo"
+    - "Nombres de dominio musical: Song, Setlist, Chord, Bar, Beat, Tempo, Key"
+    - "Usar 'as const' para arrays y objetos constantes"
+    - "Exportar tipos derivados con typeof cuando aplique"

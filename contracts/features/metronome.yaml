@@ -1,0 +1,154 @@
+# contracts/features/metronome.yaml
+type: feature
+version: "1.0.0"
+contract: metronome
+
+metadata:
+  description: "Metronomo con Tone.js, tap tempo y visualizacion de beats"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../business/business-rules.yaml"
+
+module:
+  name: "metronome"
+  description: "Metronomo digital con multiples sonidos y tap tempo"
+
+  structure:
+    routes:
+      - "app/routes/metronome.tsx  # Metronome page"
+
+    components:
+      - "app/components/metronome/BPMControl.tsx              # BPM +/- and display"
+      - "app/components/metronome/MetronomeDisplay.tsx         # Main display"
+      - "app/components/metronome/SoundSelector.tsx            # Sound type picker"
+      - "app/components/metronome/TapTempo.tsx                 # Tap tempo button"
+      - "app/components/metronome/TimeSignatureSelector.tsx    # Time signature picker"
+      - "app/components/metronome/VisualBeat.tsx               # Visual beat indicator"
+
+    hooks:
+      - "app/hooks/useMetronome.ts  # Metronome audio engine"
+      - "app/hooks/useTapTempo.ts   # Tap tempo calculation"
+
+    lib:
+      - "app/lib/audio/webAudioUtils.ts  # Web Audio API compatibility"
+
+models:
+  MetronomePreferences:
+    source: "app/types/profile.ts"
+    fields:
+      defaultBpm: { type: "number", default: 120, range: "20-300" }
+      defaultTimeSignature: { type: "string", default: "4/4" }
+      sound: { type: "enum", values: ["classic", "woodblock", "sticks", "electronic", "silent"], default: "classic" }
+      volume: { type: "number", default: 80, range: "0-100" }
+      subdivisions: { type: "boolean", default: false }
+      accentFirst: { type: "boolean", default: true }
+
+hooks:
+  useMetronome:
+    location: "app/hooks/useMetronome.ts"
+    description: "Metronome audio engine using Tone.js"
+    audio_library: "Tone.js (Web Audio API)"
+    returns:
+      - "isPlaying: boolean"
+      - "bpm: number"
+      - "currentBeat: number"
+      - "timeSignature: string"
+      - "start: () => void"
+      - "stop: () => void"
+      - "setBpm: (bpm: number) => void"
+      - "setTimeSignature: (ts: string) => void"
+      - "setSound: (sound: string) => void"
+      - "setVolume: (volume: number) => void"
+    rules:
+      - "Tone.js Transport for precise timing"
+      - "Accent first beat when accentFirst is true"
+      - "Support subdivisions (8th notes in 4/4)"
+      - "Handle AudioContext state (suspended/running)"
+      - "Clean up Tone.js resources on unmount"
+
+  useTapTempo:
+    location: "app/hooks/useTapTempo.ts"
+    description: "Calculate BPM from user tap intervals"
+    returns:
+      - "tap: () => void"
+      - "calculatedBpm: number | null"
+      - "tapCount: number"
+      - "reset: () => void"
+    algorithm:
+      - "Record timestamp of each tap"
+      - "Calculate intervals between consecutive taps"
+      - "Average intervals to determine BPM"
+      - "Minimum 2 taps required"
+      - "Reset if gap > 3 seconds between taps"
+      - "Round to nearest integer BPM"
+
+components:
+  BPMControl:
+    description: "Large BPM display with +/- buttons"
+    features:
+      - "Large numeric display of current BPM"
+      - "+1 / -1 buttons"
+      - "+5 / -5 buttons (or long press)"
+      - "BPM range enforcement: 20-300"
+
+  MetronomeDisplay:
+    description: "Main metronome display area"
+    features:
+      - "Current BPM"
+      - "Time signature display"
+      - "Visual beat indicator"
+      - "Play/Stop button"
+
+  SoundSelector:
+    description: "Metronome click sound picker"
+    features:
+      - "Radio/chip selector for sound types"
+      - "Preview sound on selection"
+      - "Options: classic, woodblock, sticks, electronic, silent"
+
+  TapTempo:
+    description: "Large tap button for BPM detection"
+    features:
+      - "Large touch target (44px+)"
+      - "Visual feedback on tap"
+      - "Display detected BPM"
+      - "Auto-apply to metronome"
+
+  TimeSignatureSelector:
+    description: "Time signature picker"
+    features:
+      - "Common time signatures: 2/4, 3/4, 4/4, 5/4, 6/8, 7/8"
+      - "Visual representation"
+
+  VisualBeat:
+    description: "Visual indicator of current beat"
+    features:
+      - "Dot/circle per beat in bar"
+      - "Highlight current beat"
+      - "Accent indicator on first beat"
+      - "Animate with tempo"
+
+audio:
+  engine: "Tone.js"
+  context: "Web Audio API via Tone.js Transport"
+  compatibility: "Feature detection in webAudioUtils.ts"
+
+  web_audio_utils:
+    location: "app/lib/audio/webAudioUtils.ts"
+    functions:
+      - "isWebAudioAPISupported(): boolean"
+      - "isGetUserMediaSupported(): boolean"
+      - "createAudioContext(): AudioContext"
+      - "getUserMedia(constraints): Promise<MediaStream>"
+    error_handling: "User-friendly error messages for permission/compatibility issues"
+
+testing:
+  tests:
+    - "app/components/metronome/__tests__/BPMControl.test.tsx"
+    - "app/hooks/__tests__/useTapTempo.test.ts"
+  coverage_focus:
+    - "Tap tempo calculation accuracy"
+    - "BPM range enforcement"
+    - "Component interactions"
+    - "Edge cases: rapid taps, very slow taps, single tap"

@@ -1,218 +1,214 @@
-¡Totalmente! Tienes razón, falta el **Profile/Settings**.
-
-## Sección de Profile/Settings
+## Seccion de Profile/Settings
 
 ### Datos del Perfil
 
 ```typescript
+// app/types/profile.ts
+
 interface UserProfile {
-  id: string;
-  name: string;
-  instrument: string; // "Guitar", "Bass", "Vocals", etc.
-  band?: string;
-  avatar?: string; // Base64 o URL local
-  createdAt: Date;
+  id: string
+  name: string
+  instrument: string    // "Guitar", "Bass", "Vocals", etc.
+  band?: string
+  avatar?: string       // Base64 o URL local
+  createdAt: Date
+  updatedAt: Date
 }
 
 interface AppSettings {
-  // Preferencias Generales
-  theme: 'light' | 'dark' | 'auto';
-  language: 'es' | 'en';
-  
-  // Metronomo
-  defaultBpm: number;
-  defaultTimeSignature: string;
-  metronomeSound: 'classic' | 'woodblock' | 'sticks' | 'electronic' | 'silent';
-  metronomeVolume: number; // 0-100
-  subdivisions: boolean;
-  
-  // Afinador
-  tunerCalibration: number; // A4 Hz (default 440)
-  defaultTuning: string; // "Standard", "Drop D", etc.
-  
-  // Player/Performance
-  performanceMode: {
-    fontSize: number; // 100-200%
-    theme: 'dark' | 'extreme-dark';
-    autoScrollSpeed: number; // 1-10
-    showChords: boolean;
-    showMetronome: boolean;
-  };
-  
-  // Scroll
-  scrollBehavior: 'auto' | 'manual';
-  scrollSensitivity: number;
-  
-  // Datos y Sync
-  enableCloudBackup: boolean;
-  autoSync: boolean;
-  lastSyncDate?: Date;
+  id: string
+  theme: 'light' | 'dark' | 'auto'
+  language: 'es' | 'en'
+  metronome: MetronomePreferences
+  tuner: TunerPreferences
+  performance: PerformancePreferences
+  player: PlayerPreferences
+  sync: SyncPreferences
+  updatedAt: Date
+}
+
+interface MetronomePreferences {
+  defaultBpm: number            // 20-300, default 120
+  defaultTimeSignature: string  // default "4/4"
+  sound: 'classic' | 'woodblock' | 'sticks' | 'electronic' | 'silent'
+  volume: number                // 0-100, default 80
+  subdivisions: boolean         // default false
+  accentFirst: boolean          // default true
+}
+
+interface TunerPreferences {
+  calibration: number           // A4 Hz, default 440
+  defaultTuning: string         // "Standard", "Drop D", etc.
+  showFrequency: boolean        // default true
+}
+
+interface PerformancePreferences {
+  fontSize: number              // 100-200%, default 100
+  theme: 'dark' | 'extreme-dark'
+  autoScrollSpeed: number       // 1-10, default 5
+  showChords: boolean           // default true
+  showMetronome: boolean        // default true
+}
+
+interface PlayerPreferences {
+  scrollBehavior: 'auto' | 'manual'
+  scrollSensitivity: number     // 1-10, default 5
+  defaultZoom: number           // 100-200%, default 100
+}
+
+interface SyncPreferences {
+  enableCloudBackup: boolean    // default false
+  autoSync: boolean             // default false
+  lastSyncDate?: Date
 }
 ```
 
-### Estructura Actualizada
+### Almacenamiento
+
+Profile y Settings se almacenan en **localStorage** (no en IndexedDB):
+- `useProfile` hook para CRUD del perfil
+- `useSettings` hook para CRUD de settings
+- Se inicializan con `DEFAULT_PROFILE` y `DEFAULT_SETTINGS` al primer uso
+- Ver constantes en `app/types/profile.ts`
+
+### Estructura de Rutas
 
 ```
-app/
-├── routes/
-│   ├── index.tsx              # Dashboard/Biblioteca
-│   ├── song.$id.tsx           # Reproductor
-│   ├── song.$id.edit.tsx      # Editor
-│   ├── metronome.tsx          # Metronomo
-│   ├── tuner.tsx              # Afinador
-│   ├── performance.tsx        # Modo escenario
-│   ├── setlists/
-│   │   ├── index.tsx
-│   │   └── $id.tsx
-│   └── profile/               # 👈 NUEVO
-│       ├── index.tsx          # Vista general del perfil
-│       └── settings.tsx       # Configuración detallada
+app/routes/
+└── profile/
+    ├── index.tsx          # Vista general del perfil
+    └── settings.tsx       # Configuracion detallada
 ```
 
-### Pantallas de Profile
+### Componentes
+
+```
+app/components/profile/
+├── ProfileForm.tsx           # Formulario de edicion de perfil
+├── ProfileHeader.tsx         # Header con avatar, nombre, instrumento
+├── ProfileStats.tsx          # Estadisticas de uso
+├── AppearanceSettings.tsx    # Tema, idioma
+├── DataSettings.tsx          # Exportar, backup
+├── MetronomeSettings.tsx     # Defaults del metronomo
+├── PerformanceSettings.tsx   # Modo performance
+├── PlayerSettings.tsx        # Defaults del reproductor
+├── TunerSettings.tsx         # Calibracion del afinador
+└── SettingsSection.tsx       # Wrapper reutilizable de seccion
+```
+
+### Pantallas
 
 **1. `/profile` - Vista General**
 - Foto de perfil
 - Nombre
 - Instrumento principal
 - Banda (opcional)
-- Estadísticas:
+- Estadisticas:
   - Total de canciones en biblioteca
-  - Canción más tocada
+  - Cancion mas tocada
   - Total de setlists
-  - Horas de práctica (si implementamos tracking)
-  - Última sesión
+  - Minutos de practica
+  - Ultima sesion
 
-**2. `/profile/settings` - Configuración**
+**2. `/profile/settings` - Configuracion**
 
-Organizada en secciones:
+Organizada en secciones con `SettingsSection` wrapper:
 
 **Perfil**
 - Editar nombre
-- Cambiar instrumento
+- Cambiar instrumento (lista predefinida: Guitar, Bass, Vocals, Drums, Keyboard, Piano, Saxophone, Trumpet, Violin, Cello, Ukulele, Other)
 - Banda
 - Foto de perfil
 
 **Apariencia**
 - Tema general (Light/Dark/Auto)
-- Idioma
+- Idioma (ES/EN)
 
 **Metronomo**
-- BPM por defecto
-- Compás por defecto
+- BPM por defecto (20-300)
+- Compas por defecto
 - Sonido preferido
-- Volumen
+- Volumen (0-100)
 - Activar subdivisiones
+- Acento en primer tiempo
 
 **Afinador**
-- Calibración A4
-- Afinación por defecto
+- Calibracion A4 (420-460 Hz)
+- Afinacion por defecto
 - Mostrar frecuencia en Hz
 
 **Modo Performance**
 - Tema (Dark/Extreme Dark)
-- Tamaño de fuente (slider 100-200%)
-- Velocidad de scroll automático
+- Tamano de fuente (100-200%)
+- Velocidad de autoscroll (1-10)
 - Mostrar acordes
-- Mostrar metrónomo visual
+- Mostrar metronomo visual
 
 **Reproductor**
 - Comportamiento de scroll (Auto/Manual)
-- Sensibilidad de scroll
-- Zoom por defecto
+- Sensibilidad de scroll (1-10)
+- Zoom por defecto (100-200%)
 
 **Datos y Privacidad**
-- Habilitar backup en la nube (futuro)
-- Auto-sincronización
-- Exportar todos los datos (JSON)
-- Importar datos
-- Borrar todos los datos (con confirmación)
+- Habilitar backup en la nube (TODO)
+- Auto-sincronizacion (TODO)
+- Exportar todos los datos JSON (TODO)
+- Importar datos (TODO)
+- Borrar todos los datos (con confirmacion)
 
-**Acerca de**
-- Versión de la app
-- Créditos
-- Términos y condiciones
-- Política de privacidad
-
-### Componente de Navegación Actualizado
+### Hooks
 
 ```typescript
-// Navigation con Profile
-const navItems = [
-  { icon: Library, label: 'Biblioteca', href: '/' },
-  { icon: Music, label: 'Setlists', href: '/setlists' },
-  { icon: Metronome, label: 'Metronomo', href: '/metronome' },
-  { icon: Tuner, label: 'Afinador', href: '/tuner' },
-  { icon: User, label: 'Perfil', href: '/profile' }, // 👈 NUEVO
-];
-```
-
-### Schema IndexedDB Actualizado
-
-```typescript
-// Añadir a la base de datos
-interface UserProfile {
-  id: 'profile'; // Singleton
-  name: string;
-  instrument: string;
-  band?: string;
-  avatar?: string;
-  createdAt: Date;
-  updatedAt: Date;
+// app/hooks/useProfile.ts
+function useProfile() {
+  return {
+    profile: UserProfile,
+    isLoading: boolean,
+    error: Error | null,
+    updateProfile: (updates: Partial<UserProfile>) => void,
+    resetProfile: () => void,
+  }
 }
 
-interface AppSettings {
-  id: 'settings'; // Singleton
-  theme: 'light' | 'dark' | 'auto';
-  language: 'es' | 'en';
-  metronome: {
-    defaultBpm: number;
-    defaultTimeSignature: string;
-    sound: string;
-    volume: number;
-    subdivisions: boolean;
-  };
-  tuner: {
-    calibration: number;
-    defaultTuning: string;
-    showFrequency: boolean;
-  };
-  performance: {
-    fontSize: number;
-    theme: 'dark' | 'extreme-dark';
-    autoScrollSpeed: number;
-    showChords: boolean;
-    showMetronome: boolean;
-  };
-  scroll: {
-    behavior: 'auto' | 'manual';
-    sensitivity: number;
-  };
-  sync: {
-    enableCloudBackup: boolean;
-    autoSync: boolean;
-    lastSyncDate?: Date;
-  };
-  updatedAt: Date;
+// app/hooks/useSettings.ts
+function useSettings() {
+  return {
+    settings: AppSettings,
+    isLoading: boolean,
+    updateSettings: (updates: Partial<AppSettings>) => void,
+    resetSettings: () => void,
+  }
+}
+
+// app/hooks/useStats.ts
+// TODO: Calcular stats reales desde IndexedDB
+function useStats() {
+  return {
+    stats: UserStats,
+  }
 }
 ```
 
-### Hook para Settings
+### Navegacion
 
 ```typescript
-// hooks/useSettings.ts
-export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  
-  const updateSettings = async (updates: Partial<AppSettings>) => {
-    // Actualizar en IndexedDB
-    // Actualizar estado local
-  };
-  
-  const resetSettings = async () => {
-    // Restaurar valores por defecto
-  };
-  
-  return { settings, updateSettings, resetSettings };
-}
+// app/lib/routes.ts
+const ROUTES = {
+  HOME: '/',
+  SETLISTS: '/setlists',
+  METRONOME: '/metronome',
+  TUNER: '/tuner',
+  PROFILE: '/profile',
+  PROFILE_SETTINGS: '/profile/settings',
+} as const
+
+// app/components/navigation/BottomNav.tsx
+// Items: Home, Setlists, Metronome, Tuner, Profile
 ```
+
+### Contratos Relacionados
+
+Para especificaciones detalladas ver:
+- `contracts/features/profile.yaml` - Contrato completo del feature
+- `contracts/business/business-rules.yaml` - Reglas de negocio de profile/settings
+- `contracts/shared/domain-types.yaml` - Tipos compartidos

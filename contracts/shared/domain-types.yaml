@@ -1,0 +1,238 @@
+# contracts/shared/domain-types.yaml
+type: shared
+version: "1.0.0"
+contract: domain-types
+
+metadata:
+  description: "Tipos de dominio compartidos del proyecto GigSync"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/naming.yaml"
+
+overview:
+  location: "app/types/"
+  index: "app/types/index.ts (re-exports all modules)"
+  modules:
+    - "profile.ts   # UserProfile, AppSettings, preferences"
+    - "setlist.ts    # Song, Setlist, CRUD inputs"
+    - "song.ts       # Extended song types, player state, filters"
+    - "tuner.ts      # Pitch, tuning, calibration"
+    - "timeline.ts   # Timeline elements for autoscroll"
+
+  chordpro_types:
+    location: "app/lib/chordpro/types.ts"
+    description: "Parser-specific types (not re-exported from types/index.ts)"
+
+type_hierarchy:
+  core_entities:
+    Song:
+      location: "app/types/setlist.ts"
+      description: "Primary entity - cancion con metadata musical"
+      exported_from: "types/index.ts"
+      fields:
+        - "id: string"
+        - "title: string"
+        - "artist: string"
+        - "bpm: number"
+        - "key: string"
+        - "timeSignature: string"
+        - "duration: number"
+        - "lyrics: string"
+        - "tags: string[]"
+        - "lastPlayed?: Date"
+        - "timesPlayed: number"
+        - "notes?: string"
+        - "createdAt: Date"
+        - "updatedAt: Date"
+
+    Setlist:
+      location: "app/types/setlist.ts"
+      description: "Lista ordenada de canciones"
+      exported_from: "types/index.ts"
+      fields:
+        - "id: string"
+        - "name: string"
+        - "songIds: string[]"
+        - "totalDuration: number"
+        - "venue?: string"
+        - "date?: Date"
+        - "createdAt: Date"
+
+    UserProfile:
+      location: "app/types/profile.ts"
+      description: "Perfil del musico"
+      exported_from: "types/index.ts"
+      fields:
+        - "id: string"
+        - "name: string"
+        - "instrument: string"
+        - "band?: string"
+        - "avatar?: string"
+        - "createdAt: Date"
+        - "updatedAt: Date"
+
+    AppSettings:
+      location: "app/types/profile.ts"
+      description: "Configuracion de la aplicacion"
+      exported_from: "types/index.ts"
+      fields:
+        - "id: string"
+        - "theme: 'light' | 'dark' | 'auto'"
+        - "language: 'es' | 'en'"
+        - "metronome: MetronomePreferences"
+        - "tuner: TunerPreferences"
+        - "performance: PerformancePreferences"
+        - "player: PlayerPreferences"
+        - "sync: SyncPreferences"
+        - "updatedAt: Date"
+
+  input_types:
+    CreateSongInput:
+      location: "app/types/song.ts"
+      description: "Input para crear cancion (todos los campos opcionales excepto title y artist)"
+    UpdateSongInput:
+      location: "app/types/song.ts"
+      description: "Input para actualizar cancion (todos los campos opcionales)"
+    CreateSetlistInput:
+      location: "app/types/setlist.ts"
+      description: "Input para crear setlist"
+    UpdateSetlistInput:
+      location: "app/types/setlist.ts"
+      description: "Input para actualizar setlist"
+
+  state_types:
+    SongPlayerState:
+      location: "app/types/song.ts"
+      description: "Estado del reproductor de canciones"
+      fields:
+        - "isPlaying: boolean"
+        - "currentPosition: number"
+        - "autoScrollSpeed: number"
+        - "isAutoScrollEnabled: boolean"
+        - "transpose: number"
+        - "showChords: boolean"
+        - "fontSize: number"
+
+    TunerState:
+      location: "app/types/tuner.ts"
+      description: "Estado del afinador"
+
+    MicrophoneState:
+      location: "app/types/tuner.ts"
+      description: "Estado del microfono"
+
+  filter_types:
+    SongFilter:
+      location: "app/types/song.ts"
+      type: "union"
+      values: ["all", "recent", "favorites", "byKey", "byArtist"]
+
+    SongFilterOptions:
+      location: "app/types/song.ts"
+      fields:
+        - "filter: SongFilter"
+        - "searchQuery: string"
+        - "selectedKey?: string"
+        - "selectedArtist?: string"
+        - "selectedTags?: string[]"
+
+  music_types:
+    NoteName:
+      tuner_version:
+        location: "app/types/tuner.ts"
+        values: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+      chordpro_version:
+        location: "app/lib/chordpro/types.ts"
+        values: ["A", "B", "C", "D", "E", "F", "G"]
+        note: "Different definition - ChordPro uses separate Accidental type"
+
+    PitchInfo:
+      location: "app/types/tuner.ts"
+      description: "Informacion de pitch detectado"
+      fields:
+        - "frequency: number"
+        - "note: NoteName"
+        - "octave: number"
+        - "cents: number"
+        - "confidence: number"
+
+    TuningPreset:
+      location: "app/types/tuner.ts"
+      description: "Preset de afinacion para instrumento de cuerdas"
+
+    CalibrationSettings:
+      location: "app/types/tuner.ts"
+      description: "Configuracion de calibracion del afinador"
+
+  timeline_types:
+    TimelineElement:
+      location: "app/types/timeline.ts"
+      description: "Elemento individual en el timeline de una cancion"
+
+    SongTimeline:
+      location: "app/types/timeline.ts"
+      description: "Timeline completo con beats, barras y duracion"
+
+    ParsedTimeSignature:
+      location: "app/types/timeline.ts"
+      description: "Time signature parseado (beats + noteValue)"
+
+  chordpro_types:
+    location: "app/lib/chordpro/types.ts"
+    note: "These types are NOT re-exported via types/index.ts"
+    key_types:
+      AnyParsedLine: "Discriminated union of all parsed line types"
+      ParsedSong: "{ directives: ChordProDirectives, lines: AnyParsedLine[] }"
+      ChordProDirectives: "Metadata directives extracted from ChordPro"
+      InstrumentalSection: "Instrumental passage with bars and chords"
+      ParsedChord: "{ root, accidental, suffix, bass }"
+      SectionType: "verse | chorus | bridge | intro | outro | solo | ..."
+      ChordPosition: "{ chord, position }"
+      LyricLine: "{ text, chords, timestamp? }"
+
+  preference_types:
+    MetronomePreferences: "app/types/profile.ts"
+    TunerPreferences: "app/types/profile.ts"
+    PerformancePreferences: "app/types/profile.ts"
+    PlayerPreferences: "app/types/profile.ts"
+    SyncPreferences: "app/types/profile.ts"
+
+  derived_types:
+    Instrument:
+      location: "app/types/profile.ts"
+      derivation: "typeof INSTRUMENTS[number]"
+    Tuning:
+      location: "app/types/profile.ts"
+      derivation: "typeof TUNINGS[number]"
+    RoutePath:
+      location: "app/lib/routes.ts"
+      derivation: "typeof ROUTES[keyof typeof ROUTES]"
+
+conventions:
+  type_organization:
+    - "Core entities en types/setlist.ts y types/profile.ts"
+    - "Extended types en types/song.ts (re-exports Song from setlist.ts)"
+    - "Domain-specific types en sus propios modulos (tuner.ts, timeline.ts)"
+    - "Parser types en lib/chordpro/types.ts (no en types/)"
+    - "index.ts re-exports todo excepto chordpro y timeline types"
+
+  type_patterns:
+    - "Interfaces para objetos con campos (Song, Setlist, etc.)"
+    - "Union types para enums (SongFilter, SectionType, NoteName)"
+    - "Partial<T> para update inputs"
+    - "Omit<T, keys> para defaults sin campos auto-generados"
+    - "'as const' para arrays constantes con type derivation"
+
+  import_patterns:
+    from_types: "import type { Song, Setlist } from '~/types/setlist'"
+    from_index: "import type { Song, UserProfile } from '~/types'"
+    from_chordpro: "import type { AnyParsedLine, ParsedSong } from '~/lib/chordpro'"
+    from_timeline: "import type { TimelineElement } from '~/types/timeline'"
+
+  rules:
+    - "Usar 'import type' para imports de solo tipos"
+    - "Exportar types e interfaces con 'export'"
+    - "Exportar defaults y constants como values"
+    - "Mantener types cerca del dominio que representan"
+    - "Re-exportar tipos publicos desde types/index.ts"
+    - "No duplicar tipos entre modulos"
