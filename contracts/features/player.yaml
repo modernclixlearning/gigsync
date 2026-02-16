@@ -1,0 +1,183 @@
+# contracts/features/player.yaml
+type: feature
+version: "1.0.0"
+contract: player
+
+metadata:
+  description: "Song player con letras, acordes, autoscroll y timeline engine"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../business/business-rules.yaml"
+    - "./songs.yaml"
+
+module:
+  name: "player"
+  description: "Reproductor de canciones con autoscroll sincronizado con BPM"
+
+  structure:
+    components:
+      - "app/components/player/LyricsDisplay.tsx       # Letras con acordes"
+      - "app/components/player/ChordOverlay.tsx         # Overlay de acordes"
+      - "app/components/player/PlayerControls.tsx       # Controles play/pause/scroll"
+      - "app/components/player/AutoScroll.tsx           # Control de autoscroll"
+      - "app/components/player/InstrumentalSection.tsx  # Secciones instrumentales"
+
+    hooks:
+      - "app/hooks/useSongPlayer.ts       # Player state management"
+      - "app/hooks/useSmartAutoScroll.ts  # BPM-synchronized scrolling"
+      - "app/hooks/useSongTimeline.ts     # Timeline calculation"
+      - "app/hooks/useBPMSync.ts          # BPM synchronization"
+
+    lib:
+      - "app/lib/timeline/calculator.ts   # Beat/bar calculations"
+      - "app/lib/timeline/utils.ts        # Time signature parsing, conversions"
+
+    types:
+      - "app/types/song.ts       # SongPlayerState, LyricLine, ChordPosition"
+      - "app/types/timeline.ts   # TimelineElement, SongTimeline"
+
+models:
+  SongPlayerState:
+    source: "app/types/song.ts"
+    fields:
+      isPlaying: { type: "boolean", default: false }
+      currentPosition: { type: "number", default: 0 }
+      autoScrollSpeed: { type: "number", default: 5, range: "1-10" }
+      isAutoScrollEnabled: { type: "boolean", default: true }
+      transpose: { type: "number", default: 0, range: "-12 to 12" }
+      showChords: { type: "boolean", default: true }
+      fontSize: { type: "number", default: 100, range: "100-200" }
+
+  TimelineElement:
+    source: "app/types/timeline.ts"
+    fields:
+      id: { type: "string" }
+      type: { type: "section | lyric | instrumental | chords-only | empty" }
+      startBeat: { type: "number" }
+      endBeat: { type: "number" }
+      durationBeats: { type: "number" }
+      bars: { type: "number" }
+      domRef: { type: "RefObject<HTMLElement>", optional: true }
+      scrollPosition: { type: "number", optional: true }
+      content: { type: "AnyParsedLine" }
+
+  SongTimeline:
+    source: "app/types/timeline.ts"
+    fields:
+      elements: { type: "TimelineElement[]" }
+      totalBeats: { type: "number" }
+      totalBars: { type: "number" }
+      totalDurationSeconds: { type: "number" }
+      beatsPerBar: { type: "number" }
+      bpm: { type: "number" }
+
+  TimelineCalculationOptions:
+    source: "app/types/timeline.ts"
+    fields:
+      defaultBarsPerLine: { type: "number", description: "Default bars for lyric lines" }
+      defaultBeatsPerChord: { type: "number", description: "Default beats per chord in chord-only lines" }
+      intelligentEstimation: { type: "boolean", description: "Use chord density and text length for estimation" }
+
+  ParsedTimeSignature:
+    source: "app/types/timeline.ts"
+    fields:
+      beats: { type: "number", description: "Numerator (e.g., 4 in 4/4)" }
+      noteValue: { type: "number", description: "Denominator (e.g., 4 in 4/4)" }
+
+hooks:
+  useSongPlayer:
+    location: "app/hooks/useSongPlayer.ts"
+    description: "Manages player state, controls, and display options"
+    returns:
+      - "playerState: SongPlayerState"
+      - "play: () => void"
+      - "pause: () => void"
+      - "setTranspose: (semitones: number) => void"
+      - "setFontSize: (size: number) => void"
+      - "toggleChords: () => void"
+      - "setAutoScrollSpeed: (speed: number) => void"
+
+  useSmartAutoScroll:
+    location: "app/hooks/useSmartAutoScroll.ts"
+    description: "BPM-synchronized auto-scrolling through lyrics"
+    features:
+      - "Calculates scroll position based on current beat"
+      - "Smooth scrolling between timeline elements"
+      - "Pauses when user manually scrolls"
+      - "Resumes after user interaction timeout"
+    known_issues:
+      - "Fixed infinite re-render loop (commit 9725182)"
+
+  useSongTimeline:
+    location: "app/hooks/useSongTimeline.ts"
+    description: "Builds timeline from parsed song for autoscroll"
+    input: "ParsedSong + BPM + TimeSignature"
+    output: "SongTimeline"
+
+  useBPMSync:
+    location: "app/hooks/useBPMSync.ts"
+    description: "Synchronizes playback position with BPM clock"
+
+timeline_engine:
+  location: "app/lib/timeline/"
+  description: "Calculates timing information for each element of a song"
+
+  calculator:
+    location: "app/lib/timeline/calculator.ts"
+    functions:
+      - "calculateTimeline(song, bpm, timeSignature, options): SongTimeline"
+      - "Maps each parsed line to beats and bars"
+      - "Accounts for section headers, instrumentals, lyrics, chord-only lines"
+
+  utils:
+    location: "app/lib/timeline/utils.ts"
+    functions:
+      - "parseTimeSignature(ts: string): ParsedTimeSignature"
+      - "beatsToSeconds(beats, bpm): number"
+      - "secondsToBeats(seconds, bpm): number"
+      - "barsToBeats(bars, beatsPerBar): number"
+
+  rules:
+    - "Section headers occupy 0 beats (visual only)"
+    - "Lyric lines default to 1 bar unless specified"
+    - "Instrumental sections use explicit bar count"
+    - "Chord-only lines use defaultBeatsPerChord * chord count"
+    - "Empty lines occupy 0 beats"
+
+components:
+  LyricsDisplay:
+    description: "Renders parsed ChordPro lines with chord overlay"
+    features:
+      - "Renders each AnyParsedLine type differently"
+      - "Section headers styled as dividers"
+      - "Lyric lines with chords above text"
+      - "Instrumental sections with bar notation"
+      - "Responsive font sizing"
+
+  PlayerControls:
+    description: "Play/pause, autoscroll speed, transpose, font size"
+    features:
+      - "Play/Pause toggle"
+      - "Autoscroll speed slider"
+      - "Transpose +/- buttons with current key display"
+      - "Font size adjustment"
+      - "Chord visibility toggle"
+
+  InstrumentalSection:
+    description: "Renders chord bars for instrumental passages"
+    features:
+      - "Grid of chord bars"
+      - "Bar count display"
+      - "Repeat indicators"
+
+testing:
+  tests:
+    - "app/lib/timeline/__tests__/calculator.test.ts  # Timeline calculation"
+    - "app/lib/timeline/__tests__/utils.test.ts       # Utility functions"
+    - "app/components/player/__tests__/PlayerControls.test.tsx"
+  coverage_focus:
+    - "Timeline calculation with different time signatures"
+    - "Beat/bar conversion accuracy"
+    - "Autoscroll position calculation"
+    - "Edge cases: empty songs, songs without BPM"

@@ -1,0 +1,236 @@
+# contracts/data/database.yaml
+type: data
+version: "1.0.0"
+contract: database-schema
+
+metadata:
+  description: "Esquemas y reglas de base de datos de GigSync (Dexie/IndexedDB)"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../core/naming.yaml"
+
+database:
+  engine: "IndexedDB"
+  orm: "Dexie"
+  version: "^4.0.10"
+  hooks: "dexie-react-hooks: ^1.1.7"
+  name: "gigsync"
+  architecture: "Offline-first, client-side only"
+  location: "app/lib/db.ts"
+
+  class: "GigSyncDB extends Dexie"
+  schema_version: 1
+
+tables:
+  songs:
+    type_source: "~/types/setlist :: Song"
+    description: "Canciones con metadata musical y letras ChordPro"
+    indexes: "id, title, artist, bpm, key, *tags, createdAt"
+
+    fields:
+      id:
+        type: "string (UUID)"
+        primary_key: true
+        generated: "uuid v4"
+      title:
+        type: "string"
+        required: true
+        indexed: true
+      artist:
+        type: "string"
+        required: true
+        indexed: true
+      bpm:
+        type: "number"
+        required: true
+        indexed: true
+        description: "Beats per minute"
+      key:
+        type: "string"
+        required: true
+        indexed: true
+        description: "Musical key (C, Am, F#m, etc.)"
+      timeSignature:
+        type: "string"
+        required: true
+        description: "e.g. 4/4, 3/4, 6/8"
+      duration:
+        type: "number"
+        required: true
+        description: "Duration in seconds"
+      lyrics:
+        type: "string"
+        required: true
+        description: "ChordPro formatted lyrics with chords"
+      tags:
+        type: "string[]"
+        indexed: true
+        multi_entry: true
+        description: "Multi-value index for tag filtering"
+      lastPlayed:
+        type: "Date"
+        optional: true
+      timesPlayed:
+        type: "number"
+        required: true
+        default: 0
+      notes:
+        type: "string"
+        optional: true
+        description: "Free-form notes about the song"
+      createdAt:
+        type: "Date"
+        required: true
+        indexed: true
+      updatedAt:
+        type: "Date"
+        required: true
+
+    input_types:
+      create: "CreateSongInput (from ~/types/song)"
+      update: "UpdateSongInput (from ~/types/song)"
+
+  setlists:
+    type_source: "~/types/setlist :: Setlist"
+    description: "Colecciones ordenadas de canciones para shows"
+    indexes: "id, name, venue, date, createdAt"
+
+    fields:
+      id:
+        type: "string (UUID)"
+        primary_key: true
+        generated: "uuid v4"
+      name:
+        type: "string"
+        required: true
+        indexed: true
+      songIds:
+        type: "string[]"
+        required: true
+        description: "Array ordenado de IDs de canciones"
+      totalDuration:
+        type: "number"
+        required: true
+        description: "Duration total calculada en segundos"
+      venue:
+        type: "string"
+        optional: true
+        indexed: true
+      date:
+        type: "Date"
+        optional: true
+        indexed: true
+      createdAt:
+        type: "Date"
+        required: true
+        indexed: true
+
+    input_types:
+      create: "CreateSetlistInput (from ~/types/setlist)"
+      update: "UpdateSetlistInput (from ~/types/setlist)"
+
+  future_tables:
+    user_profile:
+      status: "Stored in localStorage via useProfile hook"
+      migration_plan: "Move to IndexedDB when cloud sync is implemented"
+    app_settings:
+      status: "Stored in localStorage via useSettings hook"
+      migration_plan: "Move to IndexedDB when cloud sync is implemented"
+
+indexing_strategy:
+  dexie_conventions:
+    primary_key: "First field in index string is primary key"
+    multi_entry: "Prefix * for array fields (*tags)"
+    compound: "Comma-separated fields (not currently used)"
+
+  guidelines:
+    - "Indexar campos usados en filtros y busquedas"
+    - "Multi-entry indexes para arrays (tags)"
+    - "No sobre-indexar: cada index cuesta en writes"
+    - "Dexie auto-indexa la primary key"
+
+queries:
+  hook_pattern:
+    location: "app/hooks/"
+    library: "dexie-react-hooks (useLiveQuery)"
+    caching: "TanStack React Query wraps Dexie queries"
+
+  common_patterns:
+    list_all: "db.songs.toArray()"
+    find_by_id: "db.songs.get(id)"
+    filter: "db.songs.where('key').equals(key).toArray()"
+    search: "db.songs.filter(song => song.title.toLowerCase().includes(query))"
+    sorted: "db.songs.orderBy('createdAt').reverse().toArray()"
+    count: "db.songs.count()"
+
+  rules:
+    - "Siempre usar hooks de Dexie para reactividad"
+    - "Envolver queries en TanStack Query para caching SSR"
+    - "Usar .where() con indexes para queries eficientes"
+    - "Usar .filter() para filtros complejos sin index"
+    - "Paginacion con .offset() y .limit()"
+
+data_integrity:
+  id_generation:
+    library: "uuid v4"
+    timing: "Generated at creation time in hooks"
+
+  timestamps:
+    createdAt: "Set at creation, never modified"
+    updatedAt: "Set at creation, updated on every modification"
+
+  relationships:
+    setlist_songs:
+      type: "Many-to-many via songIds array"
+      enforcement: "Application level (hooks)"
+      cascade: "No automatic cascade - orphan handling in hooks"
+      validation: "Verify songIds exist before adding to setlist"
+
+  rules:
+    - "IDs son UUID v4, generados client-side"
+    - "Timestamps son Date objects nativos"
+    - "No hay foreign keys a nivel de IndexedDB"
+    - "Integridad referencial manejada en application layer"
+    - "Soft deletes NO implementados (hard delete)"
+
+migration:
+  tool: "Dexie version() API"
+  current_version: 1
+  location: "app/lib/db.ts constructor"
+
+  guidelines:
+    - "Incrementar version number con cada cambio de schema"
+    - "Dexie maneja migraciones automaticamente"
+    - "Nunca modificar una version existente, crear nueva"
+    - "Testear migraciones con datos existentes"
+
+  example: |
+    this.version(2).stores({
+      songs: 'id, title, artist, bpm, key, *tags, createdAt, capo',
+    }).upgrade(tx => {
+      return tx.table('songs').toCollection().modify(song => {
+        song.capo = 0;
+      });
+    });
+
+storage:
+  type: "Browser IndexedDB"
+  persistence: "Persistent (survives browser restart)"
+  quota: "Depends on browser (typically 50% of disk)"
+
+  data_export:
+    status: "TODO - planned feature"
+    format: "JSON"
+
+  cloud_sync:
+    status: "TODO - placeholder in useOfflineSync hook"
+    notes: "Hook exists but sync logic not implemented"
+
+performance:
+  rules:
+    - "Usar indexes para filtros frecuentes"
+    - "Limitar resultados con .limit() para listas largas"
+    - "Usar useLiveQuery para actualizaciones reactivas"
+    - "Batch operations con db.transaction()"
+    - "No cargar todas las canciones si hay muchas - paginar"

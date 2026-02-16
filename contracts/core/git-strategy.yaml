@@ -1,0 +1,166 @@
+# contracts/core/git-strategy.yaml
+type: core
+version: "1.0.0"
+contract: git-strategy
+
+metadata:
+  description: "Estrategia de versionado y flujo Git de GigSync"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "naming.yaml"
+
+branching_model:
+  strategy: "GitHub Flow simplificado (trunk-based con feature branches)"
+
+  main_branches:
+    master:
+      description: "Rama principal y de produccion"
+      protection:
+        - "Require pull request reviews"
+        - "Require status checks to pass"
+
+  working_branches:
+    feature:
+      pattern: "feature/[description]"
+      source: "master"
+      target: "master"
+      examples:
+        - "feature/smart-autoscroll"
+        - "feature/chordpro-parser"
+
+    bugfix:
+      pattern: "bugfix/[description]"
+      source: "master"
+      target: "master"
+      examples:
+        - "bugfix/infinite-rerender-loop"
+        - "bugfix/tone-js-integration"
+
+    chore:
+      pattern: "chore/[description]"
+      source: "master"
+      target: "master"
+      examples:
+        - "chore/update-dependencies"
+        - "chore/testing-setup"
+
+    refactor:
+      pattern: "refactor/[description]"
+      source: "master"
+      target: "master"
+
+    claude:
+      pattern: "claude/[worktree-name]"
+      description: "Ramas automaticas de Claude Code worktrees"
+      source: "master"
+      target: "master"
+      examples:
+        - "claude/kind-archimedes"
+
+commit_conventions:
+  format: "Conventional Commits"
+  pattern: "type(scope): description"
+
+  types:
+    feat:
+      description: "Nueva funcionalidad"
+      examples:
+        - "feat(player): implement smart autoscroll with BPM sync"
+        - "feat(chordpro): add instrumental section support"
+
+    fix:
+      description: "Correccion de bug"
+      examples:
+        - "fix(hooks): resolve infinite re-render loop in autoscroll"
+        - "fix(metronome): correct Tone.js integration"
+
+    test:
+      description: "Anadir o modificar tests"
+      examples:
+        - "test(timeline): add comprehensive tests for calculator"
+
+    chore:
+      description: "Mantenimiento, deps, config"
+      examples:
+        - "chore(deps): update dependencies and improve testing setup"
+
+    refactor:
+      description: "Refactorizacion sin cambiar comportamiento"
+    docs:
+      description: "Cambios en documentacion"
+    style:
+      description: "Formateo, sin cambios de logica"
+    perf:
+      description: "Mejoras de performance"
+
+  scopes:
+    - "auth"
+    - "player"
+    - "metronome"
+    - "tuner"
+    - "setlists"
+    - "songs"
+    - "chordpro"
+    - "timeline"
+    - "hooks"
+    - "ui"
+    - "deps"
+    - "navigation"
+
+  subject:
+    rules:
+      - "Imperativo, presente ('add' no 'added')"
+      - "Sin punto final"
+      - "Maximo 72 caracteres"
+      - "Lowercase"
+      - "Descripcion clara y concisa"
+      - "Idioma: ingles preferido, espanol aceptable"
+
+  co_author:
+    format: "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+    when: "Commits generados con asistencia de Claude"
+
+pull_request_workflow:
+  title: "Mismo formato que commits"
+  draft: "Usar draft PR para trabajo en progreso"
+
+  template_sections:
+    - "## Summary (1-3 bullet points)"
+    - "## Test plan (checklist)"
+
+  merge_strategy: "Squash and merge"
+
+tagging_versioning:
+  strategy: "Semantic Versioning 2.0.0"
+  format: "v[MAJOR].[MINOR].[PATCH]"
+  current: "v0.1.0 (pre-release)"
+
+  version_increments:
+    major: "Breaking changes, cambios de arquitectura"
+    minor: "Nueva funcionalidad backward-compatible"
+    patch: "Bug fixes"
+
+ci_cd:
+  status: "No configurado aun"
+  planned:
+    - "Lint"
+    - "Type check (tsc --noEmit)"
+    - "Unit tests (vitest run)"
+    - "Build (vite build)"
+
+best_practices:
+  commits:
+    - "Commits atomicos: un cambio logico por commit"
+    - "No commitear codigo que no compila"
+    - "No commitear secrets o datos sensibles"
+    - "No commitear node_modules, .output, .env"
+
+  branches:
+    - "Mantener branches actualizados con master"
+    - "Delete branches despues de merge"
+    - "No trabajar directamente en master"
+
+  worktrees:
+    - "Claude Code usa worktrees en .claude/worktrees/"
+    - "Cada worktree tiene su propia rama claude/*"
+    - "Worktrees se crean y destruyen automaticamente"

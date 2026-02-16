@@ -1,0 +1,131 @@
+# contracts/features/setlists.yaml
+type: feature
+version: "1.0.0"
+contract: setlists
+
+metadata:
+  description: "Gestion de setlists con drag-and-drop y modo presentacion"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../data/database.yaml"
+    - "./songs.yaml"
+
+module:
+  name: "setlists"
+  description: "Listas de canciones para shows y ensayos con reordenamiento"
+
+  structure:
+    routes:
+      - "app/routes/setlists/index.tsx           # Setlists listing"
+      - "app/routes/setlists/$setlistId.tsx       # Setlist detail/edit"
+      - "app/routes/setlists/$setlistId/play.tsx  # Play mode"
+
+    components:
+      - "app/components/setlists/SetlistCard.tsx  # Card in listing"
+      - "app/components/setlists/SetlistForm.tsx  # Create/edit form"
+      - "app/components/setlists/SetlistStats.tsx # Duration, song count"
+      - "app/components/setlists/SongForm.tsx     # Add song to setlist"
+      - "app/components/setlists/SongItem.tsx     # Draggable song item"
+
+    hooks:
+      - "app/hooks/useSetlists.ts  # List all setlists"
+      - "app/hooks/useSetlist.ts   # Single setlist CRUD"
+
+models:
+  Setlist:
+    source: "app/types/setlist.ts"
+    db_table: "setlists"
+    fields:
+      id: { type: "string", pk: true, generated: "uuid v4" }
+      name: { type: "string", required: true, indexed: true }
+      songIds: { type: "string[]", required: true }
+      totalDuration: { type: "number", required: true, calculated: true }
+      venue: { type: "string", optional: true, indexed: true }
+      date: { type: "Date", optional: true, indexed: true }
+      createdAt: { type: "Date", required: true, indexed: true }
+
+  CreateSetlistInput:
+    source: "app/types/setlist.ts"
+    fields:
+      name: { type: "string", required: true }
+      venue: { type: "string", optional: true }
+      date: { type: "Date", optional: true }
+      songIds: { type: "string[]", optional: true }
+
+  UpdateSetlistInput:
+    source: "app/types/setlist.ts"
+    description: "All fields optional for partial updates"
+
+hooks:
+  useSetlists:
+    location: "app/hooks/useSetlists.ts"
+    description: "List and create setlists"
+    returns:
+      - "setlists: Setlist[]"
+      - "isLoading: boolean"
+      - "error: Error | null"
+      - "createSetlist: (input: CreateSetlistInput) => Promise<string>"
+      - "deleteSetlist: (id: string) => Promise<void>"
+
+  useSetlist:
+    location: "app/hooks/useSetlist.ts"
+    description: "Single setlist operations"
+    params: "setlistId: string"
+    returns:
+      - "setlist: Setlist | null"
+      - "songs: Song[]"
+      - "isLoading: boolean"
+      - "error: Error | null"
+      - "updateSetlist: (input: UpdateSetlistInput) => Promise<void>"
+      - "addSong: (songId: string) => Promise<void>"
+      - "removeSong: (songId: string) => Promise<void>"
+      - "reorderSongs: (songIds: string[]) => Promise<void>"
+
+drag_and_drop:
+  library: "@dnd-kit"
+  packages:
+    - "@dnd-kit/core: ^6.3.1"
+    - "@dnd-kit/sortable: ^10.0.0"
+    - "@dnd-kit/utilities: ^3.2.2"
+
+  implementation:
+    container: "SortableContext from @dnd-kit/sortable"
+    items: "useSortable hook on SongItem"
+    handler: "DndContext with onDragEnd -> reorderSongs"
+
+routes:
+  listing:
+    path: "/setlists"
+    features:
+      - "Grid of SetlistCard components"
+      - "Each card shows name, song count, total duration, venue, date"
+      - "Tap to open setlist detail"
+      - "FAB to create new setlist"
+
+  detail:
+    path: "/setlists/$setlistId"
+    features:
+      - "Setlist header with name, venue, date"
+      - "Ordered list of songs (draggable)"
+      - "Add song button"
+      - "Remove song button per item"
+      - "Stats: total songs, total duration"
+      - "Edit setlist metadata"
+      - "Play button to enter play mode"
+
+  play_mode:
+    path: "/setlists/$setlistId/play"
+    features:
+      - "Sequential song navigation"
+      - "Current song player view"
+      - "Next/Previous song buttons"
+      - "Progress indicator (song X of Y)"
+      - "Auto-advance option"
+
+testing:
+  coverage_focus:
+    - "CRUD operations"
+    - "Song reordering"
+    - "Total duration calculation"
+    - "Edge cases: empty setlist, duplicate songs"

@@ -1,0 +1,245 @@
+# contracts/business/business-rules.yaml
+type: business
+version: "1.0.0"
+contract: business-rules
+
+metadata:
+  description: "Reglas de negocio del dominio musical de GigSync"
+  last_updated: "2025-02-16"
+
+domain:
+  name: "GigSync"
+  description: "Companion app para musicos en vivo"
+  target_users: "Musicos, bandas, solistas"
+  primary_use_case: "Gestion de repertorio y herramientas para ensayo/presentacion"
+
+ubiquitous_language:
+  terms:
+    Song: "Cancion con letras, acordes y metadata musical"
+    Setlist: "Lista ordenada de canciones para un show o ensayo"
+    ChordPro: "Formato estandar para representar letras con acordes"
+    BPM: "Beats Per Minute - tempo de una cancion"
+    Key: "Tonalidad musical (C, Am, F#, etc.)"
+    TimeSignature: "Compas musical (4/4, 3/4, 6/8)"
+    Transpose: "Cambiar la tonalidad de una cancion subiendo/bajando semitonos"
+    Capo: "Cejilla - dispositivo que cambia la tonalidad de la guitarra"
+    Tuning: "Afinacion de las cuerdas del instrumento"
+    Calibration: "Frecuencia de referencia para A4 (default 440Hz)"
+    Section: "Parte de una cancion (verso, coro, puente, intro, etc.)"
+    Bar: "Compas musical - unidad ritmica"
+    Beat: "Pulso individual dentro de un compas"
+    AutoScroll: "Desplazamiento automatico de letras sincronizado con BPM"
+    Timeline: "Mapa temporal de una cancion calculado por beats y barras"
+    PerformanceMode: "Modo de pantalla optimizado para escenario"
+
+bounded_contexts:
+  song_management:
+    responsibility: "CRUD de canciones, importacion ChordPro, busqueda y filtrado"
+    entities: ["Song", "CreateSongInput", "UpdateSongInput"]
+    hooks: ["useSongLibrary", "useSong"]
+
+  song_player:
+    responsibility: "Reproduccion de canciones con letras, acordes y autoscroll"
+    entities: ["SongPlayerState", "LyricLine", "ChordPosition"]
+    hooks: ["useSongPlayer", "useSmartAutoScroll", "useSongTimeline", "useBPMSync"]
+
+  chordpro_parser:
+    responsibility: "Parsing de formato ChordPro a estructura renderizable"
+    entities: ["ParsedSong", "AnyParsedLine", "ChordProDirectives", "InstrumentalSection"]
+    modules: ["lib/chordpro/parser", "lib/chordpro/transpose", "lib/chordpro/instrumental"]
+
+  setlist_management:
+    responsibility: "CRUD de setlists, reordenamiento drag-and-drop, modo play"
+    entities: ["Setlist", "CreateSetlistInput", "UpdateSetlistInput"]
+    hooks: ["useSetlists", "useSetlist"]
+
+  metronome:
+    responsibility: "Metronomo con Tone.js, tap tempo, beat visual"
+    entities: ["MetronomePreferences"]
+    hooks: ["useMetronome", "useTapTempo"]
+
+  tuner:
+    responsibility: "Afinador cromatico con deteccion de pitch"
+    entities: ["PitchInfo", "TunerState", "TuningPreset", "CalibrationSettings", "MicrophoneState"]
+    hooks: ["useTuner", "useMicrophone"]
+
+  profile_settings:
+    responsibility: "Perfil de usuario y configuracion de la app"
+    entities: ["UserProfile", "AppSettings"]
+    hooks: ["useProfile", "useSettings", "useStats"]
+
+business_rules:
+  songs:
+    creation:
+      rules:
+        - "title es obligatorio, minimo 1 caracter"
+        - "artist es obligatorio, minimo 1 caracter"
+        - "bpm default: 120, rango valido: 20-300"
+        - "key default: 'C', debe ser nota musical valida"
+        - "timeSignature default: '4/4'"
+        - "duration default: 0, se puede calcular desde timeline"
+        - "lyrics pueden estar vacias o en formato ChordPro"
+        - "tags es un array, puede estar vacio"
+        - "id se genera automaticamente con UUID v4"
+        - "createdAt y updatedAt se generan automaticamente"
+
+    chordpro_import:
+      rules:
+        - "El parser extrae directives (title, artist, key, tempo, capo)"
+        - "Los directives importados sobreescriben campos del formulario"
+        - "Secciones soportadas: verse, chorus, bridge, intro, outro, solo, instrumental, interlude, pre-chorus, post-chorus, break"
+        - "Secciones instrumentales soportan notacion de barras: [Intro | 4 bars]"
+        - "Acordes entre corchetes: [Am]texto[G]mas texto"
+
+    transpose:
+      rules:
+        - "Transposicion por semitonos (-12 a +12)"
+        - "Mantener calidad del acorde (mayor/menor/7th/etc.)"
+        - "Soportar enarmonicos (C# = Db)"
+        - "Transponer nota base y nota de bajo si existe"
+
+    filtering:
+      rules:
+        - "Busqueda por texto: titulo y artista"
+        - "Filtro por key (tonalidad)"
+        - "Filtro por artist"
+        - "Filtro por tags (multi-value)"
+        - "Filtros combinables"
+        - "Ordenamiento por: titulo, artista, BPM, fecha creacion, ultima vez tocada"
+
+  setlists:
+    creation:
+      rules:
+        - "name es obligatorio"
+        - "songIds puede iniciar vacio"
+        - "venue y date son opcionales"
+        - "totalDuration se calcula sumando duraciones de canciones"
+
+    management:
+      rules:
+        - "Canciones reordenables via drag-and-drop (@dnd-kit)"
+        - "Una cancion puede estar en multiples setlists"
+        - "Eliminar cancion del setlist NO elimina la cancion"
+        - "Eliminar una cancion de la DB deberia actualizarse en setlists (TODO)"
+        - "totalDuration se recalcula al agregar/quitar/reordenar canciones"
+
+    play_mode:
+      rules:
+        - "Navegar cancion por cancion en orden del setlist"
+        - "Cada cancion abre el player con su configuracion"
+        - "Boton siguiente/anterior para navegar"
+
+  metronome:
+    rules:
+      - "BPM rango: 20-300"
+      - "Time signatures soportados: 2/4, 3/4, 4/4, 5/4, 6/8, 7/8"
+      - "Sonidos: classic, woodblock, sticks, electronic, silent"
+      - "Volumen: 0-100%"
+      - "Subdivisiones opcionales"
+      - "Primer beat acentuado por defecto"
+      - "Tap tempo: calcular BPM desde intervalos entre taps"
+      - "Tap tempo: minimo 2 taps, usar promedio de intervalos"
+      - "Audio via Tone.js (Web Audio API)"
+
+  tuner:
+    rules:
+      - "Calibracion A4: rango 420-460 Hz, default 440 Hz"
+      - "Sensibilidad: 0.0-1.0, default 0.5"
+      - "Deteccion de pitch via pitchfinder (Web Audio API)"
+      - "Mostrar nota mas cercana, octava y desviacion en cents"
+      - "Cents: -50 a +50 (0 = afinado perfecto)"
+      - "Requiere permiso de microfono del navegador"
+      - "Tuning presets: Standard, Drop D, Half Step Down, Open G, Bass, Ukulele"
+      - "Manejar gracefully cuando Web Audio API no disponible"
+
+  autoscroll:
+    rules:
+      - "Smart autoscroll sincronizado con BPM de la cancion"
+      - "Timeline engine calcula posicion por beats y barras"
+      - "Velocidad ajustable: 1-10"
+      - "Scroll behavior: auto o manual"
+      - "Scroll sensitivity: 1-10"
+      - "Pausar autoscroll cuando usuario interactua manualmente"
+
+  profile:
+    rules:
+      - "Perfil almacenado en localStorage"
+      - "Campos: name, instrument, band (optional), avatar (optional)"
+      - "Instrumentos predefinidos: Guitar, Bass, Vocals, Drums, Keyboard, Piano, Saxophone, Trumpet, Violin, Cello, Ukulele, Other"
+      - "Stats actualmente hardcodeadas (TODO: calcular desde IndexedDB)"
+
+  settings:
+    rules:
+      - "Settings almacenados en localStorage"
+      - "Theme general: light, dark, auto"
+      - "Language: es, en"
+      - "Cada feature tiene su propio bloque de preferencias"
+      - "Defaults razonables proporcionados en DEFAULT_SETTINGS"
+      - "Settings se inicializan con defaults al primer uso"
+
+validation_strategy:
+  layers:
+    ui_layer:
+      purpose: "Feedback inmediato al usuario"
+      tools: "React form validation, controlled inputs"
+      what: "Formatos, rangos, campos obligatorios"
+
+    hook_layer:
+      purpose: "Validacion de reglas de negocio"
+      tools: "TypeScript types, runtime checks"
+      what: "Invariantes de dominio, estado valido"
+
+    database_layer:
+      purpose: "Integridad de datos"
+      tools: "Dexie schema, indexed fields"
+      what: "Tipos, indexes, primary keys"
+
+  notes:
+    - "No hay zod schemas en runtime actualmente"
+    - "Validacion principalmente via TypeScript types"
+    - "TODO: Agregar validacion zod en forms"
+
+error_handling:
+  patterns:
+    hooks:
+      return: "{ error: Error | null }"
+      strategy: "Return error state, don't throw"
+    audio:
+      strategy: "Feature detection + graceful degradation"
+      messages: "User-friendly error messages in webAudioUtils.ts"
+    forms:
+      strategy: "Inline validation messages"
+    database:
+      strategy: "Try-catch with error state in hooks"
+
+  rules:
+    - "Nunca mostrar stack traces al usuario"
+    - "Mensajes de error claros y accionables"
+    - "Audio errors: explicar que hacer (permitir microfono, etc.)"
+    - "Offline-first: la app debe funcionar sin errores sin internet"
+
+data_privacy:
+  storage: "Todo local en el dispositivo del usuario"
+  no_server: "No se envian datos a ningun servidor"
+  no_analytics: "No hay tracking ni analytics"
+  no_accounts: "No hay sistema de cuentas (datos locales)"
+  export: "TODO: permitir exportar datos como JSON"
+
+testing_rules:
+  coverage_targets:
+    business_logic: "80%+ (hooks, lib modules)"
+    components: "Key interactions tested"
+    parser: "Comprehensive edge cases"
+
+  what_to_test:
+    - "ChordPro parser con todos los formatos"
+    - "Timeline calculator con diferentes time signatures"
+    - "Tap tempo calculation"
+    - "Pitch detection accuracy"
+    - "CRUD operations en hooks"
+    - "Edge cases: empty songs, invalid chords, etc."
+
+  what_not_to_test:
+    - "Dexie internals"
+    - "Tone.js audio output"
+    - "Browser APIs directamente"

@@ -1,0 +1,206 @@
+# contracts/features/tuner.yaml
+type: feature
+version: "1.0.0"
+contract: tuner
+
+metadata:
+  description: "Afinador cromatico con deteccion de pitch y presets de afinacion"
+  last_updated: "2025-02-16"
+  dependencies:
+    - "../core/stack.yaml"
+    - "../business/business-rules.yaml"
+
+module:
+  name: "tuner"
+  description: "Afinador cromatico con deteccion de frecuencia via microfono"
+
+  structure:
+    routes:
+      - "app/routes/tuner.tsx  # Tuner page"
+
+    components:
+      - "app/components/tuner/CalibrationControl.tsx  # A4 frequency adjustment"
+      - "app/components/tuner/ChromaticDial.tsx        # Circular note indicator"
+      - "app/components/tuner/NoteIndicator.tsx        # Current note display"
+      - "app/components/tuner/PitchDisplay.tsx         # Pitch info display"
+      - "app/components/tuner/TunerNeedle.tsx          # Cents deviation needle"
+      - "app/components/tuner/TuningPresets.tsx        # Preset selector"
+
+    hooks:
+      - "app/hooks/useTuner.ts       # Pitch detection engine"
+      - "app/hooks/useMicrophone.ts  # Microphone access management"
+
+    types:
+      - "app/types/tuner.ts  # All tuner type definitions"
+
+    lib:
+      - "app/lib/audio/webAudioUtils.ts  # Web Audio API compatibility"
+
+models:
+  PitchInfo:
+    source: "app/types/tuner.ts"
+    fields:
+      frequency: { type: "number", description: "Detected frequency in Hz" }
+      note: { type: "NoteName", description: "Closest note (C, C#, D, ...)" }
+      octave: { type: "number", description: "Octave number (e.g., 4 for A4)" }
+      cents: { type: "number", description: "Deviation from perfect pitch (-50 to +50)" }
+      confidence: { type: "number", description: "Detection confidence (0-1)" }
+
+  TuningPreset:
+    source: "app/types/tuner.ts"
+    fields:
+      id: { type: "string" }
+      name: { type: "string" }
+      instrument: { type: "enum", values: ["guitar", "bass", "ukulele", "violin", "custom"] }
+      notes: { type: "Array<{ note: NoteName, octave: number }>", description: "Lowest to highest string" }
+
+  CalibrationSettings:
+    source: "app/types/tuner.ts"
+    fields:
+      referenceFrequency: { type: "number", default: 440, range: "420-460", description: "A4 reference Hz" }
+      sensitivity: { type: "number", default: 0.5, range: "0-1" }
+
+  TunerState:
+    source: "app/types/tuner.ts"
+    fields:
+      isListening: { type: "boolean" }
+      hasPermission: { type: "boolean" }
+      pitch: { type: "PitchInfo | null" }
+      calibration: { type: "CalibrationSettings" }
+      preset: { type: "TuningPreset | null" }
+      error: { type: "string | null" }
+
+  MicrophoneState:
+    source: "app/types/tuner.ts"
+    fields:
+      isActive: { type: "boolean" }
+      hasPermission: { type: "boolean" }
+      isRequesting: { type: "boolean" }
+      error: { type: "string | null" }
+      sampleRate: { type: "number | null" }
+
+  NoteName:
+    source: "app/types/tuner.ts"
+    values: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+default_presets:
+  location: "app/types/tuner.ts :: DEFAULT_TUNING_PRESETS"
+  presets:
+    - id: "guitar-standard"
+      name: "Standard"
+      instrument: "guitar"
+      notes: "E2-A2-D3-G3-B3-E4"
+    - id: "guitar-drop-d"
+      name: "Drop D"
+      instrument: "guitar"
+      notes: "D2-A2-D3-G3-B3-E4"
+    - id: "guitar-half-step-down"
+      name: "Half Step Down"
+      instrument: "guitar"
+      notes: "D#2-G#2-C#3-F#3-A#3-D#4"
+    - id: "guitar-open-g"
+      name: "Open G"
+      instrument: "guitar"
+      notes: "D2-G2-D3-G3-B3-D4"
+    - id: "bass-standard"
+      name: "Bass Standard"
+      instrument: "bass"
+      notes: "E1-A1-D2-G2"
+    - id: "ukulele-standard"
+      name: "Ukulele"
+      instrument: "ukulele"
+      notes: "G4-C4-E4-A4"
+
+hooks:
+  useTuner:
+    location: "app/hooks/useTuner.ts"
+    description: "Pitch detection engine using pitchfinder"
+    audio_library: "pitchfinder + Web Audio API"
+    returns:
+      - "tunerState: TunerState"
+      - "startListening: () => Promise<void>"
+      - "stopListening: () => void"
+      - "setCalibration: (settings: CalibrationSettings) => void"
+      - "selectPreset: (preset: TuningPreset) => void"
+    algorithm:
+      - "Get audio stream via getUserMedia"
+      - "Create AnalyserNode for frequency data"
+      - "Run pitchfinder algorithm on audio buffer"
+      - "Map frequency to nearest note using calibration"
+      - "Calculate cents deviation from perfect pitch"
+      - "Update state in requestAnimationFrame loop"
+
+  useMicrophone:
+    location: "app/hooks/useMicrophone.ts"
+    description: "Manages microphone access and permissions"
+    returns:
+      - "micState: MicrophoneState"
+      - "requestPermission: () => Promise<boolean>"
+      - "startMicrophone: () => Promise<MediaStream>"
+      - "stopMicrophone: () => void"
+    rules:
+      - "Request permission before accessing microphone"
+      - "Handle permission denied gracefully"
+      - "Clean up media stream on unmount"
+      - "Track sample rate for pitch detection accuracy"
+
+components:
+  CalibrationControl:
+    description: "A4 reference frequency adjustment"
+    features:
+      - "Slider or +/- for A4 frequency (420-460 Hz)"
+      - "Display current calibration value"
+      - "Reset to 440 Hz button"
+
+  ChromaticDial:
+    description: "Circular display of all 12 notes"
+    features:
+      - "12 notes arranged in circle"
+      - "Highlight detected note"
+      - "Show proximity to adjacent notes"
+
+  NoteIndicator:
+    description: "Large display of current detected note"
+    features:
+      - "Note name in large font"
+      - "Octave number"
+      - "Sharp/flat indicator"
+
+  PitchDisplay:
+    description: "Frequency and pitch information"
+    features:
+      - "Frequency in Hz"
+      - "Cents deviation"
+      - "Confidence indicator"
+      - "In-tune indicator (green when within threshold)"
+
+  TunerNeedle:
+    description: "Analog-style needle showing cents deviation"
+    features:
+      - "Needle from -50 to +50 cents"
+      - "Center = perfectly in tune"
+      - "Color coding: red (far) -> yellow (close) -> green (in tune)"
+      - "Smooth animation"
+
+  TuningPresets:
+    description: "Instrument tuning preset selector"
+    features:
+      - "List of preset tunings"
+      - "Grouped by instrument"
+      - "Show string notes for selected preset"
+      - "Target note indicator per string"
+
+testing:
+  tests:
+    - "app/components/tuner/__tests__/PitchDisplay.test.tsx"
+    - "app/hooks/__tests__/useTuner.test.ts"
+    - "app/hooks/__tests__/useMicrophone.test.ts"
+  coverage_focus:
+    - "Frequency to note mapping accuracy"
+    - "Cents deviation calculation"
+    - "Microphone permission handling"
+    - "Edge cases: no signal, very low/high frequencies"
+  mocking:
+    - "getUserMedia (mock MediaStream)"
+    - "AudioContext (mock AnalyserNode)"
+    - "requestAnimationFrame"
