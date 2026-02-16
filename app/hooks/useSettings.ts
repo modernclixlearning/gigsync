@@ -23,38 +23,13 @@ function generateId(): string {
 function getDefaultSettings(): AppSettings {
   return {
     id: generateId(),
-    theme: 'auto',
-    language: 'en',
-    metronome: {
-      defaultBpm: 120,
-      defaultTimeSignature: '4/4',
-      sound: 'classic',
-      volume: 80,
-      subdivisions: false,
-      accentFirst: true,
-    },
-    tuner: {
-      calibration: 440,
-      defaultTuning: 'Standard',
-      showFrequency: true,
-    },
-    performance: {
-      fontSize: 100,
-      theme: 'dark',
-      autoScrollSpeed: 5,
-      showChords: true,
-      showMetronome: true,
-    },
-    player: {
-      scrollBehavior: 'auto',
-      scrollSensitivity: 5,
-      defaultZoom: 100,
-    },
-    sync: {
-      enableCloudBackup: false,
-      autoSync: false,
-      lastSyncDate: undefined,
-    },
+    theme: DEFAULT_SETTINGS.theme,
+    language: DEFAULT_SETTINGS.language,
+    metronome: { ...DEFAULT_SETTINGS.metronome },
+    tuner: { ...DEFAULT_SETTINGS.tuner },
+    performance: { ...DEFAULT_SETTINGS.performance },
+    player: { ...DEFAULT_SETTINGS.player },
+    sync: { ...DEFAULT_SETTINGS.sync },
     updatedAt: new Date(),
   }
 }

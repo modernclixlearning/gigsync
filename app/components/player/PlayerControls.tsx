@@ -10,13 +10,15 @@ import {
   RotateCcw,
   Minus,
   Plus,
-  ScrollText
+  ScrollText,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
 interface PlayerControlsProps {
   isPlaying: boolean
-  onPlayPause: () => void
+  onPlayPause: () => void | Promise<void>
   autoScrollEnabled: boolean
   onToggleAutoScroll: () => void
   autoScrollSpeed: number
@@ -28,6 +30,14 @@ interface PlayerControlsProps {
   transpose: number
   onTranspose: (semitones: number) => void
   onResetTranspose: () => void
+  metronomeSoundEnabled: boolean
+  onToggleMetronomeSound: () => void
+  smartScrollContextWindow: number
+  onSmartScrollContextWindowChange: (value: number) => void
+  smartScrollSmoothness: number
+  onSmartScrollSmoothnessChange: (value: number) => void
+  showBeatIndicatorDebug: boolean
+  onToggleBeatIndicatorDebug: () => void
 }
 
 export function PlayerControls({
@@ -43,7 +53,15 @@ export function PlayerControls({
   onFontSizeChange,
   transpose,
   onTranspose,
-  onResetTranspose
+  onResetTranspose,
+  metronomeSoundEnabled,
+  onToggleMetronomeSound,
+  smartScrollContextWindow,
+  onSmartScrollContextWindowChange,
+  smartScrollSmoothness,
+  onSmartScrollSmoothnessChange,
+  showBeatIndicatorDebug,
+  onToggleBeatIndicatorDebug
 }: PlayerControlsProps) {
   const [showSettings, setShowSettings] = useState(false)
 
@@ -133,6 +151,96 @@ export function PlayerControls({
               </button>
             </div>
           </div>
+
+          {/* Smart Scroll (Beta) */}
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 space-y-3">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Smart Scroll (Beta)
+            </h4>
+
+            {/* Context Window */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    Context Window
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {smartScrollContextWindow}%
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  33% recomendado (línea actual en el tercio superior).
+                </p>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={smartScrollContextWindow}
+                onChange={(event) =>
+                  onSmartScrollContextWindowChange(event.target.valueAsNumber)
+                }
+                className="w-32 accent-indigo-500"
+              />
+            </div>
+
+            {/* Smoothness */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    Smoothness
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {smartScrollSmoothness}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Valores altos = scroll más suave y lento.
+                </p>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={smartScrollSmoothness}
+                onChange={(event) =>
+                  onSmartScrollSmoothnessChange(event.target.valueAsNumber)
+                }
+                className="w-32 accent-indigo-500"
+              />
+            </div>
+
+            {/* Beat Indicator (debug) */}
+            <label className="flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="text-sm text-slate-600 dark:text-slate-300">
+                  Beat indicator (debug)
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Muestra beat y compás actual en un overlay.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleBeatIndicatorDebug}
+                className={cn(
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                  showBeatIndicatorDebug
+                    ? 'bg-indigo-500'
+                    : 'bg-slate-300 dark:bg-slate-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                    showBeatIndicatorDebug ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </button>
+            </label>
+          </div>
         </div>
       )}
 
@@ -156,15 +264,37 @@ export function PlayerControls({
           <button
             onClick={onToggleAutoScroll}
             className={cn(
-              'p-3 rounded-xl transition-colors',
+              'p-3 rounded-xl transition-colors flex items-center gap-1.5',
               autoScrollEnabled
-                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
             )}
             title={autoScrollEnabled ? 'Stop auto-scroll' : 'Start auto-scroll'}
           >
             <ScrollText className="w-5 h-5" />
+            <span className="text-xs font-medium hidden sm:inline">
+              {autoScrollEnabled ? 'ON' : 'OFF'}
+            </span>
           </button>
+
+          {autoScrollEnabled && (
+            <button
+              onClick={onToggleMetronomeSound}
+              className={cn(
+                'p-3 rounded-xl transition-colors',
+                metronomeSoundEnabled
+                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              )}
+              title={metronomeSoundEnabled ? 'Mute metronome' : 'Enable metronome sound'}
+            >
+              {metronomeSoundEnabled ? (
+                <Volume2 className="w-5 h-5" />
+              ) : (
+                <VolumeX className="w-5 h-5" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Center - Play/Pause */}

@@ -1,32 +1,91 @@
 /**
  * useSongTimeline Hook
- * Manages song timeline calculation and element positioning
+ * 
+ * Manages song timeline calculation and element positioning for smart autoscroll.
+ * Converts lyrics in ChordPro format into a musical timeline with beat-based timing.
+ * 
+ * The timeline is automatically recalculated when lyrics, BPM, or time signature change.
+ * Element positions are measured from the DOM and stored for scroll calculations.
+ * 
+ * @example
+ * ```tsx
+ * const timeline = useSongTimeline({
+ *   lyrics: '[Verse]\n[Am]Hello [G]world',
+ *   bpm: 120,
+ *   timeSignature: '4/4',
+ *   calculationOptions: {
+ *     defaultBarsPerLine: 2,
+ *     intelligentEstimation: false
+ *   }
+ * })
+ * 
+ * // Get element at beat 4
+ * const element = timeline.getElementAtBeat(4)
+ * 
+ * // Update DOM position after measurement
+ * timeline.updateElementPosition('element-0', 100)
+ * ```
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SongTimeline, TimelineElement, TimelineCalculationOptions } from '~/types/timeline'
 import { createSongTimeline, applyCustomDurations } from '~/lib/timeline/calculator'
 
+/**
+ * Options for useSongTimeline hook
+ */
 export interface UseSongTimelineOptions {
+  /** Lyrics in ChordPro format */
   lyrics: string
+  /** Beats per minute (tempo) */
   bpm: number
+  /** Time signature (e.g., "4/4", "3/4", "6/8") */
   timeSignature: string
+  /** Optional calculation options to override defaults */
   calculationOptions?: Partial<TimelineCalculationOptions>
 }
 
+/**
+ * Return value from useSongTimeline hook
+ */
 export interface UseSongTimelineReturn {
+  /** Calculated timeline, or null if not ready or error occurred */
   timeline: SongTimeline | null
+  /** True when timeline is calculated and ready to use */
   isReady: boolean
   
-  // Navigation
+  /**
+   * Get the timeline element at a specific beat position
+   * @param beat - Beat number (0-based)
+   * @returns Timeline element at that beat, or null if not found
+   */
   getElementAtBeat: (beat: number) => TimelineElement | null
+  
+  /**
+   * Get the scroll position (in pixels) for a specific beat
+   * Requires element positions to be measured first via updateElementPosition
+   * @param beat - Beat number (0-based)
+   * @returns Scroll position in pixels, or 0 if element not found
+   */
   getScrollPositionForBeat: (beat: number) => number
+  
+  /**
+   * Update the DOM position of a timeline element
+   * Call this after measuring element positions from the DOM
+   * @param elementId - ID of the timeline element
+   * @param position - Position in pixels from top of container
+   */
   updateElementPosition: (elementId: string, position: number) => void
   
-  // Override manual
+  /**
+   * Set a custom duration (in beats) for a timeline element
+   * Overrides the calculated duration and triggers timeline recalculation
+   * @param elementId - ID of the timeline element
+   * @param durationBeats - Custom duration in beats
+   */
   setCustomDuration: (elementId: string, durationBeats: number) => void
   
-  // Estado
+  /** Error object if timeline calculation failed, null otherwise */
   error: Error | null
 }
 
@@ -36,6 +95,15 @@ const DEFAULT_OPTIONS: TimelineCalculationOptions = {
   intelligentEstimation: false // Start with simple for MVP
 }
 
+/**
+ * Hook to calculate and manage song timeline from ChordPro lyrics
+ * 
+ * Automatically recalculates timeline when inputs change. Supports custom durations
+ * for fine-tuning timing per element.
+ * 
+ * @param options - Configuration options for timeline calculation
+ * @returns Timeline state and helper functions
+ */
 export function useSongTimeline({
   lyrics,
   bpm,
