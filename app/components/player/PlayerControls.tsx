@@ -299,7 +299,9 @@ export function PlayerControls({
 
         {/* Center - Play/Pause */}
         <button
-          onClick={onPlayPause}
+          onClick={async () => {
+            await onPlayPause()
+          }}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           className={cn(
             'p-4 rounded-full transition-colors',
