@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
+import * as Tone from 'tone'
 import { db } from '~/lib/db'
 import type { 
   Song, 
@@ -236,6 +237,7 @@ export interface UseSongPlayerReturn {
   resetTranspose: () => void
   toggleChords: () => void
   setFontSize: (size: number) => void
+  toggleMetronomeSound: () => void
 }
 
 export function useSongPlayer(): UseSongPlayerReturn {
@@ -246,10 +248,14 @@ export function useSongPlayer(): UseSongPlayerReturn {
     isAutoScrollEnabled: false,
     transpose: 0,
     showChords: true,
-    fontSize: 16
+    fontSize: 16,
+    metronomeSoundEnabled: false
   })
 
-  const play = useCallback(() => {
+  const play = useCallback(async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+    }
     setState((prev) => ({ ...prev, isPlaying: true }))
   }, [])
 
@@ -257,8 +263,21 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, isPlaying: false }))
   }, [])
 
-  const togglePlay = useCallback(() => {
-    setState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }))
+  const togglePlay = useCallback(async () => {
+    // Pre-warm Tone.js AudioContext from user gesture (click handler)
+    // This MUST happen in a direct user interaction, not in useEffect
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+    }
+    setState((prev) => {
+      const newState = {
+        ...prev,
+        isPlaying: !prev.isPlaying,
+        // Auto-enable autoscroll when starting playback
+        isAutoScrollEnabled: !prev.isPlaying ? true : prev.isAutoScrollEnabled
+      }
+      return newState
+    })
   }, [])
 
   const setPosition = useCallback((position: number) => {
@@ -292,6 +311,10 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, fontSize: Math.max(12, Math.min(32, size)) }))
   }, [])
 
+  const toggleMetronomeSound = useCallback(() => {
+    setState((prev) => ({ ...prev, metronomeSoundEnabled: !prev.metronomeSoundEnabled }))
+  }, [])
+
   return {
     state,
     play,
@@ -303,6 +326,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     transpose,
     resetTranspose,
     toggleChords,
-    setFontSize
+    setFontSize,
+    toggleMetronomeSound
   }
 }

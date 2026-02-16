@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 
 interface UseAutoScrollOptions {
-  containerRef: React.RefObject<HTMLElement>
+  containerRef: React.RefObject<HTMLElement | null>
   isEnabled: boolean
   speed: number // 0-100, where 50 is default speed
 }

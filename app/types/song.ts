@@ -36,6 +36,7 @@ export interface SongPlayerState {
   transpose: number
   showChords: boolean
   fontSize: number
+  metronomeSoundEnabled: boolean
 }
 
 export interface LyricLine {

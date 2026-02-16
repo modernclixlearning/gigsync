@@ -1,31 +1,96 @@
 /**
  * useBPMSync Hook
- * Synchronizes playback with BPM using Tone.js Transport
+ * 
+ * Synchronizes playback with BPM using Tone.js Transport for precise musical timing.
+ * Tracks current beat, bar, and beat-in-bar position, updating at 16th note resolution.
+ * 
+ * Automatically syncs with the `isPlaying` prop - when true, starts playback; when false, pauses.
+ * Requires user interaction to start AudioContext (browser security requirement).
+ * 
+ * @example
+ * ```tsx
+ * const bpmSync = useBPMSync({
+ *   bpm: 120,
+ *   timeSignature: '4/4',
+ *   isPlaying: true,
+ *   onBeatChange: (beat) => {
+ *     console.log(`Beat: ${beat}`)
+ *   },
+ *   onBarChange: (bar) => {
+ *     console.log(`Bar: ${bar}`)
+ *   }
+ * })
+ * 
+ * // Manual control
+ * await bpmSync.play()
+ * bpmSync.pause()
+ * bpmSync.seekToBeat(16)
+ * ```
+ * 
+ * @remarks
+ * - Requires Tone.js and Web Audio API support
+ * - AudioContext must be started from user gesture (click, touch, etc.)
+ * - Automatically handles suspended AudioContext
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as Tone from 'tone'
 
+/**
+ * Options for useBPMSync hook
+ */
 export interface UseBPMSyncOptions {
+  /** Beats per minute (tempo) - range typically 20-300 */
   bpm: number
+  /** Time signature in format "beats/noteValue" (e.g., "4/4", "3/4", "6/8") */
   timeSignature: string
+  /** Whether playback is active - automatically starts/pauses Transport */
   isPlaying: boolean
+  /** Optional callback fired when beat changes (every 16th note) */
   onBeatChange?: (beat: number) => void
+  /** Optional callback fired when bar changes */
   onBarChange?: (bar: number) => void
 }
 
+/**
+ * Return value from useBPMSync hook
+ */
 export interface UseBPMSyncReturn {
+  /** Current absolute beat number (0-based, increments continuously) */
   currentBeat: number
+  /** Current bar number (0-based) */
   currentBar: number
+  /** Current beat within the current bar (0-based, 0 to beatsPerBar-1) */
   currentBeatInBar: number
+  /** Whether Transport is currently running */
   isRunning: boolean
+  /**
+   * Start playback (resumes AudioContext if suspended)
+   * @returns Promise that resolves when AudioContext is ready
+   */
   play: () => Promise<void>
+  /** Pause playback (keeps position) */
   pause: () => void
+  /** Stop and reset to beginning (beat 0) */
   reset: () => void
+  /**
+   * Seek to a specific beat position
+   * @param beat - Target beat number (0-based)
+   */
   seekToBeat: (beat: number) => void
+  /** Current Transport time in seconds */
   transportTime: number
 }
 
+/**
+ * Hook to synchronize playback with BPM using Tone.js Transport
+ * 
+ * Provides precise musical timing with beat/bar tracking. Automatically syncs
+ * with `isPlaying` prop and handles AudioContext lifecycle.
+ * 
+ * @param options - Configuration for BPM synchronization
+ * @returns Current playback state and control functions
+ */
 export function useBPMSync({
   bpm,
   timeSignature,

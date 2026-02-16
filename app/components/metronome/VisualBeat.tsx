@@ -47,7 +47,7 @@ export function VisualBeat({
   return (
     <div 
       className={cn(
-        'flex items-center justify-center gap-4',
+        'flex items-center justify-center gap-2',
         className
       )}
     >
@@ -62,14 +62,14 @@ export function VisualBeat({
               baseStyles[variant],
               isAccent && accentStyles[variant],
               isActive ? activeStyles[variant] : inactiveStyles[variant],
-              isActive && glow && 'shadow-[0_0_12px_rgba(19,55,236,1)]',
+              isActive && glow && 'shadow-[0_0_16px_rgba(99,102,241,0.8)] dark:shadow-[0_0_16px_rgba(129,140,248,0.9)]',
               'transition-colors duration-75'
             )}
             animate={isActive ? {
-              scale: [1, 1.2, 1],
+              scale: [1, 1.3, 1],
             } : {}}
             transition={{
-              duration: 0.1,
+              duration: 0.15,
               ease: 'easeOut',
             }}
           />

@@ -37,6 +37,22 @@ export interface PlayerPreferences {
   scrollBehavior: 'auto' | 'manual'
   scrollSensitivity: number // 1-10
   defaultZoom: number // 100-200%
+  /**
+   * Position of the current line within the viewport for Smart Autoscroll.
+   * Expressed as a percentage of the container height (0-100).
+   * Default is 33 (roughly one third from the top, like reading a book).
+   */
+  smartScrollContextWindow: number
+  /**
+   * Smoothness of Smart Autoscroll animations.
+   * 0-100, where higher values mean longer/slower interpolation.
+   * Mapped internally to a scroll duration in milliseconds.
+   */
+  smartScrollSmoothness: number
+  /**
+   * When true, shows a debug beat/bar indicator overlay during Smart Autoscroll.
+   */
+  showBeatIndicatorDebug: boolean
 }
 
 export interface SyncPreferences {
@@ -106,6 +122,9 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
     scrollBehavior: 'auto',
     scrollSensitivity: 5,
     defaultZoom: 100,
+    smartScrollContextWindow: 33,
+    smartScrollSmoothness: 70,
+    showBeatIndicatorDebug: false,
   },
   sync: {
     enableCloudBackup: false,

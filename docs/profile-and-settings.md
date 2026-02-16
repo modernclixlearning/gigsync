@@ -54,6 +54,9 @@ interface PlayerPreferences {
   scrollBehavior: 'auto' | 'manual'
   scrollSensitivity: number     // 1-10, default 5
   defaultZoom: number           // 100-200%, default 100
+  smartScrollContextWindow: number  // 0-100%, default 33 (posición de la línea actual en el viewport)
+  smartScrollSmoothness: number     // 0-100, default 70 (suavidad/duración del scroll)
+  showBeatIndicatorDebug: boolean   // default false (overlay de beat/bar en modo debug)
 }
 
 interface SyncPreferences {
@@ -148,6 +151,7 @@ Organizada en secciones con `SettingsSection` wrapper:
 - Comportamiento de scroll (Auto/Manual)
 - Sensibilidad de scroll (1-10)
 - Zoom por defecto (100-200%)
+- Smart Scroll: context window (%), smoothness (0-100) y toggle de Beat Indicator (debug), persistidos en `settings.player` y configurables actualmente desde el player
 
 **Datos y Privacidad**
 - Habilitar backup en la nube (TODO)
