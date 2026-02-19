@@ -392,17 +392,36 @@ export function SongPlayerContent({
       {autoScroll.currentElementId &&
         player.state.isPlaying &&
         player.state.isAutoScrollEnabled &&
-        !autoScroll.hasFallback && (
-          <style>{`
-            [data-element-id="${autoScroll.currentElementId}"] {
-              background: rgba(79, 70, 229, 0.08);
-              border-left: 3px solid rgb(99, 102, 241);
-              padding-left: 0.75rem;
-              border-radius: 0.25rem;
-              transition: background 0.3s ease, border-left 0.3s ease;
-            }
-          `}</style>
-        )}
+        !autoScroll.hasFallback && (() => {
+          const elementId = autoScroll.currentElementId
+          // Determine which chord box within an instrumental section is currently active.
+          const chordIdx =
+            autoScroll.currentElementStartBeat !== null
+              ? Math.floor((autoScroll.currentBeat - autoScroll.currentElementStartBeat) / beatsPerBar)
+              : null
+
+          return (
+            <style>{`
+              [data-element-id="${elementId}"] {
+                background: rgba(79, 70, 229, 0.08);
+                border-left: 3px solid rgb(99, 102, 241);
+                padding-left: 0.75rem;
+                border-radius: 0.25rem;
+                transition: background 0.3s ease, border-left 0.3s ease;
+              }
+              ${chordIdx !== null ? `
+              [data-element-id="${elementId}"] [data-chord-index="${chordIdx}"] {
+                background: rgb(99, 102, 241) !important;
+                border-color: rgb(79, 70, 229) !important;
+                color: white !important;
+              }
+              [data-element-id="${elementId}"] [data-chord-index="${chordIdx}"] span {
+                color: white !important;
+              }
+              ` : ''}
+            `}</style>
+          )
+        })()}
 
       {/* Lyrics Container */}
       <div
