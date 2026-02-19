@@ -388,35 +388,44 @@ export function SongPlayerContent({
           />
         )}
 
-      {/* Current line highlight style */}
+      {/* Current line + per-bar highlight style */}
       {autoScroll.currentElementId &&
         player.state.isPlaying &&
         player.state.isAutoScrollEnabled &&
         !autoScroll.hasFallback && (() => {
-          const elementId = autoScroll.currentElementId
-          // Determine which chord box within an instrumental section is currently active.
+          const eid = autoScroll.currentElementId
+          // Which bar (chord cell) is the playhead on right now?
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
-              ? Math.floor((autoScroll.currentBeat - autoScroll.currentElementStartBeat) / beatsPerBar)
+              ? Math.floor(
+                  (autoScroll.currentBeat - autoScroll.currentElementStartBeat) / beatsPerBar
+                )
               : null
-
           return (
             <style>{`
-              [data-element-id="${elementId}"] {
+              /* General line highlight */
+              [data-element-id="${eid}"] {
                 background: rgba(79, 70, 229, 0.08);
                 border-left: 3px solid rgb(99, 102, 241);
                 padding-left: 0.75rem;
                 border-radius: 0.25rem;
-                transition: background 0.3s ease, border-left 0.3s ease;
+                transition: background 0.3s ease;
+              }
+              /* Grid elements (bar grids + instrumental): remove the left-border
+                 decoration — the active cell highlight is enough */
+              [data-element-id="${eid}"][data-bar-element] {
+                border-left: none;
+                padding-left: 0;
+                background: rgba(79, 70, 229, 0.04);
               }
               ${chordIdx !== null ? `
-              [data-element-id="${elementId}"] [data-chord-index="${chordIdx}"] {
-                background: rgb(99, 102, 241) !important;
-                border-color: rgb(79, 70, 229) !important;
-                color: white !important;
+              /* Active bar cell highlight */
+              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
+                background: rgba(99, 102, 241, 0.18) !important;
+                border-color: rgb(99, 102, 241) !important;
               }
-              [data-element-id="${elementId}"] [data-chord-index="${chordIdx}"] span {
-                color: white !important;
+              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
+                color: rgb(79, 70, 229);
               }
               ` : ''}
             `}</style>
@@ -433,6 +442,7 @@ export function SongPlayerContent({
           <ChordOverlay
             lyrics={song.lyrics}
             transpose={player.state.transpose}
+            columns={player.state.fontSize > 18 ? 2 : 4}
           />
         ) : (
           <LyricsDisplay lyrics={song.lyrics} />

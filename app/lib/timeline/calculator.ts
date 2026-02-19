@@ -61,12 +61,19 @@ export function calculateElementDuration(
       // Each chord bar is one measure
       return (element as ChordsOnlyLine).chordBars.length * beatsPerBar
       
-    case 'lyric':
-      // Estimate based on mode
-      if (options.intelligentEstimation) {
-        return estimateLineDurationIntelligent(element as LyricParsedLine, beatsPerBar)
+    case 'lyric': {
+      const lyricLine = element as LyricParsedLine
+      // When the line carries chord annotations, each chord = one bar.
+      // This makes per-bar highlighting exact and removes the need for estimation.
+      if (lyricLine.chords.length > 0) {
+        return lyricLine.chords.length * beatsPerBar
       }
-      return estimateLineDurationSimple(element as LyricParsedLine, beatsPerBar, options)
+      // No chords: fall back to the configured estimation strategy
+      if (options.intelligentEstimation) {
+        return estimateLineDurationIntelligent(lyricLine, beatsPerBar)
+      }
+      return estimateLineDurationSimple(lyricLine, beatsPerBar, options)
+    }
       
     case 'section':
     case 'empty':
