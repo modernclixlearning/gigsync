@@ -185,18 +185,30 @@ export function createSongTimeline(
 ): SongTimeline {
   const parsed = parseChordPro(lyrics)
   const elements: TimelineElement[] = []
-  
+
   let currentBeat = 0
   const { beats: beatsPerBar } = parseTimeSignature(timeSignature)
-  
-  for (let i = 0; i < parsed.lines.length; i++) {
+
+  let i = 0
+  while (i < parsed.lines.length) {
     const line = parsed.lines[i]
-    
+
     // Skip directive lines (they don't appear in timeline)
-    if (line.type === 'directive') continue
-    
-    const duration = calculateElementDuration(line, options, timeSignature)
-    
+    if (line.type === 'directive') { i++; continue }
+
+    let duration = calculateElementDuration(line, options, timeSignature)
+
+    // Merge chords-only + lyric pairs into a single timeline element.
+    // When a chord-row (chords-only) is immediately followed by a lyric line,
+    // they belong together musically — the chords annotate that lyric.
+    // Use the longer of the two durations so timing stays accurate.
+    let skipNext = false
+    if (line.type === 'chords-only' && i + 1 < parsed.lines.length && parsed.lines[i + 1].type === 'lyric') {
+      const lyricDuration = calculateElementDuration(parsed.lines[i + 1], options, timeSignature)
+      duration = Math.max(duration, lyricDuration)
+      skipNext = true
+    }
+
     elements.push({
       id: `element-${i}`,
       type: line.type,
@@ -206,8 +218,10 @@ export function createSongTimeline(
       bars: duration / beatsPerBar,
       content: line
     })
-    
+
     currentBeat += duration
+    i++
+    if (skipNext) i++ // skip the paired lyric line — it's rendered inside the chords-only block
   }
   
   const totalDurationSeconds = beatsToSeconds(currentBeat, bpm)

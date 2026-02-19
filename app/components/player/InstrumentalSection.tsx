@@ -147,6 +147,7 @@ export function InstrumentalSection({
             {chords.map((bar, index) => (
               <div
                 key={index}
+                data-chord-index={index}
                 className={cn(
                   'flex items-center justify-center',
                   'rounded-lg border',

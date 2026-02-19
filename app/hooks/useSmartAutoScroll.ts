@@ -77,6 +77,8 @@ export interface UseSmartAutoScrollReturn {
   currentBeatInBar: number
   /** ID of the currently active timeline element (for highlighting) */
   currentElementId: string | null
+  /** Start beat of the currently active timeline element */
+  currentElementStartBeat: number | null
   /** True when timeline is calculated and ready */
   isReady: boolean
   /** True when fallback to simple autoscroll is active */
@@ -123,6 +125,7 @@ export function useSmartAutoScroll({
   smoothScrollDuration = DEFAULT_SMOOTH_SCROLL_DURATION
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
   const currentElementIdRef = useRef<string | null>(null)
+  const currentElementStartBeatRef = useRef<number | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const smoothScrollDurationRef = useRef(smoothScrollDuration)
   smoothScrollDurationRef.current = smoothScrollDuration
@@ -196,6 +199,7 @@ export function useSmartAutoScroll({
     
     // Track current element
     currentElementIdRef.current = element.id
+    currentElementStartBeatRef.current = element.startBeat
     
     // Get raw scroll position for this beat
     const rawPosition = tl.getScrollPositionForBeat(beat)
@@ -279,6 +283,7 @@ export function useSmartAutoScroll({
     if (!isEnabled) {
       bpmSync.reset()
       currentElementIdRef.current = null
+      currentElementStartBeatRef.current = null
     }
   }, [isEnabled])
   
@@ -295,6 +300,7 @@ export function useSmartAutoScroll({
     currentBar: bpmSync.currentBar,
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,
+    currentElementStartBeat: currentElementStartBeatRef.current,
     isReady: timeline.isReady,
     hasFallback,
     retrySmartAutoscroll,
