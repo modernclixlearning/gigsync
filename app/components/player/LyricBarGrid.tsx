@@ -25,6 +25,10 @@ interface LyricBarGridProps {
   transpose?: number
   elementId: string
   className?: string
+  /** Called when a chord cell is tapped; only wired when seek is available. */
+  onChordClick?: (elementId: string, chordIndex: number | null) => void
+  /** When true, chord cells show pointer cursor and hover feedback. */
+  isSeekEnabled?: boolean
 }
 
 interface BarSegment {
@@ -54,6 +58,8 @@ export function LyricBarGrid({
   transpose = 0,
   elementId,
   className,
+  onChordClick,
+  isSeekEnabled = false,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line, transpose)
 
@@ -86,13 +92,16 @@ export function LyricBarGrid({
             <div
               key={index}
               data-chord-index={index}
+              {...(isSeekEnabled && { role: 'button', tabIndex: 0 })}
+              onClick={isSeekEnabled ? () => onChordClick?.(elementId, index) : undefined}
               className={cn(
                 'flex flex-col gap-1',
                 'rounded-lg border',
                 'bg-white dark:bg-slate-800',
                 'border-slate-200 dark:border-slate-700',
                 'px-2 py-2',
-                'transition-colors duration-150'
+                'transition-colors duration-150',
+                isSeekEnabled && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
               )}
             >
               {/* Chord badge */}

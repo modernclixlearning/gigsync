@@ -11,9 +11,13 @@ interface ChordOverlayProps {
   /** Number of grid columns (2 = zoomed-in, 4 = normal). Default 4. */
   columns?: number
   className?: string
+  /** Called when a chord cell is tapped. Only fires when seek is available. */
+  onChordClick?: (elementId: string, chordIndex: number | null) => void
+  /** When true, chord cells show pointer cursor and hover feedback. */
+  isSeekEnabled?: boolean
 }
 
-export function ChordOverlay({ lyrics, transpose = 0, columns = 4, className }: ChordOverlayProps) {
+export function ChordOverlay({ lyrics, transpose = 0, columns = 4, className, onChordClick, isSeekEnabled = false }: ChordOverlayProps) {
   const parsed = useMemo(() => {
     return parseChordPro(lyrics, transpose)
   }, [lyrics, transpose])
@@ -27,6 +31,8 @@ export function ChordOverlay({ lyrics, transpose = 0, columns = 4, className }: 
           transpose={transpose}
           columns={columns}
           elementId={`element-${index}`}
+          onChordClick={onChordClick}
+          isSeekEnabled={isSeekEnabled}
         />
       ))}
     </div>
@@ -38,11 +44,15 @@ function ChordOverlayLine({
   transpose,
   columns,
   elementId,
+  onChordClick,
+  isSeekEnabled = false,
 }: {
   line: AnyParsedLine
   transpose: number
   columns: number
   elementId: string
+  onChordClick?: (elementId: string, chordIndex: number | null) => void
+  isSeekEnabled?: boolean
 }) {
   if (line.type === 'empty') {
     return <div className="h-6" data-element-id={elementId} />
@@ -66,6 +76,9 @@ function ChordOverlayLine({
           section={line.section}
           transpose={transpose}
           columns={columns}
+          elementId={elementId}
+          onChordClick={onChordClick}
+          isSeekEnabled={isSeekEnabled}
         />
       </div>
     )
@@ -105,6 +118,8 @@ function ChordOverlayLine({
         columns={columns}
         elementId={elementId}
         className="my-1"
+        onChordClick={onChordClick}
+        isSeekEnabled={isSeekEnabled}
       />
     )
   }

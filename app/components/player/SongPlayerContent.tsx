@@ -134,6 +134,20 @@ export function SongPlayerContent({
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
 
+  // Seek-to-Section: true when chord-cell clicks should trigger seek
+  const isSeekEnabled =
+    autoScroll.isReady &&
+    !autoScroll.hasFallback &&
+    player.state.isAutoScrollEnabled
+
+  const handleChordClick = useCallback(
+    (elementId: string, chordIndex: number | null) => {
+      if (!autoScroll.isReady || autoScroll.hasFallback) return
+      autoScroll.seekToElement(elementId, chordIndex ?? undefined)
+    },
+    [autoScroll]
+  )
+
   useEffect(() => {
     if (player.state.isPlaying && song) {
       incrementPlayCount()
@@ -443,6 +457,8 @@ export function SongPlayerContent({
             lyrics={song.lyrics}
             transpose={player.state.transpose}
             columns={player.state.fontSize > 18 ? 2 : 4}
+            onChordClick={handleChordClick}
+            isSeekEnabled={isSeekEnabled}
           />
         ) : (
           <LyricsDisplay lyrics={song.lyrics} />

@@ -99,6 +99,14 @@ export interface UseSmartAutoScrollReturn {
    * @param beat - Target beat number (0-based)
    */
   seekToBeat: (beat: number) => void
+  /**
+   * Seek to a timeline element by ID and optional chord index.
+   * Encapsulates the formula: targetBeat = element.startBeat + chordIndex * beatsPerBar.
+   * No-op when timeline is not ready or fallback is active.
+   * @param elementId - The timeline element ID (e.g. "element-3")
+   * @param chordIndex - 0-based chord/bar cell index within the element (omit to seek to element start)
+   */
+  seekToElement: (elementId: string, chordIndex?: number) => void
 }
 
 /** Default duration for smooth scroll animation in milliseconds */
@@ -287,6 +295,21 @@ export function useSmartAutoScroll({
     }
   }, [isEnabled])
   
+  // Seek to a timeline element by ID and optional chord index
+  const seekToElement = useCallback((elementId: string, chordIndex?: number) => {
+    if (!timeline.isReady || hasFallback) return
+    const elements = timeline.timeline?.elements
+    if (!elements) return
+    const element = elements.find(e => e.id === elementId)
+    if (!element) return
+    const beatsPerBarValue = timeline.timeline?.beatsPerBar ?? 4
+    const targetBeat =
+      chordIndex !== undefined
+        ? element.startBeat + chordIndex * beatsPerBarValue
+        : element.startBeat
+    bpmSync.seekToBeat(targetBeat)
+  }, [timeline.isReady, timeline.timeline, hasFallback, bpmSync.seekToBeat])
+
   // Retry function: resets fallback state to force re-evaluation
   const retrySmartAutoscroll = useCallback(() => {
     setHasFallback(false)
@@ -307,6 +330,7 @@ export function useSmartAutoScroll({
     play: bpmSync.play,
     pause: bpmSync.pause,
     reset: bpmSync.reset,
-    seekToBeat: bpmSync.seekToBeat
+    seekToBeat: bpmSync.seekToBeat,
+    seekToElement
   }
 }

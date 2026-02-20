@@ -18,6 +18,12 @@ interface InstrumentalSectionProps {
   className?: string
   /** Compact mode for smaller displays */
   compact?: boolean
+  /** Timeline element ID — required for seek callbacks */
+  elementId?: string
+  /** Called when a chord cell is tapped; only wired when seek is available. */
+  onChordClick?: (elementId: string, chordIndex: number | null) => void
+  /** When true, chord cells show pointer cursor and hover feedback. */
+  isSeekEnabled?: boolean
 }
 
 /** Get icon for section type */
@@ -85,7 +91,10 @@ export function InstrumentalSection({
   columns = 4,
   transpose = 0,
   className,
-  compact = false
+  compact = false,
+  elementId,
+  onChordClick,
+  isSeekEnabled = false,
 }: InstrumentalSectionProps) {
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
@@ -148,13 +157,20 @@ export function InstrumentalSection({
               <div
                 key={index}
                 data-chord-index={index}
+                {...(isSeekEnabled && elementId && { role: 'button', tabIndex: 0 })}
+                onClick={
+                  isSeekEnabled && elementId
+                    ? () => onChordClick?.(elementId, index)
+                    : undefined
+                }
                 className={cn(
                   'flex items-center justify-center',
                   'rounded-lg border',
                   'bg-white dark:bg-slate-800',
                   'border-slate-200 dark:border-slate-700',
                   compact ? 'py-2 px-1' : 'py-3 px-2',
-                  'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
+                  isSeekEnabled && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20'
                 )}
               >
                 <span className={cn(
