@@ -53,13 +53,20 @@ export function calculateElementDuration(
   const { beats: beatsPerBar } = parseTimeSignature(timeSignature)
   
   switch (element.type) {
-    case 'instrumental':
-      // Explicit duration from section (e.g., [Intro | 4 bars])
-      return (element as InstrumentalLine).section.bars * beatsPerBar
-      
+    case 'instrumental': {
+      // Sum actual beats per bar — supports partial bars (anacrusis) via bar.beats
+      const { chordBars, bars } = (element as InstrumentalLine).section
+      if (chordBars.length > 0) {
+        return chordBars.reduce((sum, bar) => sum + (bar.beats ?? beatsPerBar), 0)
+      }
+      return bars * beatsPerBar
+    }
+
     case 'chords-only':
-      // Each chord bar is one measure
-      return (element as ChordsOnlyLine).chordBars.length * beatsPerBar
+      // Sum actual beats per bar — supports partial bars (anacrusis) via bar.beats
+      return (element as ChordsOnlyLine).chordBars.reduce(
+        (sum, bar) => sum + (bar.beats ?? beatsPerBar), 0
+      )
       
     case 'lyric': {
       const lyricLine = element as LyricParsedLine

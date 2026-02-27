@@ -324,14 +324,32 @@ export function useSmartAutoScroll({
     if (!elements) return
     const element = elements.find(e => e.id === elementId)
     if (!element) return
-    const chordCount = getChordCount(element)
-    const beatsPerChord = chordCount > 0
-      ? element.durationBeats / chordCount
-      : (timeline.timeline?.beatsPerBar ?? 4)
-    const targetBeat =
-      chordIndex !== undefined
-        ? element.startBeat + chordIndex * beatsPerChord
-        : element.startBeat
+
+    if (chordIndex === undefined) {
+      bpmSync.seekToBeat(element.startBeat)
+      return
+    }
+
+    const beatsPerBar = timeline.timeline?.beatsPerBar ?? 4
+    const content = element.content
+
+    // For bar-based elements (instrumental, chords-only), sum beats up to chordIndex
+    // so that partial bars (anacrusis) are seeked correctly.
+    let barBeats: number[] | null = null
+    if (content && 'type' in content) {
+      if (content.type === 'instrumental') {
+        barBeats = (content as { section: { chordBars: { beats?: number }[] } })
+          .section.chordBars.map(b => b.beats ?? beatsPerBar)
+      } else if (content.type === 'chords-only') {
+        barBeats = (content as { chordBars: { beats?: number }[] })
+          .chordBars.map(b => b.beats ?? beatsPerBar)
+      }
+    }
+
+    const targetBeat = barBeats
+      ? element.startBeat + barBeats.slice(0, chordIndex).reduce((s, b) => s + b, 0)
+      : element.startBeat + chordIndex * (element.durationBeats / getChordCount(element))
+
     bpmSync.seekToBeat(targetBeat)
   }, [timeline.isReady, timeline.timeline, hasFallback, bpmSync.seekToBeat])
 

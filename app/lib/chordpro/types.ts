@@ -16,7 +16,8 @@ export interface ChordPosition {
 /** A single bar/measure of music */
 export interface ChordBar {
   chord: string
-  beats?: number // Default: full bar based on time signature
+  beats?: number  // Explicit beat count; omit for a full bar
+  label?: string  // Optional pickup/annotation text shown inside the cell
 }
 
 /** A line of lyrics with optional chords */

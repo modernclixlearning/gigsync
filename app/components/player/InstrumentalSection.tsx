@@ -110,7 +110,14 @@ export function InstrumentalSection({
   for (let i = 0; i < chords.length; i += columns) {
     rows.push(chords.slice(i, i + columns))
   }
-  
+
+  // Build per-row gridTemplateColumns: proportional to beats when any bar has a custom beat count
+  function rowGridTemplate(row: ChordBar[], beatsPerBar = 4): string {
+    const hasPartial = row.some(b => b.beats !== undefined)
+    if (!hasPartial) return `repeat(${row.length}, minmax(0, 1fr))`
+    return row.map(b => `${b.beats ?? beatsPerBar}fr`).join(' ')
+  }
+
   // If no chords but we have a bar count, show placeholder
   const showPlaceholder = chords.length === 0 && section.bars > 0
   
@@ -144,61 +151,70 @@ export function InstrumentalSection({
         </div>
       </div>
       
-      {/* Chord Grid */}
+      {/* Chord Grid — one grid per row so each row can have its own proportional columns */}
       {rows.length > 0 ? (
-        <div className={cn('p-2', compact ? 'p-1' : 'p-3')}>
-          <div 
-            className="grid gap-1"
-            style={{ 
-              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` 
-            }}
-          >
-            {chords.map((bar, index) => (
-              <div
-                key={index}
-                data-chord-index={index}
-                {...(isSeekEnabled && elementId && { role: 'button', tabIndex: 0 })}
-                onClick={
-                  isSeekEnabled && elementId
-                    ? () => onChordClick?.(elementId, index)
-                    : undefined
-                }
-                className={cn(
-                  'flex items-center justify-center',
-                  'rounded-lg border',
-                  'bg-white dark:bg-slate-800',
-                  'border-slate-200 dark:border-slate-700',
-                  compact ? 'py-2 px-1' : 'py-3 px-2',
-                  'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
-                  isSeekEnabled && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20'
-                )}
-              >
-                <span className={cn(
-                  'font-mono font-bold',
-                  'text-slate-900 dark:text-white',
-                  compact ? 'text-sm' : 'text-base'
-                )}>
-                  {bar.chord}
-                </span>
-              </div>
-            ))}
-            
-            {/* Fill empty cells in last row */}
-            {rows.length > 0 && rows[rows.length - 1].length < columns && (
-              Array(columns - rows[rows.length - 1].length).fill(0).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className={cn(
-                    'flex items-center justify-center',
-                    'rounded-lg border border-dashed',
-                    'border-slate-200 dark:border-slate-700',
-                    compact ? 'py-2 px-1' : 'py-3 px-2',
-                    'opacity-30'
-                  )}
-                />
-              ))
-            )}
-          </div>
+        <div className={cn(compact ? 'p-1' : 'p-3', 'flex flex-col gap-1')}>
+          {rows.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              className="grid gap-1"
+              style={{ gridTemplateColumns: rowGridTemplate(row) }}
+            >
+              {row.map((bar, colIndex) => {
+                const index = rowIndex * columns + colIndex
+                return (
+                  <div
+                    key={index}
+                    data-chord-index={index}
+                    {...(isSeekEnabled && elementId && { role: 'button', tabIndex: 0 })}
+                    onClick={
+                      isSeekEnabled && elementId
+                        ? () => onChordClick?.(elementId, index)
+                        : undefined
+                    }
+                    className={cn(
+                      'flex flex-col items-center justify-center',
+                      'rounded-lg border',
+                      'bg-white dark:bg-slate-800',
+                      'border-slate-200 dark:border-slate-700',
+                      compact ? 'py-2 px-1' : 'py-3 px-2',
+                      'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
+                      isSeekEnabled && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20'
+                    )}
+                  >
+                    <span className={cn(
+                      'font-mono font-bold',
+                      'text-slate-900 dark:text-white',
+                      compact ? 'text-sm' : 'text-base'
+                    )}>
+                      {bar.chord}
+                    </span>
+                    {bar.label && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
+                        {bar.label}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Pad last row only */}
+              {rowIndex === rows.length - 1 && row.length < columns && !row.some(b => b.beats !== undefined) && (
+                Array(columns - row.length).fill(0).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className={cn(
+                      'flex items-center justify-center',
+                      'rounded-lg border border-dashed',
+                      'border-slate-200 dark:border-slate-700',
+                      compact ? 'py-2 px-1' : 'py-3 px-2',
+                      'opacity-30'
+                    )}
+                  />
+                ))
+              )}
+            </div>
+          ))}
         </div>
       ) : showPlaceholder ? (
         <div className={cn('p-4 text-center', colors.text, 'opacity-60')}>

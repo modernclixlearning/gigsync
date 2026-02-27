@@ -113,44 +113,89 @@ export function isValidChord(text: string): boolean {
 }
 
 /**
+ * Parse a single chord-bar segment, supporting optional beat count and pickup label.
+ *
+ * Accepted formats:
+ *   "Am"              → { chord: 'Am' }
+ *   "F 3"             → { chord: 'F', beats: 3 }
+ *   "F 3 (It's the)"  → { chord: 'F', beats: 3, label: "It's the" }
+ *
+ * Returns null if the segment cannot be parsed as a valid chord bar.
+ */
+function parseChordBarPart(part: string): ChordBar | null {
+  let s = part.trim()
+  if (!s) return null
+
+  // Extract optional (label) at the end
+  let label: string | undefined
+  const labelMatch = s.match(/\(([^)]+)\)\s*$/)
+  if (labelMatch) {
+    label = labelMatch[1].trim()
+    s = s.slice(0, labelMatch.index).trim()
+  }
+
+  // Split remainder into tokens: chord [beats]
+  const tokens = s.split(/\s+/)
+  if (tokens.length === 0 || !tokens[0]) return null
+
+  const chord = tokens[0]
+  if (!isValidChord(chord)) return null
+
+  let beats: number | undefined
+  if (tokens.length >= 2) {
+    const n = parseInt(tokens[1], 10)
+    // Must be a pure integer token (not part of a chord suffix)
+    if (!isNaN(n) && String(n) === tokens[1] && tokens.length === 2) {
+      beats = n
+    } else {
+      // Unexpected extra tokens — not a valid chord bar part
+      return null
+    }
+  }
+
+  return { chord, ...(beats !== undefined && { beats }), ...(label && { label }) }
+}
+
+/**
  * Parse a line of chord bars: "Am | G | C | F |" or "Am | G | C | F | x4"
+ * Supports partial-bar syntax: "F 3" (F for 3 beats) and pickup labels: "F 3 (It's the)"
  * @returns Array of chord bars and optional repeat count
  */
 export function parseChordBars(line: string): { bars: ChordBar[]; repeatCount?: number } | null {
   let trimmed = line.trim()
   let repeatCount: number | undefined
-  
+
   // Check for repeat marker at end
   const repeatMatch = trimmed.match(PATTERNS.repeatMarker)
   if (repeatMatch) {
     repeatCount = parseInt(repeatMatch[1], 10)
     trimmed = trimmed.replace(PATTERNS.repeatMarker, '').trim()
   }
-  
+
   // Remove trailing bar separator if present
   if (trimmed.endsWith('|')) {
     trimmed = trimmed.slice(0, -1).trim()
   }
-  
+
   // Split by bar separator
   const parts = trimmed.split(PATTERNS.barSeparator).filter(Boolean)
-  
+
   if (parts.length === 0) return null
-  
-  // Parse each part as a chord
+
+  // Parse each part as a chord bar (with optional beats/label)
   const bars: ChordBar[] = []
   for (const part of parts) {
-    const chord = part.trim()
-    if (chord && isValidChord(chord)) {
-      bars.push({ chord })
-    } else if (chord) {
-      // If any part is not a valid chord, this isn't a chord-only line
+    const bar = parseChordBarPart(part)
+    if (bar) {
+      bars.push(bar)
+    } else if (part.trim()) {
+      // Non-empty part that doesn't parse → not a chord-only line
       return null
     }
   }
-  
+
   if (bars.length === 0) return null
-  
+
   return { bars, repeatCount }
 }
 
