@@ -42,6 +42,17 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
+import type { TimelineElement } from '~/types/timeline'
+
+/** Returns the number of chord cells in a timeline element (lyric, chords-only, or instrumental). */
+function getChordCount(element: TimelineElement): number {
+  const content = element.content
+  if (!content || !('type' in content)) return 0
+  if (content.type === 'lyric') return (content as { chords: unknown[] }).chords?.length ?? 0
+  if (content.type === 'chords-only') return (content as { chordBars: unknown[] }).chordBars?.length ?? 0
+  if (content.type === 'instrumental') return (content as { section: { chordBars: unknown[] } }).section?.chordBars?.length ?? 0
+  return 0
+}
 
 /**
  * Options for useSmartAutoScroll hook
@@ -79,6 +90,11 @@ export interface UseSmartAutoScrollReturn {
   currentElementId: string | null
   /** Start beat of the currently active timeline element */
   currentElementStartBeat: number | null
+  /**
+   * Beats per chord cell for the currently active element.
+   * Use this to compute which chord cell is active: Math.floor(elapsed / currentBeatsPerChord).
+   */
+  currentBeatsPerChord: number
   /** True when timeline is calculated and ready */
   isReady: boolean
   /** True when fallback to simple autoscroll is active */
@@ -134,6 +150,7 @@ export function useSmartAutoScroll({
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
   const currentElementIdRef = useRef<string | null>(null)
   const currentElementStartBeatRef = useRef<number | null>(null)
+  const currentBeatsPerChordRef = useRef<number>(4)
   const animationFrameRef = useRef<number | null>(null)
   const smoothScrollDurationRef = useRef(smoothScrollDuration)
   smoothScrollDurationRef.current = smoothScrollDuration
@@ -208,6 +225,11 @@ export function useSmartAutoScroll({
     // Track current element
     currentElementIdRef.current = element.id
     currentElementStartBeatRef.current = element.startBeat
+    const chordCount = getChordCount(element)
+    const elDuration = element.durationBeats ?? (tl.timeline?.beatsPerBar ?? 4)
+    currentBeatsPerChordRef.current = chordCount > 0
+      ? elDuration / chordCount
+      : (tl.timeline?.beatsPerBar ?? 4)
     
     // Get raw scroll position for this beat
     const rawPosition = tl.getScrollPositionForBeat(beat)
@@ -302,10 +324,13 @@ export function useSmartAutoScroll({
     if (!elements) return
     const element = elements.find(e => e.id === elementId)
     if (!element) return
-    const beatsPerBarValue = timeline.timeline?.beatsPerBar ?? 4
+    const chordCount = getChordCount(element)
+    const beatsPerChord = chordCount > 0
+      ? element.durationBeats / chordCount
+      : (timeline.timeline?.beatsPerBar ?? 4)
     const targetBeat =
       chordIndex !== undefined
-        ? element.startBeat + chordIndex * beatsPerBarValue
+        ? element.startBeat + chordIndex * beatsPerChord
         : element.startBeat
     bpmSync.seekToBeat(targetBeat)
   }, [timeline.isReady, timeline.timeline, hasFallback, bpmSync.seekToBeat])
@@ -324,6 +349,7 @@ export function useSmartAutoScroll({
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,
     currentElementStartBeat: currentElementStartBeatRef.current,
+    currentBeatsPerChord: currentBeatsPerChordRef.current,
     isReady: timeline.isReady,
     hasFallback,
     retrySmartAutoscroll,

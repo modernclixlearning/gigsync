@@ -409,10 +409,12 @@ export function SongPlayerContent({
         !autoScroll.hasFallback && (() => {
           const eid = autoScroll.currentElementId
           // Which bar (chord cell) is the playhead on right now?
+          // Use currentBeatsPerChord (= elementDuration / chordCount) so lines with
+          // more chords than bars (e.g. 4 chords in 2 bars) highlight at the correct rate.
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
-                  (autoScroll.currentBeat - autoScroll.currentElementStartBeat) / beatsPerBar
+                  (autoScroll.currentBeat - autoScroll.currentElementStartBeat) / autoScroll.currentBeatsPerChord
                 )
               : null
           return (

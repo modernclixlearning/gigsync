@@ -63,10 +63,11 @@ export function calculateElementDuration(
       
     case 'lyric': {
       const lyricLine = element as LyricParsedLine
-      // When the line carries chord annotations, each chord = one bar.
-      // This makes per-bar highlighting exact and removes the need for estimation.
+      // When the line carries chord annotations, use defaultBarsPerLine so that
+      // lines with more chords than bars (e.g. 4 chords in 2 bars at 2 beats each)
+      // are timed correctly. The beat-per-chord value is durationBeats / chords.length.
       if (lyricLine.chords.length > 0) {
-        return lyricLine.chords.length * beatsPerBar
+        return options.defaultBarsPerLine * beatsPerBar
       }
       // No chords: fall back to the configured estimation strategy
       if (options.intelligentEstimation) {
