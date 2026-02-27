@@ -24,17 +24,30 @@ export function ChordOverlay({ lyrics, transpose = 0, columns = 4, className, on
 
   return (
     <div className={cn('space-y-1 font-mono', className)}>
-      {parsed.lines.map((line, index) => (
-        <ChordOverlayLine
-          key={index}
-          line={line}
-          transpose={transpose}
-          columns={columns}
-          elementId={`element-${index}`}
-          onChordClick={onChordClick}
-          isSeekEnabled={isSeekEnabled}
-        />
-      ))}
+      {parsed.lines.map((line, index) => {
+        // When a lyric line directly follows a chords-only line, calculator.ts
+        // merges them into a single timeline element keyed by the chords-only
+        // line's index.  Use that same ID here so seekToElement can find the
+        // element when the user clicks a chord inside the LyricBarGrid.
+        const elementId =
+          line.type === 'lyric' &&
+          index > 0 &&
+          parsed.lines[index - 1].type === 'chords-only'
+            ? `element-${index - 1}`
+            : `element-${index}`
+
+        return (
+          <ChordOverlayLine
+            key={index}
+            line={line}
+            transpose={transpose}
+            columns={columns}
+            elementId={elementId}
+            onChordClick={onChordClick}
+            isSeekEnabled={isSeekEnabled}
+          />
+        )
+      })}
     </div>
   )
 }
