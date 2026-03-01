@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Settings, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from '@tanstack/react-router'
 import { cn } from '~/lib/utils'
@@ -9,7 +9,6 @@ import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
-import { ChordEditorOverlay } from '~/components/player/ChordEditor'
 import { PlayerControls } from '~/components/player/PlayerControls'
 import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
@@ -46,8 +45,6 @@ export function SongPlayerContent({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const { incrementPlayCount, updateSong } = useSong(song.id)
   const { settings, updatePlayerSettings } = useSettings()
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
 
   const smartScrollContextWindowPercent =
     settings?.player.smartScrollContextWindow ?? 33
@@ -137,7 +134,6 @@ export function SongPlayerContent({
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
 
-  // Seek-to-Section: true when chord-cell clicks should trigger seek
   const isSeekEnabled =
     autoScroll.isReady &&
     !autoScroll.hasFallback &&
@@ -151,13 +147,23 @@ export function SongPlayerContent({
     [autoScroll]
   )
 
+  // Chords are editable when stopped (drag-and-drop active)
+  const isEditable = !player.state.isPlaying && player.state.showChords
+
+  const handleLyricsChange = useCallback(
+    (newLyrics: string) => {
+      void updateSong({ lyrics: newLyrics })
+    },
+    [updateSong]
+  )
+
   useEffect(() => {
     if (player.state.isPlaying && song) {
       incrementPlayCount()
     }
   }, [player.state.isPlaying, song?.id, incrementPlayCount])
 
-  // Keyboard navigation in setlist mode (pause + reset before changing song)
+  // Keyboard navigation in setlist mode
   useEffect(() => {
     if (!setlistContext) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -296,47 +302,20 @@ export function SongPlayerContent({
           </div>
 
           <div className="flex items-center gap-3">
-            {player.state.isPlaying && !isEditMode && (
+            {player.state.isPlaying && (
               <div className="flex items-center gap-1">
-                <span
-                  className={cn(
-                    'w-1 h-4 rounded-full animate-pulse',
-                    isSetlistMode ? 'bg-primary' : 'bg-indigo-500'
-                  )}
-                />
-                <span
-                  className={cn(
-                    'w-1 h-6 rounded-full animate-pulse delay-75',
-                    isSetlistMode ? 'bg-primary' : 'bg-indigo-500'
-                  )}
-                />
-                <span
-                  className={cn(
-                    'w-1 h-3 rounded-full animate-pulse delay-150',
-                    isSetlistMode ? 'bg-primary' : 'bg-indigo-500'
-                  )}
-                />
+                <span className={cn('w-1 h-4 rounded-full animate-pulse', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
+                <span className={cn('w-1 h-6 rounded-full animate-pulse delay-75', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
+                <span className={cn('w-1 h-3 rounded-full animate-pulse delay-150', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
               </div>
             )}
-            {!isSetlistMode && !isEditMode && (
-              <>
-                <button
-                  onClick={() => {
-                    player.pause()
-                    setIsEditMode(true)
-                  }}
-                  className="p-2 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                  title="Editar acordes"
-                >
-                  <Pencil className="w-5 h-5" />
-                </button>
-                <Link
-                  {...routeHelpers.songEdit(song.id)}
-                  className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                >
-                  <Settings className="w-5 h-5" />
-                </Link>
-              </>
+            {!isSetlistMode && (
+              <Link
+                {...routeHelpers.songEdit(song.id)}
+                className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
             )}
           </div>
         </div>
@@ -423,9 +402,6 @@ export function SongPlayerContent({
         player.state.isAutoScrollEnabled &&
         !autoScroll.hasFallback && (() => {
           const eid = autoScroll.currentElementId
-          // Which bar (chord cell) is the playhead on right now?
-          // Use currentBeatsPerChord (= elementDuration / chordCount) so lines with
-          // more chords than bars (e.g. 4 chords in 2 bars) highlight at the correct rate.
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
@@ -434,7 +410,6 @@ export function SongPlayerContent({
               : null
           return (
             <style>{`
-              /* General line highlight */
               [data-element-id="${eid}"] {
                 background: rgba(79, 70, 229, 0.08);
                 border-left: 3px solid rgb(99, 102, 241);
@@ -442,15 +417,12 @@ export function SongPlayerContent({
                 border-radius: 0.25rem;
                 transition: background 0.3s ease;
               }
-              /* Grid elements (bar grids + instrumental): remove the left-border
-                 decoration — the active cell highlight is enough */
               [data-element-id="${eid}"][data-bar-element] {
                 border-left: none;
                 padding-left: 0;
                 background: rgba(79, 70, 229, 0.04);
               }
               ${chordIdx !== null ? `
-              /* Active bar cell highlight */
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
                 background: rgba(99, 102, 241, 0.18) !important;
                 border-color: rgb(99, 102, 241) !important;
@@ -466,32 +438,18 @@ export function SongPlayerContent({
       {/* Lyrics Container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto"
-        style={isEditMode ? undefined : { fontSize: `${player.state.fontSize}px`, paddingLeft: '1rem', paddingRight: '1rem', paddingTop: '1.5rem', paddingBottom: '1.5rem' }}
+        className="flex-1 overflow-y-auto px-4 py-6"
+        style={{ fontSize: `${player.state.fontSize}px` }}
       >
-        {isEditMode ? (
-          <ChordEditorOverlay
-            lyrics={song.lyrics}
-            timeSignature={song.timeSignature}
-            isSaving={isSaving}
-            onSave={async (newLyrics) => {
-              setIsSaving(true)
-              try {
-                await updateSong({ lyrics: newLyrics })
-                setIsEditMode(false)
-              } finally {
-                setIsSaving(false)
-              }
-            }}
-            onCancel={() => setIsEditMode(false)}
-          />
-        ) : player.state.showChords ? (
+        {player.state.showChords ? (
           <ChordOverlay
             lyrics={song.lyrics}
             transpose={player.state.transpose}
             columns={player.state.fontSize > 18 ? 2 : 4}
             onChordClick={handleChordClick}
             isSeekEnabled={isSeekEnabled}
+            isEditable={isEditable}
+            onLyricsChange={handleLyricsChange}
           />
         ) : (
           <LyricsDisplay lyrics={song.lyrics} />
@@ -507,8 +465,7 @@ export function SongPlayerContent({
         </div>
       )}
 
-      {/* Player Controls — hidden while editing */}
-      {!isEditMode && <PlayerControls
+      <PlayerControls
         isPlaying={player.state.isPlaying}
         onPlayPause={player.togglePlay}
         autoScrollEnabled={player.state.isAutoScrollEnabled}
@@ -530,7 +487,7 @@ export function SongPlayerContent({
         onSmartScrollSmoothnessChange={handleSmoothnessChange}
         showBeatIndicatorDebug={showBeatIndicatorDebug}
         onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
-      />}
+      />
     </div>
   )
 }
