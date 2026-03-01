@@ -1,34 +1,50 @@
 /**
  * LyricBarGrid Component
  *
- * Renders a sung lyric line as a bar-based grid, similar in structure to
- * InstrumentalSection. Each cell = one bar:
- *   - Chord badge at the top
- *   - Lyric text for that bar below
+ * Renders a sung lyric line as a bar-based grid.
+ * Each cell = one bar: chord badge (top) + lyric text (bottom).
  *
- * `data-chord-index` on every cell enables per-bar playhead highlighting
- * via the same CSS mechanism used for instrumental sections.
- *
- * The user controls how many syllables/words fall in each bar by using
- * spaces or tabs to align the ChordPro text in their editor; trimming
- * normalises it for the grid display.
+ * When `isEditable`, chord badges become sortable via long-press drag.
+ * The lyric text cells stay fixed; only the chord NAMES reorder across them.
  */
 
+import { useState } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { cn } from '~/lib/utils'
-import type { LyricParsedLine } from '~/lib/chordpro'
+import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
 
 interface LyricBarGridProps {
   line: LyricParsedLine
-  /** Number of columns in the grid (2 = zoomed-in, 4 = normal) */
   columns?: number
   transpose?: number
   elementId: string
   className?: string
-  /** Called when a chord cell is tapped; only wired when seek is available. */
   onChordClick?: (elementId: string, chordIndex: number | null) => void
-  /** When true, chord cells show pointer cursor and hover feedback. */
   isSeekEnabled?: boolean
+  /** When true, chord badges are draggable (long-press). */
+  isEditable?: boolean
+  /**
+   * Called after a drag-and-drop reorder with the updated chords array.
+   * Chord NAMES are shuffled; their `position` values follow the sorted order
+   * so the serialised ChordPro stays valid.
+   */
+  onChordsReorder?: (chords: ChordPosition[]) => void
 }
 
 interface BarSegment {
@@ -36,11 +52,6 @@ interface BarSegment {
   text: string
 }
 
-/**
- * Split a lyric line into bar segments.
- * Each chord marks the start of a new bar; the segment text runs up to
- * (but not including) the next chord position.
- */
 function splitIntoBarSegments(line: LyricParsedLine, transpose: number): BarSegment[] {
   const { text, chords } = line
   return chords.map((chordPos, i) => {
@@ -52,6 +63,34 @@ function splitIntoBarSegments(line: LyricParsedLine, transpose: number): BarSegm
   })
 }
 
+// ── Sortable chord badge ───────────────────────────────────────────────────────
+
+function SortableChordBadge({ id, chord }: { id: string; chord: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id })
+
+  return (
+    <span
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        'font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none',
+        'touch-none select-none cursor-grab active:cursor-grabbing',
+        'rounded px-0.5',
+        isDragging
+          ? 'opacity-30'
+          : 'hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+      )}
+    >
+      {chord}
+    </span>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function LyricBarGrid({
   line,
   columns = 4,
@@ -60,17 +99,99 @@ export function LyricBarGrid({
   className,
   onChordClick,
   isSeekEnabled = false,
+  isEditable = false,
+  onChordsReorder,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line, transpose)
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
+  )
 
   if (segments.length === 0) return null
 
-  // Limit columns to the actual number of segments so the grid never has
-  // more columns than content (e.g. a 1-chord line stays as 1 column).
   const effectiveCols = Math.min(columns, segments.length)
-
   const remainder = segments.length % effectiveCols
   const emptyCells = remainder === 0 ? 0 : effectiveCols - remainder
+
+  const sortableIds = segments.map((_, i) => `lyric-${elementId}-${i}`)
+  const activeChord = activeId
+    ? segments[sortableIds.indexOf(activeId)]?.chord
+    : null
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    setActiveId(null)
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIdx = sortableIds.indexOf(active.id as string)
+    const newIdx = sortableIds.indexOf(over.id as string)
+    if (oldIdx === -1 || newIdx === -1) return
+
+    // Reorder chord NAMES while keeping positions sorted by character offset.
+    // 1. Extract chord names in new visual order.
+    const chordNames = segments.map((s) => s.chord)
+    const reorderedNames = arrayMove(chordNames, oldIdx, newIdx)
+    // 2. Get positions sorted by value (they must stay in ascending order).
+    const sortedPositions = [...line.chords]
+      .sort((a, b) => a.position - b.position)
+      .map((c) => c.position)
+    // 3. Zip new names onto sorted positions.
+    const newChords: ChordPosition[] = reorderedNames.map((chord, i) => ({
+      chord,
+      position: sortedPositions[i],
+    }))
+    onChordsReorder?.(newChords)
+  }
+
+  const grid = (
+    <div
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${effectiveCols}, minmax(0, 1fr))` }}
+    >
+      {segments.map((seg, index) => (
+        <div
+          key={index}
+          data-chord-index={index}
+          {...(isSeekEnabled && !isEditable && { role: 'button', tabIndex: 0 })}
+          onClick={isSeekEnabled && !isEditable ? () => onChordClick?.(elementId, index) : undefined}
+          className={cn(
+            'flex flex-col gap-1',
+            'rounded-lg border',
+            'bg-white dark:bg-slate-800',
+            'border-slate-200 dark:border-slate-700',
+            'px-2 py-2',
+            'transition-colors duration-150',
+            isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+          )}
+        >
+          {/* Chord badge — sortable when editable */}
+          {isEditable ? (
+            <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
+          ) : (
+            <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none">
+              {seg.chord}
+            </span>
+          )}
+          {/* Lyric text — never draggable */}
+          <span className="text-slate-900 dark:text-white leading-snug whitespace-pre-wrap break-words">
+            {seg.text || '\u00a0'}
+          </span>
+        </div>
+      ))}
+
+      {Array.from({ length: emptyCells }, (_, i) => (
+        <div
+          key={`pad-${i}`}
+          className={cn(
+            'rounded-lg border border-dashed',
+            'border-slate-200 dark:border-slate-700',
+            'py-2 px-1 opacity-25'
+          )}
+        />
+      ))}
+    </div>
+  )
 
   return (
     <div
@@ -80,54 +201,32 @@ export function LyricBarGrid({
         'rounded-xl border overflow-hidden',
         'bg-slate-50 dark:bg-slate-900/40',
         'border-slate-200 dark:border-slate-700',
+        isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50',
         className
       )}
     >
       <div className="p-2">
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${effectiveCols}, minmax(0, 1fr))` }}
-        >
-          {segments.map((seg, index) => (
-            <div
-              key={index}
-              data-chord-index={index}
-              {...(isSeekEnabled && { role: 'button', tabIndex: 0 })}
-              onClick={isSeekEnabled ? () => onChordClick?.(elementId, index) : undefined}
-              className={cn(
-                'flex flex-col gap-1',
-                'rounded-lg border',
-                'bg-white dark:bg-slate-800',
-                'border-slate-200 dark:border-slate-700',
-                'px-2 py-2',
-                'transition-colors duration-150',
-                isSeekEnabled && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+        {isEditable ? (
+          <DndContext
+            sensors={sensors}
+            onDragStart={(e: DragStartEvent) => setActiveId(e.active.id as string)}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
+            <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
+              {grid}
+            </SortableContext>
+            <DragOverlay>
+              {activeChord && (
+                <span className="font-mono font-bold text-sm px-2 py-1 rounded bg-indigo-600 text-white shadow-lg">
+                  {activeChord}
+                </span>
               )}
-            >
-              {/* Chord badge */}
-              <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none">
-                {seg.chord}
-              </span>
-              {/* Lyric text */}
-              <span className="text-slate-900 dark:text-white leading-snug whitespace-pre-wrap break-words">
-                {seg.text || '\u00a0' /* non-breaking space keeps cell height */}
-              </span>
-            </div>
-          ))}
-
-          {/* Pad the last row so the grid stays aligned */}
-          {Array.from({ length: emptyCells }, (_, i) => (
-            <div
-              key={`pad-${i}`}
-              className={cn(
-                'rounded-lg border border-dashed',
-                'border-slate-200 dark:border-slate-700',
-                'py-2 px-1',
-                'opacity-25'
-              )}
-            />
-          ))}
-        </div>
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          grid
+        )}
       </div>
     </div>
   )
