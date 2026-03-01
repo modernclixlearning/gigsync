@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Settings, Pencil } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from '@tanstack/react-router'
 import { cn } from '~/lib/utils'
@@ -9,6 +9,7 @@ import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
+import { ChordEditorOverlay } from '~/components/player/ChordEditor'
 import { PlayerControls } from '~/components/player/PlayerControls'
 import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
@@ -43,8 +44,10 @@ export function SongPlayerContent({
 }: SongPlayerContentProps) {
   const player = useSongPlayer()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const { incrementPlayCount } = useSong(song.id)
+  const { incrementPlayCount, updateSong } = useSong(song.id)
   const { settings, updatePlayerSettings } = useSettings()
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const smartScrollContextWindowPercent =
     settings?.player.smartScrollContextWindow ?? 33
@@ -293,7 +296,7 @@ export function SongPlayerContent({
           </div>
 
           <div className="flex items-center gap-3">
-            {player.state.isPlaying && (
+            {player.state.isPlaying && !isEditMode && (
               <div className="flex items-center gap-1">
                 <span
                   className={cn(
@@ -315,13 +318,25 @@ export function SongPlayerContent({
                 />
               </div>
             )}
-            {!isSetlistMode && (
-              <Link
-                {...routeHelpers.songEdit(song.id)}
-                className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
+            {!isSetlistMode && !isEditMode && (
+              <>
+                <button
+                  onClick={() => {
+                    player.pause()
+                    setIsEditMode(true)
+                  }}
+                  className="p-2 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                  title="Editar acordes"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
+                <Link
+                  {...routeHelpers.songEdit(song.id)}
+                  className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                >
+                  <Settings className="w-5 h-5" />
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -451,10 +466,26 @@ export function SongPlayerContent({
       {/* Lyrics Container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-6"
-        style={{ fontSize: `${player.state.fontSize}px` }}
+        className="flex-1 overflow-y-auto"
+        style={isEditMode ? undefined : { fontSize: `${player.state.fontSize}px`, paddingLeft: '1rem', paddingRight: '1rem', paddingTop: '1.5rem', paddingBottom: '1.5rem' }}
       >
-        {player.state.showChords ? (
+        {isEditMode ? (
+          <ChordEditorOverlay
+            lyrics={song.lyrics}
+            timeSignature={song.timeSignature}
+            isSaving={isSaving}
+            onSave={async (newLyrics) => {
+              setIsSaving(true)
+              try {
+                await updateSong({ lyrics: newLyrics })
+                setIsEditMode(false)
+              } finally {
+                setIsSaving(false)
+              }
+            }}
+            onCancel={() => setIsEditMode(false)}
+          />
+        ) : player.state.showChords ? (
           <ChordOverlay
             lyrics={song.lyrics}
             transpose={player.state.transpose}
@@ -476,8 +507,8 @@ export function SongPlayerContent({
         </div>
       )}
 
-      {/* Player Controls */}
-      <PlayerControls
+      {/* Player Controls — hidden while editing */}
+      {!isEditMode && <PlayerControls
         isPlaying={player.state.isPlaying}
         onPlayPause={player.togglePlay}
         autoScrollEnabled={player.state.isAutoScrollEnabled}
@@ -499,7 +530,7 @@ export function SongPlayerContent({
         onSmartScrollSmoothnessChange={handleSmoothnessChange}
         showBeatIndicatorDebug={showBeatIndicatorDebug}
         onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
-      />
+      />}
     </div>
   )
 }

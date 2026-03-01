@@ -143,8 +143,8 @@ function parseChordBarPart(part: string): ChordBar | null {
 
   let beats: number | undefined
   if (tokens.length >= 2) {
-    const n = parseInt(tokens[1], 10)
-    // Must be a pure integer token (not part of a chord suffix)
+    const n = parseFloat(tokens[1])
+    // Must be a pure numeric token (integer or decimal, e.g. "2", "0.5", "1.5")
     if (!isNaN(n) && String(n) === tokens[1] && tokens.length === 2) {
       beats = n
     } else {
