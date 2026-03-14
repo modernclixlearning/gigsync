@@ -1,10 +1,14 @@
 /**
  * InstrumentalSection Component
  * Visual grid display for instrumental passages with chord progressions.
- * When `isEditable`, chord cells become sortable via long-press drag.
+ *
+ * When `isEditable`:
+ *  - Chord cells are sortable via long-press drag (dnd-kit).
+ *  - Cell borders show resize handles: drag to extend/shrink beats.
+ *  - Double-click a cell to subdivide it into two halves.
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -24,6 +28,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
+import { useChordResize } from './useChordResize'
 
 interface InstrumentalSectionProps {
   section: InstrumentalSectionType
@@ -146,72 +151,55 @@ export function InstrumentalSection({
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [selectedChordIndex, setSelectedChordIndex] = useState<number | null>(null)
-
-  const handleCellClick = (index: number) => {
-    if (isEditable) {
-      setSelectedChordIndex((prev) => (prev === index ? null : index))
-      return
-    }
-    if (isSeekEnabled && elementId) {
-      onChordClick?.(elementId, index)
-    }
-  }
 
   const beatsPerBar = 4
 
-  const canExtend = selectedChordIndex !== null && (() => {
-    const next = section.chordBars[selectedChordIndex + 1]
-    if (!next) return true
-    const nextBeats = next.beats ?? beatsPerBar
-    return nextBeats - gridResolution >= gridResolution
-  })()
+  // ── Beat values for each chord ──────────────────────────────────────────────
+  const chordBeats = section.chordBars.map(b => b.beats ?? beatsPerBar)
 
-  const canSubdivide = selectedChordIndex !== null && (() => {
-    const bar = section.chordBars[selectedChordIndex]
-    const barBeats = bar.beats ?? beatsPerBar
-    return barBeats / 2 >= gridResolution
-  })()
+  // ── Resize (edge-drag) ──────────────────────────────────────────────────────
+  const handleResizeComplete = useCallback(
+    (newBeats: number[]) => {
+      const newBars = section.chordBars.map((b, i) => ({ ...b, beats: newBeats[i] }))
+      onChordsChange?.(newBars)
+    },
+    [section.chordBars, onChordsChange]
+  )
 
-  const handleExtend = () => {
-    if (selectedChordIndex === null) return
-    const bars = section.chordBars
-    const bar = bars[selectedChordIndex]
-    const barBeats = bar.beats ?? beatsPerBar
-    const next = bars[selectedChordIndex + 1]
+  const { dragState, handlePointerDown, handlePointerMove, handlePointerUp } =
+    useChordResize({
+      beats: chordBeats,
+      gridResolution,
+      onResize: handleResizeComplete,
+    })
 
-    let newBars: ChordBar[]
-    if (next) {
-      const nextBeats = next.beats ?? beatsPerBar
-      if (nextBeats - gridResolution < gridResolution) return
-      newBars = bars.map((b, i) => {
-        if (i === selectedChordIndex) return { ...b, beats: barBeats + gridResolution }
-        if (i === selectedChordIndex + 1) return { ...b, beats: nextBeats - gridResolution }
-        return b
-      })
-    } else {
-      newBars = bars.map((b, i) =>
-        i === selectedChordIndex ? { ...b, beats: barBeats + gridResolution } : b
-      )
+  // ── Subdivide (double-click) ────────────────────────────────────────────────
+  const handleDoubleClick = useCallback(
+    (index: number) => {
+      if (!isEditable) return
+      const bars = section.chordBars
+      const bar = bars[index]
+      const barBeats = bar.beats ?? beatsPerBar
+      const halfBeats = barBeats / 2
+      if (halfBeats < gridResolution) return
+
+      const newBar: ChordBar = { chord: bar.chord, beats: halfBeats }
+      const newBars = [
+        ...bars.slice(0, index),
+        { ...bar, beats: halfBeats },
+        newBar,
+        ...bars.slice(index + 1),
+      ]
+      onChordsChange?.(newBars)
+    },
+    [isEditable, section.chordBars, beatsPerBar, gridResolution, onChordsChange]
+  )
+
+  // ── Cell click (seek in player mode) ────────────────────────────────────────
+  const handleCellClick = (index: number) => {
+    if (isSeekEnabled && !isEditable && elementId) {
+      onChordClick?.(elementId, index)
     }
-    onChordsChange?.(newBars)
-  }
-
-  const handleSubdivide = () => {
-    if (selectedChordIndex === null) return
-    const bars = section.chordBars
-    const bar = bars[selectedChordIndex]
-    const barBeats = bar.beats ?? beatsPerBar
-    const halfBeats = barBeats / 2
-
-    const newBar: ChordBar = { chord: bar.chord, beats: halfBeats }
-    const newBars = [
-      ...bars.slice(0, selectedChordIndex),
-      { ...bar, beats: halfBeats },
-      newBar,
-      ...bars.slice(selectedChordIndex + 1),
-    ]
-    onChordsChange?.(newBars)
   }
 
   const sensors = useSensors(
@@ -247,92 +235,120 @@ export function InstrumentalSection({
     onChordsChange?.(arrayMove(section.chordBars, oldIdx, newIdx))
   }
 
+  // ── Grid template: proportional widths based on beats ───────────────────────
+  const displayBeats = dragState ? dragState.beats : chordBeats
+
   // ── Chord grid ───────────────────────────────────────────────────────────────
 
   const chordGrid = rows.length > 0 ? (
     <div className={cn(compact ? 'p-1' : 'p-3', 'flex flex-col gap-1')}>
-      {rows.map((row, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="grid gap-1"
-          style={{ gridTemplateColumns: isEditable ? `repeat(${row.length}, minmax(0, 1fr))` : rowGridTemplate(row) }}
-        >
-          {row.map((bar, colIndex) => {
-            const index = rowIndex * columns + colIndex
-            const id = sortableIds[index]
+      {rows.map((row, rowIndex) => {
+        const rowStartIdx = rowIndex * columns
+        const rowBeats = row.map((_, ci) => displayBeats[rowStartIdx + ci] ?? beatsPerBar)
+        const rowTemplate = isEditable
+          ? rowBeats.map(b => `${b}fr`).join(' ')
+          : rowGridTemplate(row)
 
-            if (isEditable) {
-              const isSelected = selectedChordIndex === index
+        return (
+          <div
+            key={rowIndex}
+            data-resize-container
+            className="grid gap-0"
+            style={{ gridTemplateColumns: rowTemplate }}
+            onPointerMove={dragState ? handlePointerMove : undefined}
+            onPointerUp={dragState ? handlePointerUp : undefined}
+          >
+            {row.map((bar, colIndex) => {
+              const index = rowStartIdx + colIndex
+              const id = sortableIds[index]
+              const isLast = colIndex === row.length - 1
+
+              if (isEditable) {
+                return (
+                  <div key={id} className="relative flex">
+                    <div
+                      onDoubleClick={() => handleDoubleClick(index)}
+                      className="flex-1 min-w-0 rounded-lg"
+                    >
+                      <SortableChordCell
+                        id={id}
+                        bar={bar}
+                        compact={compact}
+                        isActive={activeId === id}
+                      />
+                    </div>
+                    {/* Resize handle between cells */}
+                    {!isLast && (
+                      <div
+                        onPointerDown={(e) => handlePointerDown(index, e)}
+                        className={cn(
+                          'absolute right-0 top-0 bottom-0 w-2 -mr-1 z-10',
+                          'cursor-col-resize',
+                          'flex items-center justify-center',
+                          'group'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-0.5 h-2/3 rounded-full transition-colors',
+                            'bg-slate-300 dark:bg-slate-600',
+                            'group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500',
+                            'group-active:bg-indigo-500 dark:group-active:bg-indigo-400',
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              // Read-only cell
               return (
                 <div
-                  key={id}
+                  key={index}
+                  data-chord-index={index}
                   role="button"
                   tabIndex={0}
                   onClick={() => handleCellClick(index)}
                   className={cn(
-                    'rounded-lg',
-                    isSelected && 'ring-2 ring-indigo-500 dark:ring-indigo-400'
+                    'flex flex-col items-center justify-center',
+                    'rounded-lg border',
+                    'bg-white dark:bg-slate-800',
+                    'border-slate-200 dark:border-slate-700',
+                    compact ? 'py-2 px-1' : 'py-3 px-2',
+                    'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
+                    isSeekEnabled && !isEditable && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20',
                   )}
                 >
-                  <SortableChordCell
-                    id={id}
-                    bar={bar}
-                    compact={compact}
-                    isActive={activeId === id}
-                  />
+                  <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
+                    {bar.chord}
+                  </span>
+                  {bar.label && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
+                      {bar.label}
+                    </span>
+                  )}
                 </div>
               )
-            }
+            })}
 
-            // Read-only cell
-            const isSelected = selectedChordIndex === index
-            return (
-              <div
-                key={index}
-                data-chord-index={index}
-                role="button"
-                tabIndex={0}
-                onClick={() => handleCellClick(index)}
-                className={cn(
-                  'flex flex-col items-center justify-center',
-                  'rounded-lg border',
-                  'bg-white dark:bg-slate-800',
-                  'border-slate-200 dark:border-slate-700',
-                  compact ? 'py-2 px-1' : 'py-3 px-2',
-                  'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
-                  isSeekEnabled && !isEditable && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20',
-                  isEditable && 'cursor-pointer',
-                  isSelected && 'ring-2 ring-indigo-500 dark:ring-indigo-400 border-indigo-300 dark:border-indigo-600'
-                )}
-              >
-                <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
-                  {bar.chord}
-                </span>
-                {bar.label && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
-                    {bar.label}
-                  </span>
-                )}
-              </div>
-            )
-          })}
-
-          {/* Pad last row (read-only only) */}
-          {!isEditable && rowIndex === rows.length - 1 && row.length < columns && !row.some(b => b.beats !== undefined) && (
-            Array(columns - row.length).fill(0).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className={cn(
-                  'flex items-center justify-center rounded-lg border border-dashed',
-                  'border-slate-200 dark:border-slate-700',
-                  compact ? 'py-2 px-1' : 'py-3 px-2',
-                  'opacity-30'
-                )}
-              />
-            ))
-          )}
-        </div>
-      ))}
+            {/* Pad last row (read-only only) */}
+            {!isEditable && rowIndex === rows.length - 1 && row.length < columns && !row.some(b => b.beats !== undefined) && (
+              Array(columns - row.length).fill(0).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className={cn(
+                    'flex items-center justify-center rounded-lg border border-dashed',
+                    'border-slate-200 dark:border-slate-700',
+                    compact ? 'py-2 px-1' : 'py-3 px-2',
+                    'opacity-30'
+                  )}
+                />
+              ))
+            )}
+          </div>
+        )
+      })}
     </div>
   ) : showPlaceholder ? (
     <div className={cn('p-4 text-center', colors.text, 'opacity-60')}>
@@ -345,9 +361,6 @@ export function InstrumentalSection({
   return (
     <div
       className={cn('rounded-xl border overflow-hidden', colors.bg, colors.border, isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50', className)}
-      tabIndex={isEditable ? 0 : undefined}
-      onKeyDown={(e) => { if (e.key === 'Escape') setSelectedChordIndex(null) }}
-      onClick={(e) => { if (isEditable && e.target === e.currentTarget) setSelectedChordIndex(null) }}
     >
       {/* Header */}
       <div className={cn('flex items-center justify-between px-4 py-2', colors.headerBg, 'border-b', colors.border)}>
@@ -364,40 +377,6 @@ export function InstrumentalSection({
           )}
         </div>
       </div>
-
-      {/* Extend / Subdivide toolbar — visible when a cell is selected in editor mode */}
-      {isEditable && selectedChordIndex !== null && (
-        <div className="flex gap-2 px-3 pt-2">
-          <button
-            onClick={handleExtend}
-            disabled={!canExtend}
-            title="Extender duración"
-            className={cn(
-              'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'border transition-colors',
-              canExtend
-                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
-            )}
-          >
-            + Extender
-          </button>
-          <button
-            onClick={handleSubdivide}
-            disabled={!canSubdivide}
-            title="Subdividir celda"
-            className={cn(
-              'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'border transition-colors',
-              canSubdivide
-                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
-            )}
-          >
-            ÷ Subdividir
-          </button>
-        </div>
-      )}
 
       {/* Chord grid — wrapped in DndContext when editable */}
       {isEditable && chords.length > 0 ? (
