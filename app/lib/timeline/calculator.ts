@@ -74,6 +74,12 @@ export function calculateElementDuration(
       // lines with more chords than bars (e.g. 4 chords in 2 bars at 2 beats each)
       // are timed correctly. The beat-per-chord value is durationBeats / chords.length.
       if (lyricLine.chords.length > 0) {
+        // If all chords have explicit beats, use their sum
+        const allHaveBeats = lyricLine.chords.every(c => c.beats !== undefined)
+        if (allHaveBeats) {
+          return lyricLine.chords.reduce((sum, c) => sum + c.beats!, 0)
+        }
+        // Mixed or no explicit beats: use default
         return options.defaultBarsPerLine * beatsPerBar
       }
       // No chords: fall back to the configured estimation strategy

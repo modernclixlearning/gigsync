@@ -233,9 +233,35 @@ export function useSmartAutoScroll({
     currentElementStartBeatRef.current = element.startBeat
     const chordCount = getChordCount(element)
     const elDuration = element.durationBeats ?? (tl.timeline?.beatsPerBar ?? 4)
-    currentBeatsPerChordRef.current = chordCount > 0
+
+    // Check for explicit beats in lyric elements
+    const content = element.content
+    let beatsPerChord = chordCount > 0
       ? elDuration / chordCount
       : (tl.timeline?.beatsPerBar ?? 4)
+
+    if (content && 'type' in content && content.type === 'lyric') {
+      const lyricChords = (content as { chords: { beats?: number }[] }).chords
+      if (lyricChords.length > 0 && lyricChords.every(c => c.beats !== undefined)) {
+        // Find which chord is currently active and return its beats
+        const elapsedBeats = beat - element.startBeat
+        let accumulated = 0
+        for (const chord of lyricChords) {
+          const chordBeats = chord.beats!
+          if (elapsedBeats < accumulated + chordBeats) {
+            beatsPerChord = chordBeats
+            break
+          }
+          accumulated += chordBeats
+        }
+        // If beat is past all chords, use last chord's beats
+        if (accumulated <= elapsedBeats && lyricChords.length > 0) {
+          beatsPerChord = lyricChords[lyricChords.length - 1].beats!
+        }
+      }
+    }
+
+    currentBeatsPerChordRef.current = beatsPerChord
     
     // Get raw scroll position for this beat
     const rawPosition = tl.getScrollPositionForBeat(beat)
@@ -349,6 +375,13 @@ export function useSmartAutoScroll({
       } else if (content.type === 'chords-only') {
         barBeats = (content as { chordBars: { beats?: number }[] })
           .chordBars.map(b => b.beats ?? beatsPerBar)
+      } else if (content.type === 'lyric') {
+        const lyricChords = (content as { chords: { beats?: number }[] }).chords
+        // Use explicit beats if all chords have them
+        const allHaveBeats = lyricChords.length > 0 && lyricChords.every(c => c.beats !== undefined)
+        if (allHaveBeats) {
+          barBeats = lyricChords.map(c => c.beats!)
+        }
       }
     }
 

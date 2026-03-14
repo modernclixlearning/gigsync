@@ -75,6 +75,69 @@ describe('calculateElementDuration', () => {
     // Default 2 bars * 4 beats = 8 beats
     expect(duration).toBe(8)
   })
+
+  it('should use sum of explicit beats for lyric line when all chords have beats', () => {
+    const lyric: LyricParsedLine = {
+      type: 'lyric',
+      raw: '[Am:2]Hello [G:3]world',
+      text: 'Hello world',
+      chords: [
+        { chord: 'Am', position: 0, beats: 2 },
+        { chord: 'G', position: 6, beats: 3 },
+      ]
+    }
+
+    const duration = calculateElementDuration(lyric, {
+      defaultBarsPerLine: 2,
+      defaultBeatsPerChord: 4,
+      intelligentEstimation: false
+    }, '4/4')
+
+    // 2 + 3 = 5 beats (explicit sum)
+    expect(duration).toBe(5)
+  })
+
+  it('should fall back to default bars when only some chords have beats', () => {
+    const lyric: LyricParsedLine = {
+      type: 'lyric',
+      raw: '[Am:2]Hello [G]world',
+      text: 'Hello world',
+      chords: [
+        { chord: 'Am', position: 0, beats: 2 },
+        { chord: 'G', position: 6 },  // no beats
+      ]
+    }
+
+    const duration = calculateElementDuration(lyric, {
+      defaultBarsPerLine: 2,
+      defaultBeatsPerChord: 4,
+      intelligentEstimation: false
+    }, '4/4')
+
+    // Mixed: fall back to default 2 bars * 4 beats = 8
+    expect(duration).toBe(8)
+  })
+
+  it('should fall back to default bars for lyric line with chords but no explicit beats', () => {
+    const lyric: LyricParsedLine = {
+      type: 'lyric',
+      raw: '[Am]Hello [G]world',
+      text: 'Hello world',
+      chords: [
+        { chord: 'Am', position: 0 },
+        { chord: 'G', position: 6 },
+      ]
+    }
+
+    const duration = calculateElementDuration(lyric, {
+      defaultBarsPerLine: 2,
+      defaultBeatsPerChord: 4,
+      intelligentEstimation: false
+    }, '4/4')
+
+    // No explicit beats: default 2 bars * 4 beats = 8
+    expect(duration).toBe(8)
+  })
 })
 
 describe('createSongTimeline', () => {
@@ -144,5 +207,19 @@ First line`
     expect(timeline.totalBeats).toBe(16)
     expect(timeline.totalBars).toBe(4)
     expect(timeline.totalDurationSeconds).toBe(8)
+  })
+
+  it('should calculate correct total duration with lyrics having explicit beats', () => {
+    const lyrics = `[Verse]\n[Am]Hello [G]world`
+
+    const timeline = createSongTimeline(lyrics, 120, '4/4', {
+      defaultBarsPerLine: 2,
+      defaultBeatsPerChord: 4,
+      intelligentEstimation: false
+    })
+
+    // Without explicit beats, lyric line uses defaultBarsPerLine = 2 bars = 8 beats
+    const lyricElement = timeline.elements.find(e => e.type === 'lyric')
+    expect(lyricElement?.durationBeats).toBe(8)
   })
 })
