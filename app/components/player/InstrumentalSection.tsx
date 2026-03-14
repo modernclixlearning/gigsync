@@ -203,14 +203,25 @@ export function InstrumentalSection({
             const id = sortableIds[index]
 
             if (isEditable) {
+              const isSelected = selectedChordIndex === index
               return (
-                <SortableChordCell
+                <div
                   key={id}
-                  id={id}
-                  bar={bar}
-                  compact={compact}
-                  isActive={activeId === id}
-                />
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleCellClick(index)}
+                  className={cn(
+                    'rounded-lg',
+                    isSelected && 'ring-2 ring-indigo-500 dark:ring-indigo-400'
+                  )}
+                >
+                  <SortableChordCell
+                    id={id}
+                    bar={bar}
+                    compact={compact}
+                    isActive={activeId === id}
+                  />
+                </div>
               )
             }
 
@@ -273,7 +284,12 @@ export function InstrumentalSection({
   ) : null
 
   return (
-    <div className={cn('rounded-xl border overflow-hidden', colors.bg, colors.border, isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50', className)}>
+    <div
+      className={cn('rounded-xl border overflow-hidden', colors.bg, colors.border, isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50', className)}
+      tabIndex={isEditable ? 0 : undefined}
+      onKeyDown={(e) => { if (e.key === 'Escape') setSelectedChordIndex(null) }}
+      onClick={(e) => { if (isEditable && e.target === e.currentTarget) setSelectedChordIndex(null) }}
+    >
       {/* Header */}
       <div className={cn('flex items-center justify-between px-4 py-2', colors.headerBg, 'border-b', colors.border)}>
         <div className="flex items-center gap-2">

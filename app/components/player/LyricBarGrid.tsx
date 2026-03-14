@@ -221,6 +221,8 @@ export function LyricBarGrid({
         isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50',
         className
       )}
+      tabIndex={isEditable ? 0 : undefined}
+      onKeyDown={(e) => { if (e.key === 'Escape') setSelectedChordIndex(null) }}
       onClick={(e) => {
         // Clear selection when clicking outside a cell (on the container itself)
         if (isEditable && e.target === e.currentTarget) setSelectedChordIndex(null)
