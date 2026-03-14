@@ -11,6 +11,7 @@
 export interface ChordPosition {
   chord: string
   position: number // Character position in the text
+  beats?: number   // Explicit duration in beats. Omit = use formula (durationBeats / chordCount)
 }
 
 /** A single bar/measure of music */
