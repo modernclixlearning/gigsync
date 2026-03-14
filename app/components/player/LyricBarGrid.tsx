@@ -45,6 +45,10 @@ interface LyricBarGridProps {
    * so the serialised ChordPro stays valid.
    */
   onChordsReorder?: (chords: ChordPosition[]) => void
+  /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
+  gridResolution?: number
+  /** Default beats per chord when `beats` is undefined. Default 4. */
+  defaultBeatsPerChord?: number
 }
 
 interface BarSegment {
@@ -101,6 +105,8 @@ export function LyricBarGrid({
   isSeekEnabled = false,
   isEditable = false,
   onChordsReorder,
+  gridResolution = 0.25,
+  defaultBeatsPerChord = 4,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line, transpose)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -114,6 +120,65 @@ export function LyricBarGrid({
     if (isSeekEnabled) {
       onChordClick?.(elementId, index)
     }
+  }
+
+  const canExtend = selectedChordIndex !== null && (() => {
+    const next = line.chords[selectedChordIndex + 1]
+    if (!next) return true // can always extend last cell
+    const nextBeats = next.beats ?? defaultBeatsPerChord
+    return nextBeats - gridResolution >= gridResolution
+  })()
+
+  const canSubdivide = selectedChordIndex !== null && (() => {
+    const cell = line.chords[selectedChordIndex]
+    const cellBeats = cell.beats ?? defaultBeatsPerChord
+    return cellBeats / 2 >= gridResolution
+  })()
+
+  const handleExtend = () => {
+    if (selectedChordIndex === null) return
+    const chords = line.chords
+    const cell = chords[selectedChordIndex]
+    const cellBeats = cell.beats ?? defaultBeatsPerChord
+    const next = chords[selectedChordIndex + 1]
+
+    let newChords: ChordPosition[]
+    if (next) {
+      const nextBeats = next.beats ?? defaultBeatsPerChord
+      if (nextBeats - gridResolution < gridResolution) return // no-op
+      newChords = chords.map((c, i) => {
+        if (i === selectedChordIndex) return { ...c, beats: cellBeats + gridResolution }
+        if (i === selectedChordIndex + 1) return { ...c, beats: nextBeats - gridResolution }
+        return c
+      })
+    } else {
+      newChords = chords.map((c, i) =>
+        i === selectedChordIndex ? { ...c, beats: cellBeats + gridResolution } : c
+      )
+    }
+    onChordsReorder?.(newChords)
+  }
+
+  const handleSubdivide = () => {
+    if (selectedChordIndex === null) return
+    const chords = line.chords
+    const cell = chords[selectedChordIndex]
+    const cellBeats = cell.beats ?? defaultBeatsPerChord
+    const halfBeats = cellBeats / 2
+
+    const nextPos = selectedChordIndex + 1 < chords.length
+      ? chords[selectedChordIndex + 1].position
+      : line.text.length
+    const midPos = Math.round((cell.position + nextPos) / 2)
+
+    const newCell: ChordPosition = { chord: cell.chord, position: midPos, beats: halfBeats }
+    const newChords = [
+      ...chords.slice(0, selectedChordIndex),
+      { ...cell, beats: halfBeats },
+      newCell,
+      ...chords.slice(selectedChordIndex + 1),
+    ]
+    onChordsReorder?.(newChords)
   }
 
   const sensors = useSensors(
@@ -232,25 +297,29 @@ export function LyricBarGrid({
       {isEditable && selectedChordIndex !== null && (
         <div className="flex gap-2 px-2 pt-2">
           <button
-            disabled
-            title="Extender duración (próximamente)"
+            onClick={handleExtend}
+            disabled={!canExtend}
+            title="Extender duración"
             className={cn(
               'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-              'border border-slate-200 dark:border-slate-700',
-              'cursor-not-allowed opacity-60'
+              'border transition-colors',
+              canExtend
+                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
             )}
           >
             + Extender
           </button>
           <button
-            disabled
-            title="Subdividir celda (próximamente)"
+            onClick={handleSubdivide}
+            disabled={!canSubdivide}
+            title="Subdividir celda"
             className={cn(
               'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-              'border border-slate-200 dark:border-slate-700',
-              'cursor-not-allowed opacity-60'
+              'border transition-colors',
+              canSubdivide
+                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
             )}
           >
             ÷ Subdividir

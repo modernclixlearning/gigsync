@@ -38,6 +38,8 @@ interface InstrumentalSectionProps {
   isEditable?: boolean
   /** Called after drag with reordered chord bars. */
   onChordsChange?: (bars: ChordBar[]) => void
+  /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
+  gridResolution?: number
 }
 
 /** Get icon for section type */
@@ -139,6 +141,7 @@ export function InstrumentalSection({
   isSeekEnabled = false,
   isEditable = false,
   onChordsChange,
+  gridResolution = 0.25,
 }: InstrumentalSectionProps) {
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
@@ -153,6 +156,62 @@ export function InstrumentalSection({
     if (isSeekEnabled && elementId) {
       onChordClick?.(elementId, index)
     }
+  }
+
+  const beatsPerBar = 4
+
+  const canExtend = selectedChordIndex !== null && (() => {
+    const next = section.chordBars[selectedChordIndex + 1]
+    if (!next) return true
+    const nextBeats = next.beats ?? beatsPerBar
+    return nextBeats - gridResolution >= gridResolution
+  })()
+
+  const canSubdivide = selectedChordIndex !== null && (() => {
+    const bar = section.chordBars[selectedChordIndex]
+    const barBeats = bar.beats ?? beatsPerBar
+    return barBeats / 2 >= gridResolution
+  })()
+
+  const handleExtend = () => {
+    if (selectedChordIndex === null) return
+    const bars = section.chordBars
+    const bar = bars[selectedChordIndex]
+    const barBeats = bar.beats ?? beatsPerBar
+    const next = bars[selectedChordIndex + 1]
+
+    let newBars: ChordBar[]
+    if (next) {
+      const nextBeats = next.beats ?? beatsPerBar
+      if (nextBeats - gridResolution < gridResolution) return
+      newBars = bars.map((b, i) => {
+        if (i === selectedChordIndex) return { ...b, beats: barBeats + gridResolution }
+        if (i === selectedChordIndex + 1) return { ...b, beats: nextBeats - gridResolution }
+        return b
+      })
+    } else {
+      newBars = bars.map((b, i) =>
+        i === selectedChordIndex ? { ...b, beats: barBeats + gridResolution } : b
+      )
+    }
+    onChordsChange?.(newBars)
+  }
+
+  const handleSubdivide = () => {
+    if (selectedChordIndex === null) return
+    const bars = section.chordBars
+    const bar = bars[selectedChordIndex]
+    const barBeats = bar.beats ?? beatsPerBar
+    const halfBeats = barBeats / 2
+
+    const newBar: ChordBar = { chord: bar.chord, beats: halfBeats }
+    const newBars = [
+      ...bars.slice(0, selectedChordIndex),
+      { ...bar, beats: halfBeats },
+      newBar,
+      ...bars.slice(selectedChordIndex + 1),
+    ]
+    onChordsChange?.(newBars)
   }
 
   const sensors = useSensors(
@@ -310,25 +369,29 @@ export function InstrumentalSection({
       {isEditable && selectedChordIndex !== null && (
         <div className="flex gap-2 px-3 pt-2">
           <button
-            disabled
-            title="Extender duración (próximamente)"
+            onClick={handleExtend}
+            disabled={!canExtend}
+            title="Extender duración"
             className={cn(
               'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-              'border border-slate-200 dark:border-slate-700',
-              'cursor-not-allowed opacity-60'
+              'border transition-colors',
+              canExtend
+                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
             )}
           >
             + Extender
           </button>
           <button
-            disabled
-            title="Subdividir celda (próximamente)"
+            onClick={handleSubdivide}
+            disabled={!canSubdivide}
+            title="Subdividir celda"
             className={cn(
               'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
-              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-              'border border-slate-200 dark:border-slate-700',
-              'cursor-not-allowed opacity-60'
+              'border transition-colors',
+              canSubdivide
+                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
             )}
           >
             ÷ Subdividir

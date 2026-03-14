@@ -26,6 +26,8 @@ interface ChordOverlayProps {
    * eliminating divergence between calculator merge logic and rendered IDs.
    */
   lineIndexToElementId?: Map<number, string>
+  /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
+  gridResolution?: number
 }
 
 export function ChordOverlay({
@@ -38,6 +40,7 @@ export function ChordOverlay({
   isEditable = false,
   onLyricsChange,
   lineIndexToElementId,
+  gridResolution = 0.25,
 }: ChordOverlayProps) {
   const parsed = useMemo(() => parseChordPro(lyrics, transpose), [lyrics, transpose])
 
@@ -100,6 +103,7 @@ export function ChordOverlay({
             isSeekEnabled={isSeekEnabled}
             isEditable={isEditable}
             onLineChange={(updated) => handleLineChange(index, updated)}
+            gridResolution={gridResolution}
           />
         )
       })}
@@ -123,6 +127,7 @@ function ChordOverlayLine({
   isSeekEnabled = false,
   isEditable = false,
   onLineChange,
+  gridResolution = 0.25,
 }: {
   line: AnyParsedLine
   transpose: number
@@ -132,6 +137,7 @@ function ChordOverlayLine({
   isSeekEnabled?: boolean
   isEditable?: boolean
   onLineChange: (updated: AnyParsedLine) => void
+  gridResolution?: number
 }) {
   if (line.type === 'empty') {
     return <div className="h-6" data-element-id={elementId} />
@@ -164,6 +170,7 @@ function ChordOverlayLine({
               section: { ...line.section, chordBars: newBars },
             } as InstrumentalLine)
           }
+          gridResolution={gridResolution}
         />
       </div>
     )
@@ -203,6 +210,7 @@ function ChordOverlayLine({
         onChordsReorder={(newChords) =>
           onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
         }
+        gridResolution={gridResolution}
       />
     )
   }

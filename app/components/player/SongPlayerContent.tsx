@@ -451,6 +451,7 @@ export function SongPlayerContent({
             isEditable={isEditable}
             onLyricsChange={handleLyricsChange}
             lineIndexToElementId={autoScroll.lineIndexToElementId ?? undefined}
+            gridResolution={settings?.player.gridResolution ?? 0.25}
           />
         ) : (
           <LyricsDisplay lyrics={song.lyrics} />
