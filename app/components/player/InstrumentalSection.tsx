@@ -143,6 +143,17 @@ export function InstrumentalSection({
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [selectedChordIndex, setSelectedChordIndex] = useState<number | null>(null)
+
+  const handleCellClick = (index: number) => {
+    if (isEditable) {
+      setSelectedChordIndex((prev) => (prev === index ? null : index))
+      return
+    }
+    if (isSeekEnabled && elementId) {
+      onChordClick?.(elementId, index)
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
@@ -204,12 +215,14 @@ export function InstrumentalSection({
             }
 
             // Read-only cell
+            const isSelected = selectedChordIndex === index
             return (
               <div
                 key={index}
                 data-chord-index={index}
-                {...(isSeekEnabled && elementId && { role: 'button', tabIndex: 0 })}
-                onClick={isSeekEnabled && elementId ? () => onChordClick?.(elementId, index) : undefined}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleCellClick(index)}
                 className={cn(
                   'flex flex-col items-center justify-center',
                   'rounded-lg border',
@@ -217,7 +230,9 @@ export function InstrumentalSection({
                   'border-slate-200 dark:border-slate-700',
                   compact ? 'py-2 px-1' : 'py-3 px-2',
                   'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
-                  isSeekEnabled && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20'
+                  isSeekEnabled && !isEditable && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20',
+                  isEditable && 'cursor-pointer',
+                  isSelected && 'ring-2 ring-indigo-500 dark:ring-indigo-400 border-indigo-300 dark:border-indigo-600'
                 )}
               >
                 <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
@@ -274,6 +289,36 @@ export function InstrumentalSection({
           )}
         </div>
       </div>
+
+      {/* Extend / Subdivide toolbar — visible when a cell is selected in editor mode */}
+      {isEditable && selectedChordIndex !== null && (
+        <div className="flex gap-2 px-3 pt-2">
+          <button
+            disabled
+            title="Extender duración (próximamente)"
+            className={cn(
+              'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
+              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
+              'border border-slate-200 dark:border-slate-700',
+              'cursor-not-allowed opacity-60'
+            )}
+          >
+            + Extender
+          </button>
+          <button
+            disabled
+            title="Subdividir celda (próximamente)"
+            className={cn(
+              'flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium',
+              'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
+              'border border-slate-200 dark:border-slate-700',
+              'cursor-not-allowed opacity-60'
+            )}
+          >
+            ÷ Subdividir
+          </button>
+        </div>
+      )}
 
       {/* Chord grid — wrapped in DndContext when editable */}
       {isEditable && chords.length > 0 ? (
