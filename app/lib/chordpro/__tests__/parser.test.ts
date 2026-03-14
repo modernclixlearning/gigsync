@@ -330,3 +330,87 @@ describe('Transpose Utilities', () => {
     })
   })
 })
+
+import { parseChordPositions } from '../parser'
+import { serializeLyricLine } from '../serializer'
+import type { LyricParsedLine } from '../types'
+
+describe('ChordPosition beats syntax', () => {
+  describe('parseChordPositions', () => {
+    it('parses [Am:2] as chord Am with beats 2', () => {
+      const { chords, text } = parseChordPositions('[Am:2]texto')
+      expect(chords).toHaveLength(1)
+      expect(chords[0].chord).toBe('Am')
+      expect(chords[0].beats).toBe(2)
+      expect(text).toBe('texto')
+    })
+
+    it('parses [Am:0.25] as chord Am with beats 0.25', () => {
+      const { chords } = parseChordPositions('[Am:0.25]')
+      expect(chords[0].chord).toBe('Am')
+      expect(chords[0].beats).toBe(0.25)
+    })
+
+    it('parses plain [Am] without beats field', () => {
+      const { chords } = parseChordPositions('[Am]texto')
+      expect(chords[0].chord).toBe('Am')
+      expect(chords[0].beats).toBeUndefined()
+    })
+
+    it('parses mixed: [Am:2] with beats and [G] without', () => {
+      const { chords } = parseChordPositions('[Am:2]hello [G]world')
+      expect(chords).toHaveLength(2)
+      expect(chords[0].beats).toBe(2)
+      expect(chords[1].beats).toBeUndefined()
+    })
+
+    it('ignores invalid beats (zero, negative, NaN)', () => {
+      expect(parseChordPositions('[Am:0]').chords[0].beats).toBeUndefined()
+      expect(parseChordPositions('[Am:-1]').chords[0].beats).toBeUndefined()
+      expect(parseChordPositions('[Am:abc]').chords[0].beats).toBeUndefined()
+    })
+  })
+
+  describe('serializeLyricLine round-trip', () => {
+    it('serializes beats back as [chord:N]', () => {
+      const line: LyricParsedLine = {
+        type: 'lyric', raw: '',
+        text: 'texto',
+        chords: [{ chord: 'Am', position: 0, beats: 2 }]
+      }
+      expect(serializeLyricLine(line)).toBe('[Am:2]texto')
+    })
+
+    it('serializes decimal beats as [chord:N.N]', () => {
+      const line: LyricParsedLine = {
+        type: 'lyric', raw: '',
+        text: '',
+        chords: [{ chord: 'G', position: 0, beats: 0.25 }]
+      }
+      expect(serializeLyricLine(line)).toBe('[G:0.25]')
+    })
+
+    it('omits beats suffix when beats is undefined', () => {
+      const line: LyricParsedLine = {
+        type: 'lyric', raw: '',
+        text: 'texto',
+        chords: [{ chord: 'Am', position: 0 }]
+      }
+      expect(serializeLyricLine(line)).toBe('[Am]texto')
+    })
+
+    it('round-trips [Am:2]texto through parse→serialize', () => {
+      const input = '[Am:2]texto lírico'
+      const { text, chords } = parseChordPositions(input)
+      const line: LyricParsedLine = { type: 'lyric', raw: input, text, chords }
+      expect(serializeLyricLine(line)).toBe(input)
+    })
+
+    it('round-trips plain [Am]texto through parse→serialize', () => {
+      const input = '[Am]texto'
+      const { text, chords } = parseChordPositions(input)
+      const line: LyricParsedLine = { type: 'lyric', raw: input, text, chords }
+      expect(serializeLyricLine(line)).toBe(input)
+    })
+  })
+})

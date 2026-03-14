@@ -85,23 +85,36 @@ export function parseChordPositions(line: string): { text: string; chords: Chord
   let cleanText = ''
   let lastIndex = 0
   let match
-  
+
   while ((match = chordRegex.exec(line)) !== null) {
-    const chordContent = match[1]
-    
+    const bracketContent = match[1]
+
+    // Support optional beats suffix: [Am:2] or [Am:0.25]
+    // Split on the first colon to separate chord name from optional beat count
+    const colonIdx = bracketContent.indexOf(':')
+    const chordName = colonIdx !== -1 ? bracketContent.slice(0, colonIdx) : bracketContent
+    const beatsSuffix = colonIdx !== -1 ? bracketContent.slice(colonIdx + 1) : undefined
+
     // Check if it's a valid chord (not a section marker)
-    if (isValidChord(chordContent)) {
+    if (isValidChord(chordName)) {
       cleanText += line.slice(lastIndex, match.index)
-      chords.push({
-        chord: chordContent,
-        position: cleanText.length
-      })
+
+      const cp: ChordPosition = { chord: chordName, position: cleanText.length }
+
+      if (beatsSuffix !== undefined) {
+        const beatsValue = parseFloat(beatsSuffix)
+        if (!isNaN(beatsValue) && beatsValue > 0) {
+          cp.beats = beatsValue
+        }
+      }
+
+      chords.push(cp)
       lastIndex = match.index + match[0].length
     }
   }
-  
+
   cleanText += line.slice(lastIndex)
-  
+
   return { text: cleanText, chords }
 }
 

@@ -74,7 +74,11 @@ export function serializeLyricLine(line: LyricParsedLine): string {
   let lastPos = 0
   for (const cp of chords) {
     result += text.slice(lastPos, cp.position)
-    result += `[${cp.chord}]`
+    const beatsSuffix =
+      cp.beats !== undefined
+        ? `:${Number.isInteger(cp.beats) ? cp.beats : cp.beats}`
+        : ''
+    result += `[${cp.chord}${beatsSuffix}]`
     lastPos = cp.position
   }
   result += text.slice(lastPos)
