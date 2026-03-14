@@ -20,6 +20,12 @@ interface ChordOverlayProps {
   isEditable?: boolean
   /** Called with new serialized ChordPro text after each drag-and-drop edit. */
   onLyricsChange?: (newLyrics: string) => void
+  /**
+   * Maps parsed line indices to timeline element IDs (from createSongTimeline).
+   * When provided, element IDs are taken from this map instead of being derived locally,
+   * eliminating divergence between calculator merge logic and rendered IDs.
+   */
+  lineIndexToElementId?: Map<number, string>
 }
 
 export function ChordOverlay({
@@ -31,6 +37,7 @@ export function ChordOverlay({
   isSeekEnabled = false,
   isEditable = false,
   onLyricsChange,
+  lineIndexToElementId,
 }: ChordOverlayProps) {
   const parsed = useMemo(() => parseChordPro(lyrics, transpose), [lyrics, transpose])
 
@@ -70,15 +77,17 @@ export function ChordOverlay({
   return (
     <div className={cn('space-y-1 font-mono', className)}>
       {displayLines.map((line, index) => {
-        // When a lyric line directly follows a chords-only line, calculator.ts
-        // merges them into a single timeline element keyed by the chords-only
-        // line's index. Use that same ID so seekToElement can find it.
+        // Prefer the authoritative map from createSongTimeline (single source of truth).
+        // Fall back to the local derivation when the timeline is not yet ready (e.g. first
+        // render before autoscroll initialises), so chord cells are never id-less.
         const elementId =
-          line.type === 'lyric' &&
-          index > 0 &&
-          displayLines[index - 1].type === 'chords-only'
-            ? `element-${index - 1}`
-            : `element-${index}`
+          lineIndexToElementId?.get(index) ?? (
+            line.type === 'lyric' &&
+            index > 0 &&
+            displayLines[index - 1].type === 'chords-only'
+              ? `element-${index - 1}`
+              : `element-${index}`
+          )
 
         return (
           <ChordOverlayLine

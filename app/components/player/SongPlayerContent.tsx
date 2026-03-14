@@ -450,6 +450,7 @@ export function SongPlayerContent({
             isSeekEnabled={isSeekEnabled}
             isEditable={isEditable}
             onLyricsChange={handleLyricsChange}
+            lineIndexToElementId={autoScroll.lineIndexToElementId ?? undefined}
           />
         ) : (
           <LyricsDisplay lyrics={song.lyrics} />

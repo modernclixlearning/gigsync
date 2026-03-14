@@ -200,6 +200,9 @@ export function createSongTimeline(
 ): SongTimeline {
   const parsed = parseChordPro(lyrics)
   const elements: TimelineElement[] = []
+  // Maps each parsed line index to its timeline element ID.
+  // Single source of truth consumed by ChordOverlay to assign data-element-id.
+  const lineIndexToElementId = new Map<number, string>()
 
   let currentBeat = 0
   const { beats: beatsPerBar } = parseTimeSignature(timeSignature)
@@ -224,8 +227,11 @@ export function createSongTimeline(
       skipNext = true
     }
 
+    const elementId = `element-${i}`
+    lineIndexToElementId.set(i, elementId)
+
     elements.push({
-      id: `element-${i}`,
+      id: elementId,
       type: line.type,
       startBeat: currentBeat,
       endBeat: currentBeat + duration,
@@ -236,18 +242,23 @@ export function createSongTimeline(
 
     currentBeat += duration
     i++
-    if (skipNext) i++ // skip the paired lyric line — it's rendered inside the chords-only block
+    if (skipNext) {
+      // Paired lyric shares the chords-only element ID
+      lineIndexToElementId.set(i, elementId)
+      i++
+    }
   }
-  
+
   const totalDurationSeconds = beatsToSeconds(currentBeat, bpm)
-  
+
   return {
     elements,
     totalBeats: currentBeat,
     totalBars: currentBeat / beatsPerBar,
     totalDurationSeconds,
     beatsPerBar,
-    bpm
+    bpm,
+    lineIndexToElementId
   }
 }
 

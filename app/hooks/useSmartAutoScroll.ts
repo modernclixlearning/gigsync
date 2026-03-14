@@ -123,6 +123,12 @@ export interface UseSmartAutoScrollReturn {
    * @param chordIndex - 0-based chord/bar cell index within the element (omit to seek to element start)
    */
   seekToElement: (elementId: string, chordIndex?: number) => void
+  /**
+   * Maps each parsed line index to its timeline element ID.
+   * Pass to ChordOverlay so it can assign data-element-id without duplicating merge logic.
+   * Null when timeline is not yet ready.
+   */
+  lineIndexToElementId: Map<number, string> | null
 }
 
 /** Default duration for smooth scroll animation in milliseconds */
@@ -375,6 +381,7 @@ export function useSmartAutoScroll({
     pause: bpmSync.pause,
     reset: bpmSync.reset,
     seekToBeat: bpmSync.seekToBeat,
-    seekToElement
+    seekToElement,
+    lineIndexToElementId: timeline.timeline?.lineIndexToElementId ?? null
   }
 }

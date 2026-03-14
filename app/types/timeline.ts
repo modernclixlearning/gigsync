@@ -37,6 +37,12 @@ export interface SongTimeline {
   totalDurationSeconds: number
   beatsPerBar: number
   bpm: number
+  /**
+   * Maps each parsed line index to its timeline element ID.
+   * Paired chords-only+lyric lines share the same element ID (the chords-only index).
+   * Use this in rendering to assign data-element-id without duplicating merge logic.
+   */
+  lineIndexToElementId: Map<number, string>
 }
 
 /**
