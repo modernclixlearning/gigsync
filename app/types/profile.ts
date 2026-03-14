@@ -53,6 +53,11 @@ export interface PlayerPreferences {
    * When true, shows a debug beat/bar indicator overlay during Smart Autoscroll.
    */
   showBeatIndicatorDebug: boolean
+  /**
+   * Minimum time unit (in beats) for snapping when extending or subdividing chord cells.
+   * 1.0 = quarter note, 0.5 = eighth note, 0.25 = sixteenth note (default).
+   */
+  gridResolution: number
 }
 
 export interface SyncPreferences {
@@ -125,6 +130,7 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
     smartScrollContextWindow: 33,
     smartScrollSmoothness: 70,
     showBeatIndicatorDebug: false,
+    gridResolution: 0.25,
   },
   sync: {
     enableCloudBackup: false,
