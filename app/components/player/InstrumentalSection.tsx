@@ -8,7 +8,7 @@
  *  - Double-click a cell to subdivide it into two halves.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -29,6 +29,7 @@ import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
 import { useChordResize } from './useChordResize'
+import { ChordPicker } from './ChordPicker'
 
 interface InstrumentalSectionProps {
   section: InstrumentalSectionType
@@ -86,11 +87,17 @@ function SortableChordCell({
   bar,
   compact,
   isActive,
+  onEdit,
+  onDelete,
+  canDelete,
 }: {
   id: string
   bar: ChordBar
   compact: boolean
   isActive: boolean
+  onEdit?: () => void
+  onDelete?: () => void
+  canDelete?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id })
@@ -102,7 +109,7 @@ function SortableChordCell({
       {...attributes}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'flex flex-col items-center justify-center',
+        'flex flex-col items-center justify-center relative',
         'rounded-lg border',
         'bg-white dark:bg-slate-800',
         'border-slate-200 dark:border-slate-700',
@@ -122,6 +129,25 @@ function SortableChordCell({
         <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
           {bar.label}
         </span>
+      )}
+      {/* Edit/Delete buttons */}
+      {onEdit && (
+        <div className="absolute -top-1 -right-1 flex gap-0.5">
+          <button
+            type="button"
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onEdit() }}
+            className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] flex items-center justify-center shadow-sm hover:bg-indigo-600"
+          >✎</button>
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onDelete() }}
+              className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center shadow-sm hover:bg-red-600"
+            >✕</button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -151,8 +177,37 @@ export function InstrumentalSection({
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
 
   const beatsPerBar = 4
+
+  // ── Chord name editing ──────────────────────────────────────────────────────
+  const handleChordNameChange = useCallback(
+    (index: number, newChord: string) => {
+      // Reverse-transpose so we store the original key
+      const stored = transpose !== 0 ? transposeChord(newChord, -transpose) : newChord
+      const newBars = section.chordBars.map((b, i) =>
+        i === index ? { ...b, chord: stored } : b
+      )
+      onChordsChange?.(newBars)
+      setEditingChordIndex(null)
+    },
+    [section.chordBars, transpose, onChordsChange]
+  )
+
+  const handleAddChord = useCallback(() => {
+    const newBar: ChordBar = { chord: 'C', beats: beatsPerBar }
+    onChordsChange?.([...section.chordBars, newBar])
+  }, [section.chordBars, beatsPerBar, onChordsChange])
+
+  const handleDeleteChord = useCallback(
+    (index: number) => {
+      if (section.chordBars.length <= 1) return
+      onChordsChange?.(section.chordBars.filter((_, i) => i !== index))
+    },
+    [section.chordBars, onChordsChange]
+  )
 
   // ── Beat values for each chord ──────────────────────────────────────────────
   const chordBeats = section.chordBars.map(b => b.beats ?? beatsPerBar)
@@ -275,8 +330,21 @@ export function InstrumentalSection({
                         bar={bar}
                         compact={compact}
                         isActive={activeId === id}
+                        onEdit={() => setEditingChordIndex(index)}
+                        onDelete={() => handleDeleteChord(index)}
+                        canDelete={section.chordBars.length > 1}
                       />
                     </div>
+                    {/* Chord picker popover */}
+                    {editingChordIndex === index && (
+                      <div ref={pickerRef} className="absolute top-full left-0 z-50 mt-1">
+                        <ChordPicker
+                          currentChord={bar.chord}
+                          onSelect={(chord) => handleChordNameChange(index, chord)}
+                          onClose={() => setEditingChordIndex(null)}
+                        />
+                      </div>
+                    )}
                     {/* Resize handle between cells */}
                     {!isLast && (
                       <div
@@ -349,6 +417,18 @@ export function InstrumentalSection({
           </div>
         )
       })}
+      {/* Add chord button */}
+      {isEditable && (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            onClick={handleAddChord}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-xs hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+          >
+            <span className="text-base leading-none">+</span> Acorde
+          </button>
+        </div>
+      )}
     </div>
   ) : showPlaceholder ? (
     <div className={cn('p-4 text-center', colors.text, 'opacity-60')}>

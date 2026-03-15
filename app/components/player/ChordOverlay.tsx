@@ -1,10 +1,22 @@
 import { useCallback, useMemo, useState } from 'react'
 import { cn } from '~/lib/utils'
-import { parseChordPro, type AnyParsedLine } from '~/lib/chordpro'
+import { parseChordPro, type AnyParsedLine, type SectionType } from '~/lib/chordpro'
+import { getSectionType } from '~/lib/chordpro'
 import { serializeParsedSong } from '~/lib/chordpro/serializer'
 import { InstrumentalSection } from './InstrumentalSection'
 import { LyricBarGrid } from './LyricBarGrid'
-import type { ChordsOnlyLine, InstrumentalLine, LyricParsedLine, ChordBar } from '~/lib/chordpro'
+import { ChordPicker } from './ChordPicker'
+import { InlineTextEditor } from './InlineTextEditor'
+import { SectionPicker } from './SectionPicker'
+import type {
+  ChordsOnlyLine,
+  InstrumentalLine,
+  LyricParsedLine,
+  ChordBar,
+  SectionLine,
+  EmptyLine,
+  ChordPosition,
+} from '~/lib/chordpro'
 
 interface ChordOverlayProps {
   lyrics: string
@@ -46,6 +58,7 @@ export function ChordOverlay({
 
   // Local editable copy of parsed lines — updated on every drag-and-drop
   const [lines, setLines] = useState<AnyParsedLine[]>(() => parsed.lines)
+  const [showSectionPicker, setShowSectionPicker] = useState<number | null>(null)
 
   // Re-sync when lyrics prop changes (e.g. after save)
   const prevLyrics = useMemo(() => lyrics, [lyrics])
@@ -68,6 +81,69 @@ export function ChordOverlay({
       })
     },
     [onLyricsChange]
+  )
+
+  // ── Structural editing: insert / delete lines ───────────────────────────────
+  const persistLines = useCallback(
+    (newLines: AnyParsedLine[]) => {
+      setLines(newLines)
+      onLyricsChange?.(serializeParsedSong(newLines))
+    },
+    [onLyricsChange]
+  )
+
+  const handleInsertLine = useCallback(
+    (afterIndex: number, newLine: AnyParsedLine) => {
+      const next = [...lines]
+      next.splice(afterIndex + 1, 0, newLine)
+      persistLines(next)
+    },
+    [lines, persistLines]
+  )
+
+  const handleDeleteLine = useCallback(
+    (index: number) => {
+      if (lines.length <= 1) return
+      const next = lines.filter((_, i) => i !== index)
+      persistLines(next)
+    },
+    [lines, persistLines]
+  )
+
+  const handleAddSection = useCallback(
+    (afterIndex: number, type: SectionType, name: string) => {
+      const sectionLine: SectionLine = {
+        type: 'section',
+        name,
+        sectionType: type,
+        raw: `[${name}]`,
+      }
+      // Insert section header + an empty lyric line after it
+      const emptyLyric: LyricParsedLine = {
+        type: 'lyric',
+        text: '',
+        chords: [{ chord: 'C', position: 0, beats: 4 }],
+        raw: '[C]',
+      }
+      const next = [...lines]
+      next.splice(afterIndex + 1, 0, sectionLine, emptyLyric)
+      persistLines(next)
+      setShowSectionPicker(null)
+    },
+    [lines, persistLines]
+  )
+
+  const handleAddLyricLine = useCallback(
+    (afterIndex: number) => {
+      const newLine: LyricParsedLine = {
+        type: 'lyric',
+        text: '',
+        chords: [{ chord: 'C', position: 0, beats: 4 }],
+        raw: '[C]',
+      }
+      handleInsertLine(afterIndex, newLine)
+    },
+    [handleInsertLine]
   )
 
   // Keep local lines in sync when isEditable turns on
@@ -93,26 +169,72 @@ export function ChordOverlay({
           )
 
         return (
-          <ChordOverlayLine
-            key={index}
-            line={line}
-            transpose={transpose}
-            columns={columns}
-            elementId={elementId}
-            onChordClick={onChordClick}
-            isSeekEnabled={isSeekEnabled}
-            isEditable={isEditable}
-            onLineChange={(updated) => handleLineChange(index, updated)}
-            gridResolution={gridResolution}
-          />
+          <div key={index}>
+            <ChordOverlayLine
+              line={line}
+              transpose={transpose}
+              columns={columns}
+              elementId={elementId}
+              onChordClick={onChordClick}
+              isSeekEnabled={isSeekEnabled}
+              isEditable={isEditable}
+              onLineChange={(updated) => handleLineChange(index, updated)}
+              onDeleteLine={() => handleDeleteLine(index)}
+              gridResolution={gridResolution}
+              lineCount={displayLines.length}
+            />
+
+            {/* Between-line insert controls (when editable) */}
+            {isEditable && (
+              <div className="flex items-center justify-center gap-2 py-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleAddLyricLine(index)}
+                  className={cn(
+                    'text-xs px-2 py-1 rounded-full',
+                    'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                    'hover:bg-indigo-100 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400',
+                    'transition-colors'
+                  )}
+                >
+                  + Línea
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSectionPicker(showSectionPicker === index ? null : index)}
+                    className={cn(
+                      'text-xs px-2 py-1 rounded-full',
+                      'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                      'hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400',
+                      'transition-colors'
+                    )}
+                  >
+                    + Sección
+                  </button>
+                  {showSectionPicker === index && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
+                      <SectionPicker
+                        onSelect={(type, name) => handleAddSection(index, type, name)}
+                        onClose={() => setShowSectionPicker(null)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )
       })}
 
-      {/* Edit hint — shown when editable and not playing */}
+      {/* Edit hints — shown when editable and not playing */}
       {isEditable && (
-        <p className="text-center text-xs text-slate-400 dark:text-slate-600 pt-4 pb-2 select-none">
-          Mantené presionado un acorde para moverlo
-        </p>
+        <div className="text-center pt-4 pb-2 select-none space-y-1">
+          <p className="text-xs text-slate-400 dark:text-slate-600">
+            Tocá un acorde para cambiarlo • Tocá la letra para editarla
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-600">
+            Deslizá entre líneas para insertar • Mantené presionado para mover
+          </p>
+        </div>
       )}
     </div>
   )
@@ -127,7 +249,9 @@ function ChordOverlayLine({
   isSeekEnabled = false,
   isEditable = false,
   onLineChange,
+  onDeleteLine,
   gridResolution = 0.25,
+  lineCount = 1,
 }: {
   line: AnyParsedLine
   transpose: number
@@ -137,17 +261,59 @@ function ChordOverlayLine({
   isSeekEnabled?: boolean
   isEditable?: boolean
   onLineChange: (updated: AnyParsedLine) => void
+  onDeleteLine?: () => void
   gridResolution?: number
+  lineCount?: number
 }) {
+  // Delete button for editable lines (not directives)
+  const deleteButton = isEditable && lineCount > 1 && line.type !== 'directive' && (
+    <button
+      onClick={onDeleteLine}
+      className={cn(
+        'absolute -right-1 -top-1 z-20',
+        'w-5 h-5 rounded-full',
+        'bg-rose-500 text-white text-xs',
+        'flex items-center justify-center',
+        'opacity-0 group-hover:opacity-100 transition-opacity',
+        'hover:bg-rose-600 shadow-sm'
+      )}
+      aria-label="Eliminar línea"
+    >
+      ✕
+    </button>
+  )
+
   if (line.type === 'empty') {
-    return <div className="h-6" data-element-id={elementId} />
+    return (
+      <div className="relative group h-6" data-element-id={elementId}>
+        {deleteButton}
+      </div>
+    )
   }
 
   if (line.type === 'section') {
     return (
-      <div className="pt-6 pb-2" data-element-id={elementId}>
+      <div className="relative group pt-6 pb-2" data-element-id={elementId}>
+        {deleteButton}
         <h3 className="text-sm font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">
-          {line.name}
+          {isEditable ? (
+            <InlineTextEditor
+              value={line.name}
+              isEditable
+              onCommit={(newName) => {
+                onLineChange({
+                  ...line,
+                  name: newName,
+                  sectionType: getSectionType(newName),
+                  raw: `[${newName}]`,
+                } as SectionLine)
+              }}
+              className="text-indigo-500 dark:text-indigo-400 font-semibold uppercase"
+              placeholder="Nombre de sección..."
+            />
+          ) : (
+            line.name
+          )}
         </h3>
       </div>
     )
@@ -155,7 +321,8 @@ function ChordOverlayLine({
 
   if (line.type === 'instrumental') {
     return (
-      <div className="py-3" data-element-id={elementId} data-bar-element>
+      <div className="relative group py-3" data-element-id={elementId} data-bar-element>
+        {deleteButton}
         <InstrumentalSection
           section={line.section}
           transpose={transpose}
@@ -178,14 +345,17 @@ function ChordOverlayLine({
 
   if (line.type === 'chords-only') {
     return (
-      <EditableChordsOnlyBadges
-        line={line}
-        elementId={elementId}
-        isEditable={isEditable}
-        onChordsChange={(newBars) =>
-          onLineChange({ ...line, chordBars: newBars } as ChordsOnlyLine)
-        }
-      />
+      <div className="relative group">
+        {deleteButton}
+        <EditableChordsOnlyBadges
+          line={line}
+          elementId={elementId}
+          isEditable={isEditable}
+          onChordsChange={(newBars) =>
+            onLineChange({ ...line, chordBars: newBars } as ChordsOnlyLine)
+          }
+        />
+      </div>
     )
   }
 
@@ -198,28 +368,68 @@ function ChordOverlayLine({
 
   if (lyricLine.chords.length > 0) {
     return (
-      <LyricBarGrid
-        line={lyricLine}
-        transpose={transpose}
-        columns={columns}
-        elementId={elementId}
-        className="my-1"
-        onChordClick={onChordClick}
-        isSeekEnabled={isSeekEnabled}
-        isEditable={isEditable}
-        onChordsReorder={(newChords) =>
-          onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
-        }
-        gridResolution={gridResolution}
-      />
+      <div className="relative group">
+        {deleteButton}
+        <LyricBarGrid
+          line={lyricLine}
+          transpose={transpose}
+          columns={columns}
+          elementId={elementId}
+          className="my-1"
+          onChordClick={onChordClick}
+          isSeekEnabled={isSeekEnabled}
+          isEditable={isEditable}
+          onChordsReorder={(newChords) =>
+            onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
+          }
+          onTextChange={(newText, newChords) =>
+            onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
+          }
+          gridResolution={gridResolution}
+        />
+      </div>
     )
   }
 
+  // Lyric line with no chords — show editable text + option to add first chord
   return (
-    <div className="relative" data-element-id={elementId}>
-      <p className="text-slate-900 dark:text-white whitespace-pre leading-relaxed">
-        {lyricLine.text}
-      </p>
+    <div className="relative group" data-element-id={elementId}>
+      {deleteButton}
+      {isEditable ? (
+        <div className="flex items-start gap-2">
+          <div className="flex-1">
+            <InlineTextEditor
+              value={lyricLine.text}
+              isEditable
+              onCommit={(newText) =>
+                onLineChange({ ...lyricLine, text: newText } as LyricParsedLine)
+              }
+              className="text-slate-900 dark:text-white whitespace-pre leading-relaxed"
+              placeholder="Letra..."
+            />
+          </div>
+          <button
+            onClick={() => {
+              const newChords: ChordPosition[] = [{ chord: 'C', position: 0, beats: 4 }]
+              onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
+            }}
+            className={cn(
+              'shrink-0 text-xs px-2 py-1 rounded',
+              'bg-indigo-50 dark:bg-indigo-900/30',
+              'text-indigo-500 dark:text-indigo-400',
+              'hover:bg-indigo-100 dark:hover:bg-indigo-900/50',
+              'transition-colors mt-0.5'
+            )}
+            aria-label="Agregar acorde"
+          >
+            + Acorde
+          </button>
+        </div>
+      ) : (
+        <p className="text-slate-900 dark:text-white whitespace-pre leading-relaxed">
+          {lyricLine.text}
+        </p>
+      )}
     </div>
   )
 }
@@ -278,6 +488,7 @@ function EditableChordsOnlyBadges({
   onChordsChange: (bars: ChordBar[]) => void
 }) {
   const [activeId, setActiveId] = useLocalState<string | null>(null)
+  const [editingIndex, setEditingIndex] = useLocalState<number | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
@@ -287,6 +498,24 @@ function EditableChordsOnlyBadges({
   const activeChord = activeId
     ? line.chordBars[ids.indexOf(activeId)]?.chord
     : null
+
+  const handleChordNameChange = (index: number, newChord: string) => {
+    const newBars = line.chordBars.map((b, i) =>
+      i === index ? { ...b, chord: newChord } : b
+    )
+    onChordsChange(newBars)
+  }
+
+  const handleAddChord = () => {
+    const lastChord = line.chordBars[line.chordBars.length - 1]?.chord ?? 'C'
+    onChordsChange([...line.chordBars, { chord: lastChord }])
+  }
+
+  const handleDeleteChord = (index: number) => {
+    if (line.chordBars.length <= 1) return
+    onChordsChange(line.chordBars.filter((_, i) => i !== index))
+    setEditingIndex(null)
+  }
 
   if (!isEditable) {
     return (
@@ -322,10 +551,51 @@ function EditableChordsOnlyBadges({
         onDragCancel={() => setActiveId(null)}
       >
         <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
-          <div className="flex flex-wrap gap-3 font-bold">
+          <div className="flex flex-wrap gap-3 font-bold items-center">
             {line.chordBars.map((bar, i) => (
-              <SortableChordBadge key={ids[i]} id={ids[i]} chord={bar.chord} />
+              <div key={ids[i]} className="relative flex items-center gap-0.5">
+                <SortableChordBadge id={ids[i]} chord={bar.chord} />
+                <button
+                  onClick={() => setEditingIndex(editingIndex === i ? null : i)}
+                  className="text-[10px] text-slate-400 hover:text-indigo-500 px-0.5"
+                  aria-label="Cambiar acorde"
+                >
+                  ✎
+                </button>
+                {line.chordBars.length > 1 && (
+                  <button
+                    onClick={() => handleDeleteChord(i)}
+                    className="text-[10px] text-slate-400 hover:text-rose-500 px-0.5"
+                    aria-label="Eliminar acorde"
+                  >
+                    ✕
+                  </button>
+                )}
+                {editingIndex === i && (
+                  <div className="absolute top-full left-0 mt-1 z-50">
+                    <ChordPicker
+                      currentChord={bar.chord}
+                      onSelect={(chord) => handleChordNameChange(i, chord)}
+                      onClose={() => setEditingIndex(null)}
+                    />
+                  </div>
+                )}
+              </div>
             ))}
+            {/* Add chord button */}
+            <button
+              onClick={handleAddChord}
+              className={cn(
+                'px-2 py-1 rounded border-2 border-dashed',
+                'border-slate-300 dark:border-slate-600',
+                'text-slate-400 dark:text-slate-500',
+                'hover:border-indigo-400 hover:text-indigo-500',
+                'transition-colors text-sm'
+              )}
+              aria-label="Agregar acorde"
+            >
+              +
+            </button>
           </div>
         </SortableContext>
         <DragOverlay>
