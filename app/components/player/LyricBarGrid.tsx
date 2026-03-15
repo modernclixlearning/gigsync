@@ -5,12 +5,16 @@
  * Each cell = one bar: chord badge (top) + lyric text (bottom).
  *
  * When `isEditable`:
+ *  - Tap chord badge to change chord name (ChordPicker).
+ *  - Tap lyric text to edit inline.
  *  - Chord badges are sortable via long-press drag (dnd-kit).
  *  - Cell borders show resize handles: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
+ *  - '+' button to add new chord cell.
+ *  - '×' button to delete a chord cell.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -31,6 +35,8 @@ import { cn } from '~/lib/utils'
 import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
 import { useChordResize } from './useChordResize'
+import { ChordPicker } from './ChordPicker'
+import { InlineTextEditor } from './InlineTextEditor'
 
 interface LyricBarGridProps {
   line: LyricParsedLine
@@ -48,6 +54,8 @@ interface LyricBarGridProps {
    * so the serialised ChordPro stays valid.
    */
   onChordsReorder?: (chords: ChordPosition[]) => void
+  /** Called when the lyric text of this line changes. */
+  onTextChange?: (newText: string, newChords: ChordPosition[]) => void
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
   /** Default beats per chord when `beats` is undefined. Default 4. */
@@ -108,14 +116,75 @@ export function LyricBarGrid({
   isSeekEnabled = false,
   isEditable = false,
   onChordsReorder,
+  onTextChange,
   gridResolution = 0.25,
   defaultBeatsPerChord = 4,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line, transpose)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
+  const chordPickerRef = useRef<HTMLDivElement>(null)
 
   // ── Beat values for each chord ──────────────────────────────────────────────
   const chordBeats = line.chords.map(c => c.beats ?? defaultBeatsPerChord)
+
+  // ── Chord name change ───────────────────────────────────────────────────────
+  const handleChordChange = useCallback(
+    (index: number, newChord: string) => {
+      // Reverse transpose to store the original key chord
+      const storedChord = transpose !== 0 ? transposeChord(newChord, -transpose) : newChord
+      const newChords = line.chords.map((c, i) =>
+        i === index ? { ...c, chord: storedChord } : c
+      )
+      onChordsReorder?.(newChords)
+    },
+    [line.chords, transpose, onChordsReorder]
+  )
+
+  // ── Add chord cell ──────────────────────────────────────────────────────────
+  const handleAddChord = useCallback(() => {
+    const lastChord = line.chords[line.chords.length - 1]
+    const newPosition = line.text.length
+    const newChord: ChordPosition = {
+      chord: lastChord?.chord ?? 'C',
+      position: newPosition,
+      beats: defaultBeatsPerChord,
+    }
+    onChordsReorder?.([...line.chords, newChord])
+  }, [line.chords, line.text.length, defaultBeatsPerChord, onChordsReorder])
+
+  // ── Delete chord cell ───────────────────────────────────────────────────────
+  const handleDeleteChord = useCallback(
+    (index: number) => {
+      if (line.chords.length <= 1) return // Keep at least one chord
+      const newChords = line.chords.filter((_, i) => i !== index)
+      onChordsReorder?.(newChords)
+      setEditingChordIndex(null)
+    },
+    [line.chords, onChordsReorder]
+  )
+
+  // ── Lyric text change for a segment ─────────────────────────────────────────
+  const handleSegmentTextChange = useCallback(
+    (index: number, newText: string) => {
+      // Rebuild the full text with updated segment + adjust chord positions
+      const chords = [...line.chords]
+      let fullText = ''
+      for (let i = 0; i < chords.length; i++) {
+        const segStart = fullText.length
+        chords[i] = { ...chords[i], position: segStart }
+        if (i === index) {
+          fullText += newText
+        } else {
+          const origStart = line.chords[i].position
+          const origEnd = i + 1 < line.chords.length ? line.chords[i + 1].position : line.text.length
+          fullText += line.text.slice(origStart, origEnd)
+        }
+      }
+      onTextChange?.(fullText, chords)
+    },
+    [line.chords, line.text, onTextChange]
+  )
 
   // ── Resize (edge-drag) ──────────────────────────────────────────────────────
   const handleResizeComplete = useCallback(
@@ -241,18 +310,69 @@ export function LyricBarGrid({
                 isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20',
               )}
             >
-              {/* Chord badge — sortable when editable */}
+              {/* Chord badge — tap to edit in edit mode, sortable via long-press */}
               {isEditable ? (
-                <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
+                <div className="relative flex items-center gap-1">
+                  <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
+                  {/* Tap target to open chord picker (separate from drag) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingChordIndex(editingChordIndex === index ? null : index)
+                    }}
+                    className={cn(
+                      'text-[10px] leading-none px-1 py-0.5 rounded',
+                      'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30',
+                      'transition-colors'
+                    )}
+                    aria-label="Cambiar acorde"
+                  >
+                    ✎
+                  </button>
+                  {/* Delete chord button (only if more than 1 chord) */}
+                  {line.chords.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteChord(index)
+                      }}
+                      className={cn(
+                        'text-[10px] leading-none px-1 py-0.5 rounded',
+                        'text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30',
+                        'transition-colors'
+                      )}
+                      aria-label="Eliminar acorde"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  {/* Chord picker popover */}
+                  {editingChordIndex === index && (
+                    <div
+                      ref={chordPickerRef}
+                      className="absolute top-full left-0 mt-1 z-50"
+                    >
+                      <ChordPicker
+                        currentChord={seg.chord}
+                        onSelect={(chord) => handleChordChange(index, chord)}
+                        onClose={() => setEditingChordIndex(null)}
+                      />
+                    </div>
+                  )}
+                </div>
               ) : (
                 <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none">
                   {seg.chord}
                 </span>
               )}
-              {/* Lyric text — never draggable */}
-              <span className="text-slate-900 dark:text-white leading-snug whitespace-pre-wrap break-words">
-                {seg.text || '\u00a0'}
-              </span>
+              {/* Lyric text — editable in edit mode */}
+              <InlineTextEditor
+                value={seg.text}
+                isEditable={isEditable}
+                onCommit={(newText) => handleSegmentTextChange(index, newText)}
+                className="text-slate-900 dark:text-white"
+                placeholder="Letra..."
+              />
             </div>
 
             {/* Resize handle between cells (not on last cell) */}
@@ -290,6 +410,26 @@ export function LyricBarGrid({
           )}
         />
       ))}
+
+      {/* Add chord button (when editable) */}
+      {isEditable && (
+        <button
+          onClick={handleAddChord}
+          className={cn(
+            'flex items-center justify-center',
+            'rounded-lg border-2 border-dashed',
+            'border-slate-300 dark:border-slate-600',
+            'text-slate-400 dark:text-slate-500',
+            'hover:border-indigo-400 hover:text-indigo-500',
+            'dark:hover:border-indigo-600 dark:hover:text-indigo-400',
+            'transition-colors min-h-[48px]',
+            'px-3 py-2'
+          )}
+          aria-label="Agregar acorde"
+        >
+          <span className="text-lg">+</span>
+        </button>
+      )}
     </div>
   )
 
