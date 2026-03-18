@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { cn } from '~/lib/utils'
-import { parseChordPro, type AnyParsedLine, type SectionType } from '~/lib/chordpro'
+import { parseChordPro, type AnyParsedLine, type SectionType, isInstrumentalSectionType } from '~/lib/chordpro'
 import { getSectionType } from '~/lib/chordpro'
 import { serializeParsedSong } from '~/lib/chordpro/serializer'
 import { InstrumentalSection } from './InstrumentalSection'
@@ -115,21 +115,43 @@ export function ChordOverlay({
 
   const handleAddSection = useCallback(
     (afterIndex: number, type: SectionType, name: string) => {
-      const sectionLine: SectionLine = {
-        type: 'section',
-        name,
-        sectionType: type,
-        raw: `[${name}]`,
-      }
-      // Insert section header + an empty lyric line after it
-      const emptyLyric: LyricParsedLine = {
-        type: 'lyric',
-        text: '',
-        chords: [{ chord: 'C', position: 0, beats: 4 }],
-        raw: '[C]',
-      }
       const next = [...lines]
-      next.splice(afterIndex + 1, 0, sectionLine, emptyLyric)
+
+      if (isInstrumentalSectionType(name)) {
+        // Instrumental sections: insert a single InstrumentalLine
+        const instrumentalLine: InstrumentalLine = {
+          type: 'instrumental',
+          raw: `[${name}]\nC | C | C | C |`,
+          section: {
+            name,
+            type,
+            bars: 4,
+            chordBars: [
+              { chord: 'C', beats: 4 },
+              { chord: 'C', beats: 4 },
+              { chord: 'C', beats: 4 },
+              { chord: 'C', beats: 4 },
+            ],
+          },
+        }
+        next.splice(afterIndex + 1, 0, instrumentalLine)
+      } else {
+        // Sung sections: insert section header + empty lyric line
+        const sectionLine: SectionLine = {
+          type: 'section',
+          name,
+          sectionType: type,
+          raw: `[${name}]`,
+        }
+        const emptyLyric: LyricParsedLine = {
+          type: 'lyric',
+          text: '',
+          chords: [{ chord: 'C', position: 0, beats: 4 }],
+          raw: '[C]',
+        }
+        next.splice(afterIndex + 1, 0, sectionLine, emptyLyric)
+      }
+
       persistLines(next)
       setShowSectionPicker(null)
     },
