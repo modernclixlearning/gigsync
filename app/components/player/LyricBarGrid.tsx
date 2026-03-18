@@ -5,16 +5,14 @@
  * Each cell = one bar: chord badge (top) + lyric text (bottom).
  *
  * When `isEditable`:
- *  - Tap chord badge to change chord name (ChordPicker).
- *  - Tap lyric text to edit inline.
+ *  - Long-press or right-click a cell to open bubble menu (Edit / Delete).
  *  - Chord badges are sortable via long-press drag (dnd-kit).
  *  - Cell borders show resize handles: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
  *  - '+' button to add new chord cell.
- *  - '×' button to delete a chord cell.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -37,6 +35,9 @@ import { transposeChord } from '~/lib/chordpro'
 import { useChordResize } from './useChordResize'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
+import { useBubbleMenu } from './useBubbleMenu'
+import { BubbleMenu } from './BubbleMenu'
+import type { BubbleMenuAction } from './BubbleMenu'
 
 interface LyricBarGridProps {
   line: LyricParsedLine
@@ -89,6 +90,7 @@ function SortableChordBadge({ id, chord }: { id: string; chord: string }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      data-sortable-handle
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none',
@@ -124,6 +126,36 @@ export function LyricBarGrid({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
   const chordPickerRef = useRef<HTMLDivElement>(null)
+
+  // ── Bubble menu ───────────────────────────────────────────────────────────────
+  const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
+
+  const bubbleMenuActions = useMemo((): BubbleMenuAction[] => {
+    const idx = bubbleMenu.state.targetIndex
+    return [
+      {
+        id: 'edit',
+        label: 'Editar',
+        icon: '✎',
+        variant: 'default' as const,
+        onAction: () => {
+          setEditingChordIndex(idx)
+          bubbleMenu.close()
+        },
+      },
+      {
+        id: 'delete',
+        label: 'Eliminar',
+        icon: '✕',
+        variant: 'danger' as const,
+        disabled: line.chords.length <= 1,
+        onAction: () => {
+          handleDeleteChord(idx)
+          bubbleMenu.close()
+        },
+      },
+    ]
+  }, [bubbleMenu.state.targetIndex, line.chords.length])
 
   // ── Beat values for each chord ──────────────────────────────────────────────
   const chordBeats = line.chords.map(c => c.beats ?? defaultBeatsPerChord)
@@ -288,6 +320,9 @@ export function LyricBarGrid({
     >
       {segments.map((seg, index) => {
         const isLast = index === segments.length - 1
+        const cellBubbleHandlers = isEditable
+          ? bubbleMenu.getHandlers(index, { enableLongPress: true })
+          : {}
         return (
           <div
             key={index}
@@ -297,9 +332,10 @@ export function LyricBarGrid({
             {/* Cell content */}
             <div
               role={!isEditable && isSeekEnabled ? 'button' : undefined}
-              tabIndex={!isEditable && isSeekEnabled ? 0 : undefined}
+              tabIndex={!isEditable && isSeekEnabled ? 0 : (isEditable ? 0 : undefined)}
               onClick={() => handleCellClick(index)}
               onDoubleClick={() => handleDoubleClick(index)}
+              {...cellBubbleHandlers}
               className={cn(
                 'flex flex-col gap-1 flex-1 min-w-0',
                 'rounded-lg border',
@@ -310,42 +346,10 @@ export function LyricBarGrid({
                 isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20',
               )}
             >
-              {/* Chord badge — tap to edit in edit mode, sortable via long-press */}
+              {/* Chord badge — sortable via long-press drag */}
               {isEditable ? (
                 <div className="relative flex items-center gap-1">
                   <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
-                  {/* Tap target to open chord picker (separate from drag) */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingChordIndex(editingChordIndex === index ? null : index)
-                    }}
-                    className={cn(
-                      'text-[10px] leading-none px-1 py-0.5 rounded',
-                      'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30',
-                      'transition-colors'
-                    )}
-                    aria-label="Cambiar acorde"
-                  >
-                    ✎
-                  </button>
-                  {/* Delete chord button (only if more than 1 chord) */}
-                  {line.chords.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteChord(index)
-                      }}
-                      className={cn(
-                        'text-[10px] leading-none px-1 py-0.5 rounded',
-                        'text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30',
-                        'transition-colors'
-                      )}
-                      aria-label="Eliminar acorde"
-                    >
-                      ✕
-                    </button>
-                  )}
                   {/* Chord picker popover */}
                   {editingChordIndex === index && (
                     <div
@@ -468,6 +472,15 @@ export function LyricBarGrid({
           grid
         )}
       </div>
+
+      {/* Bubble menu (portal) */}
+      {bubbleMenu.state.visible && bubbleMenu.state.anchorRect && (
+        <BubbleMenu
+          anchorRect={bubbleMenu.state.anchorRect}
+          actions={bubbleMenuActions}
+          onClose={bubbleMenu.close}
+        />
+      )}
     </div>
   )
 }

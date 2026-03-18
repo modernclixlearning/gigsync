@@ -6,7 +6,15 @@
       "Bash(npx vitest run)",
       "Bash(npm install:*)",
       "Bash(node:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm test:*)",
+      "Bash(git pull:*)",
+      "Bash(npx vitest:*)",
+      "Bash(gh run:*)",
+      "Bash(npx vercel:*)",
+      "Bash(find:*)"
     ]
   }
 }

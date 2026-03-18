@@ -3,12 +3,13 @@
  * Visual grid display for instrumental passages with chord progressions.
  *
  * When `isEditable`:
+ *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Delete).
  *  - Chord cells are sortable via long-press drag (dnd-kit).
  *  - Cell borders show resize handles: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -30,6 +31,9 @@ import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~
 import { transposeChord } from '~/lib/chordpro'
 import { useChordResize } from './useChordResize'
 import { ChordPicker } from './ChordPicker'
+import { useBubbleMenu } from './useBubbleMenu'
+import { BubbleMenu } from './BubbleMenu'
+import type { BubbleMenuAction } from './BubbleMenu'
 
 interface InstrumentalSectionProps {
   section: InstrumentalSectionType
@@ -87,17 +91,11 @@ function SortableChordCell({
   bar,
   compact,
   isActive,
-  onEdit,
-  onDelete,
-  canDelete,
 }: {
   id: string
   bar: ChordBar
   compact: boolean
   isActive: boolean
-  onEdit?: () => void
-  onDelete?: () => void
-  canDelete?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id })
@@ -129,25 +127,6 @@ function SortableChordCell({
         <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
           {bar.label}
         </span>
-      )}
-      {/* Edit/Delete buttons */}
-      {onEdit && (
-        <div className="absolute -top-1 -right-1 flex gap-0.5">
-          <button
-            type="button"
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onEdit() }}
-            className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] flex items-center justify-center shadow-sm hover:bg-indigo-600"
-          >✎</button>
-          {canDelete && onDelete && (
-            <button
-              type="button"
-              onPointerDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onDelete() }}
-              className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center shadow-sm hover:bg-red-600"
-            >✕</button>
-          )}
-        </div>
       )}
     </div>
   )
@@ -181,6 +160,36 @@ export function InstrumentalSection({
   const pickerRef = useRef<HTMLDivElement>(null)
 
   const beatsPerBar = 4
+
+  // ── Bubble menu ───────────────────────────────────────────────────────────────
+  const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
+
+  const bubbleMenuActions = useMemo((): BubbleMenuAction[] => {
+    const idx = bubbleMenu.state.targetIndex
+    return [
+      {
+        id: 'edit',
+        label: 'Editar',
+        icon: '✎',
+        variant: 'default' as const,
+        onAction: () => {
+          setEditingChordIndex(idx)
+          bubbleMenu.close()
+        },
+      },
+      {
+        id: 'delete',
+        label: 'Eliminar',
+        icon: '✕',
+        variant: 'danger' as const,
+        disabled: section.chordBars.length <= 1,
+        onAction: () => {
+          handleDeleteChord(idx)
+          bubbleMenu.close()
+        },
+      },
+    ]
+  }, [bubbleMenu.state.targetIndex, section.chordBars.length])
 
   // ── Chord name editing ──────────────────────────────────────────────────────
   const handleChordNameChange = useCallback(
@@ -319,8 +328,13 @@ export function InstrumentalSection({
               const isLast = colIndex === row.length - 1
 
               if (isEditable) {
+                const cellBubbleHandlers = bubbleMenu.getHandlers(index)
                 return (
-                  <div key={id} className="relative flex">
+                  <div
+                    key={id}
+                    className="relative flex"
+                    {...cellBubbleHandlers}
+                  >
                     <div
                       onDoubleClick={() => handleDoubleClick(index)}
                       className="flex-1 min-w-0 rounded-lg"
@@ -330,9 +344,6 @@ export function InstrumentalSection({
                         bar={bar}
                         compact={compact}
                         isActive={activeId === id}
-                        onEdit={() => setEditingChordIndex(index)}
-                        onDelete={() => handleDeleteChord(index)}
-                        canDelete={section.chordBars.length > 1}
                       />
                     </div>
                     {/* Chord picker popover */}
@@ -481,6 +492,15 @@ export function InstrumentalSection({
         </DndContext>
       ) : (
         chordGrid
+      )}
+
+      {/* Bubble menu (portal) */}
+      {bubbleMenu.state.visible && bubbleMenu.state.anchorRect && (
+        <BubbleMenu
+          anchorRect={bubbleMenu.state.anchorRect}
+          actions={bubbleMenuActions}
+          onClose={bubbleMenu.close}
+        />
       )}
     </div>
   )
