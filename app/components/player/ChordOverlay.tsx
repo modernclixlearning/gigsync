@@ -8,6 +8,9 @@ import { LyricBarGrid } from './LyricBarGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
 import { SectionPicker } from './SectionPicker'
+import { useBubbleMenu } from './useBubbleMenu'
+import { BubbleMenu } from './BubbleMenu'
+import type { BubbleMenuAction } from './BubbleMenu'
 import type {
   ChordsOnlyLine,
   InstrumentalLine,
@@ -196,7 +199,7 @@ export function ChordOverlay({
                     'transition-colors'
                   )}
                 >
-                  + Línea
+                  + Linea
                 </button>
                 <div className="relative">
                   <button
@@ -229,10 +232,10 @@ export function ChordOverlay({
       {isEditable && (
         <div className="text-center pt-4 pb-2 select-none space-y-1">
           <p className="text-xs text-slate-400 dark:text-slate-600">
-            Tocá un acorde para cambiarlo • Tocá la letra para editarla
+            Mantené presionado o click derecho para editar/eliminar
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-600">
-            Deslizá entre líneas para insertar • Mantené presionado para mover
+            Deslizá entre líneas para insertar • Mantené presionado el acorde para mover
           </p>
         </div>
       )}
@@ -265,36 +268,47 @@ function ChordOverlayLine({
   gridResolution?: number
   lineCount?: number
 }) {
-  // Delete button for editable lines (not directives)
-  const deleteButton = isEditable && lineCount > 1 && line.type !== 'directive' && (
-    <button
-      onClick={onDeleteLine}
-      className={cn(
-        'absolute -right-1 -top-1 z-20',
-        'w-5 h-5 rounded-full',
-        'bg-rose-500 text-white text-xs',
-        'flex items-center justify-center',
-        'opacity-0 group-hover:opacity-100 transition-opacity',
-        'hover:bg-rose-600 shadow-sm'
-      )}
-      aria-label="Eliminar línea"
-    >
-      ✕
-    </button>
+  // ── Line-level bubble menu (for deleting lines) ──────────────────────────────
+  const canDeleteLine = isEditable && lineCount > 1 && line.type !== 'directive'
+  const lineBubbleMenu = useBubbleMenu({ isEnabled: canDeleteLine })
+
+  const lineMenuActions = useMemo((): BubbleMenuAction[] => [
+    {
+      id: 'delete-line',
+      label: 'Eliminar línea',
+      icon: '✕',
+      variant: 'danger' as const,
+      onAction: () => {
+        onDeleteLine?.()
+        lineBubbleMenu.close()
+      },
+    },
+  ], [onDeleteLine, lineBubbleMenu.close])
+
+  const lineHandlers = canDeleteLine
+    ? lineBubbleMenu.getHandlers(-1)
+    : {}
+
+  // Render the line-level bubble menu (shared across all line types)
+  const lineBubbleMenuPortal = lineBubbleMenu.state.visible && lineBubbleMenu.state.anchorRect && (
+    <BubbleMenu
+      anchorRect={lineBubbleMenu.state.anchorRect}
+      actions={lineMenuActions}
+      onClose={lineBubbleMenu.close}
+    />
   )
 
   if (line.type === 'empty') {
     return (
-      <div className="relative group h-6" data-element-id={elementId}>
-        {deleteButton}
+      <div className="relative group h-6" data-element-id={elementId} {...lineHandlers}>
+        {lineBubbleMenuPortal}
       </div>
     )
   }
 
   if (line.type === 'section') {
     return (
-      <div className="relative group pt-6 pb-2" data-element-id={elementId}>
-        {deleteButton}
+      <div className="relative group pt-6 pb-2" data-element-id={elementId} {...lineHandlers}>
         <h3 className="text-sm font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">
           {isEditable ? (
             <InlineTextEditor
@@ -315,14 +329,14 @@ function ChordOverlayLine({
             line.name
           )}
         </h3>
+        {lineBubbleMenuPortal}
       </div>
     )
   }
 
   if (line.type === 'instrumental') {
     return (
-      <div className="relative group py-3" data-element-id={elementId} data-bar-element>
-        {deleteButton}
+      <div className="relative group py-3" data-element-id={elementId} data-bar-element {...lineHandlers}>
         <InstrumentalSection
           section={line.section}
           transpose={transpose}
@@ -339,14 +353,14 @@ function ChordOverlayLine({
           }
           gridResolution={gridResolution}
         />
+        {lineBubbleMenuPortal}
       </div>
     )
   }
 
   if (line.type === 'chords-only') {
     return (
-      <div className="relative group">
-        {deleteButton}
+      <div className="relative group" {...lineHandlers}>
         <EditableChordsOnlyBadges
           line={line}
           elementId={elementId}
@@ -355,6 +369,7 @@ function ChordOverlayLine({
             onLineChange({ ...line, chordBars: newBars } as ChordsOnlyLine)
           }
         />
+        {lineBubbleMenuPortal}
       </div>
     )
   }
@@ -368,8 +383,7 @@ function ChordOverlayLine({
 
   if (lyricLine.chords.length > 0) {
     return (
-      <div className="relative group">
-        {deleteButton}
+      <div className="relative group" {...lineHandlers}>
         <LyricBarGrid
           line={lyricLine}
           transpose={transpose}
@@ -387,14 +401,14 @@ function ChordOverlayLine({
           }
           gridResolution={gridResolution}
         />
+        {lineBubbleMenuPortal}
       </div>
     )
   }
 
   // Lyric line with no chords — show editable text + option to add first chord
   return (
-    <div className="relative group" data-element-id={elementId}>
-      {deleteButton}
+    <div className="relative group" data-element-id={elementId} {...lineHandlers}>
       {isEditable ? (
         <div className="flex items-start gap-2">
           <div className="flex-1">
@@ -430,6 +444,7 @@ function ChordOverlayLine({
           {lyricLine.text}
         </p>
       )}
+      {lineBubbleMenuPortal}
     </div>
   )
 }
@@ -490,14 +505,8 @@ function EditableChordsOnlyBadges({
   const [activeId, setActiveId] = useLocalState<string | null>(null)
   const [editingIndex, setEditingIndex] = useLocalState<number | null>(null)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
-  )
-
-  const ids = line.chordBars.map((_, i) => `co-${elementId}-${i}`)
-  const activeChord = activeId
-    ? line.chordBars[ids.indexOf(activeId)]?.chord
-    : null
+  // ── Bubble menu for chord badges ──────────────────────────────────────────
+  const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
 
   const handleChordNameChange = (index: number, newChord: string) => {
     const newBars = line.chordBars.map((b, i) =>
@@ -516,6 +525,42 @@ function EditableChordsOnlyBadges({
     onChordsChange(line.chordBars.filter((_, i) => i !== index))
     setEditingIndex(null)
   }
+
+  const bubbleMenuActions = useMemo((): BubbleMenuAction[] => {
+    const idx = bubbleMenu.state.targetIndex
+    return [
+      {
+        id: 'edit',
+        label: 'Editar',
+        icon: '✎',
+        variant: 'default' as const,
+        onAction: () => {
+          setEditingIndex(idx)
+          bubbleMenu.close()
+        },
+      },
+      {
+        id: 'delete',
+        label: 'Eliminar',
+        icon: '✕',
+        variant: 'danger' as const,
+        disabled: line.chordBars.length <= 1,
+        onAction: () => {
+          handleDeleteChord(idx)
+          bubbleMenu.close()
+        },
+      },
+    ]
+  }, [bubbleMenu.state.targetIndex, line.chordBars.length])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
+  )
+
+  const ids = line.chordBars.map((_, i) => `co-${elementId}-${i}`)
+  const activeChord = activeId
+    ? line.chordBars[ids.indexOf(activeId)]?.chord
+    : null
 
   if (!isEditable) {
     return (
@@ -552,36 +597,23 @@ function EditableChordsOnlyBadges({
       >
         <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
           <div className="flex flex-wrap gap-3 font-bold items-center">
-            {line.chordBars.map((bar, i) => (
-              <div key={ids[i]} className="relative flex items-center gap-0.5">
-                <SortableChordBadge id={ids[i]} chord={bar.chord} />
-                <button
-                  onClick={() => setEditingIndex(editingIndex === i ? null : i)}
-                  className="text-[10px] text-slate-400 hover:text-indigo-500 px-0.5"
-                  aria-label="Cambiar acorde"
-                >
-                  ✎
-                </button>
-                {line.chordBars.length > 1 && (
-                  <button
-                    onClick={() => handleDeleteChord(i)}
-                    className="text-[10px] text-slate-400 hover:text-rose-500 px-0.5"
-                    aria-label="Eliminar acorde"
-                  >
-                    ✕
-                  </button>
-                )}
-                {editingIndex === i && (
-                  <div className="absolute top-full left-0 mt-1 z-50">
-                    <ChordPicker
-                      currentChord={bar.chord}
-                      onSelect={(chord) => handleChordNameChange(i, chord)}
-                      onClose={() => setEditingIndex(null)}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+            {line.chordBars.map((bar, i) => {
+              const badgeHandlers = bubbleMenu.getHandlers(i)
+              return (
+                <div key={ids[i]} className="relative flex items-center gap-0.5" {...badgeHandlers}>
+                  <SortableChordBadge id={ids[i]} chord={bar.chord} />
+                  {editingIndex === i && (
+                    <div className="absolute top-full left-0 mt-1 z-50">
+                      <ChordPicker
+                        currentChord={bar.chord}
+                        onSelect={(chord) => handleChordNameChange(i, chord)}
+                        onClose={() => setEditingIndex(null)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
             {/* Add chord button */}
             <button
               onClick={handleAddChord}
@@ -608,6 +640,15 @@ function EditableChordsOnlyBadges({
       </DndContext>
       {line.repeatCount && line.repeatCount > 1 && (
         <span className="text-slate-400 text-sm ml-1">×{line.repeatCount}</span>
+      )}
+
+      {/* Bubble menu (portal) */}
+      {bubbleMenu.state.visible && bubbleMenu.state.anchorRect && (
+        <BubbleMenu
+          anchorRect={bubbleMenu.state.anchorRect}
+          actions={bubbleMenuActions}
+          onClose={bubbleMenu.close}
+        />
       )}
     </div>
   )
