@@ -157,7 +157,7 @@ export function ChordOverlay({
   }, [isEditable])
 
   return (
-    <div className={cn('space-y-1 font-mono', className)}>
+    <div className={cn('space-y-3', className)}>
       {displayLines.map((line, index) => {
         // Prefer the authoritative map from createSongTimeline (single source of truth).
         // Fall back to the local derivation when the timeline is not yet ready (e.g. first
@@ -300,7 +300,7 @@ function ChordOverlayLine({
 
   if (line.type === 'empty') {
     return (
-      <div className="relative group h-6" data-element-id={elementId} {...lineHandlers}>
+      <div className="relative group h-8" data-element-id={elementId} {...lineHandlers}>
         {lineBubbleMenuPortal}
       </div>
     )
@@ -308,8 +308,8 @@ function ChordOverlayLine({
 
   if (line.type === 'section') {
     return (
-      <div className="relative group pt-6 pb-2" data-element-id={elementId} {...lineHandlers}>
-        <h3 className="text-sm font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">
+      <div className="relative group pt-8 pb-3" data-element-id={elementId} {...lineHandlers}>
+        <h3 className="text-xs font-medium text-white/40 dark:text-white/40 text-slate-400 uppercase tracking-widest">
           {isEditable ? (
             <InlineTextEditor
               value={line.name}

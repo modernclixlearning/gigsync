@@ -313,7 +313,7 @@ export function LyricBarGrid({
   const grid = (
     <div
       data-resize-container
-      className="grid gap-0"
+      className={cn('grid', isEditable ? 'gap-1' : 'gap-x-1')}
       style={{ gridTemplateColumns: gridTemplate }}
       onPointerMove={dragState ? handlePointerMove : undefined}
       onPointerUp={dragState ? handlePointerUp : undefined}
@@ -337,13 +337,13 @@ export function LyricBarGrid({
               onDoubleClick={() => handleDoubleClick(index)}
               {...cellBubbleHandlers}
               className={cn(
-                'flex flex-col gap-1 flex-1 min-w-0',
-                'rounded-lg border',
-                'bg-white dark:bg-slate-800',
-                'border-slate-200 dark:border-slate-700',
-                'px-2 py-2',
+                'flex flex-col gap-0.5 flex-1 min-w-0',
+                'px-1 py-1',
                 'transition-colors duration-150',
-                isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20',
+                isEditable
+                  ? 'rounded-lg border border-white/10 hover:border-white/25 bg-white/5'
+                  : 'rounded-md',
+                isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
               )}
             >
               {/* Chord badge — sortable via long-press drag */}
@@ -365,7 +365,7 @@ export function LyricBarGrid({
                   )}
                 </div>
               ) : (
-                <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none">
+                <span className="font-mono font-bold text-[0.6em] text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none">
                   {seg.chord}
                 </span>
               )}
@@ -374,7 +374,7 @@ export function LyricBarGrid({
                 value={seg.text}
                 isEditable={isEditable}
                 onCommit={(newText) => handleSegmentTextChange(index, newText)}
-                className="text-slate-900 dark:text-white"
+                className="text-slate-900 dark:text-white font-semibold leading-snug"
                 placeholder="Letra..."
               />
             </div>
@@ -407,11 +407,7 @@ export function LyricBarGrid({
       {!isEditable && Array.from({ length: emptyCells }, (_, i) => (
         <div
           key={`pad-${i}`}
-          className={cn(
-            'rounded-lg border border-dashed',
-            'border-slate-200 dark:border-slate-700',
-            'py-2 px-1 opacity-25'
-          )}
+          className="py-1 px-1 opacity-0"
         />
       ))}
 
@@ -422,10 +418,9 @@ export function LyricBarGrid({
           className={cn(
             'flex items-center justify-center',
             'rounded-lg border-2 border-dashed',
-            'border-slate-300 dark:border-slate-600',
+            'border-white/10 hover:border-white/25',
             'text-slate-400 dark:text-slate-500',
-            'hover:border-indigo-400 hover:text-indigo-500',
-            'dark:hover:border-indigo-600 dark:hover:text-indigo-400',
+            'hover:text-indigo-400',
             'transition-colors min-h-[48px]',
             'px-3 py-2'
           )}
@@ -442,14 +437,14 @@ export function LyricBarGrid({
       data-element-id={elementId}
       data-bar-element
       className={cn(
-        'rounded-xl border overflow-hidden',
-        'bg-slate-50 dark:bg-slate-900/40',
-        'border-slate-200 dark:border-slate-700',
-        isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50',
+        'overflow-hidden',
+        isEditable
+          ? 'rounded-xl border border-white/10 bg-white/[0.03] ring-1 ring-amber-300/40 dark:ring-amber-700/30'
+          : 'py-1',
         className
       )}
     >
-      <div className="p-2">
+      <div className={isEditable ? 'p-2' : 'px-0 py-0'}>
         {isEditable ? (
           <DndContext
             sensors={sensors}

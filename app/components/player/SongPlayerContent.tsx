@@ -410,25 +410,26 @@ export function SongPlayerContent({
               : null
           return (
             <style>{`
-              [data-element-id="${eid}"] {
-                background: rgba(79, 70, 229, 0.08);
-                border-left: 3px solid rgb(99, 102, 241);
-                padding-left: 0.75rem;
-                border-radius: 0.25rem;
-                transition: background 0.3s ease;
+              /* Dim all non-active lines */
+              [data-element-id] {
+                opacity: 0.4;
+                transition: opacity 0.4s ease;
               }
+              /* Active line full brightness */
+              [data-element-id="${eid}"] {
+                opacity: 1;
+              }
+              /* Bar-element variant */
               [data-element-id="${eid}"][data-bar-element] {
-                border-left: none;
-                padding-left: 0;
-                background: rgba(79, 70, 229, 0.04);
+                opacity: 1;
               }
               ${chordIdx !== null ? `
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
-                background: rgba(99, 102, 241, 0.18) !important;
-                border-color: rgb(99, 102, 241) !important;
+                background: rgba(56, 189, 248, 0.08) !important;
+                border-radius: 0.375rem;
               }
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
-                color: rgb(79, 70, 229);
+                color: rgb(56, 189, 248);
               }
               ` : ''}
             `}</style>
@@ -438,14 +439,14 @@ export function SongPlayerContent({
       {/* Lyrics Container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-6"
+        className="flex-1 overflow-y-auto px-6 md:px-8 py-8"
         style={{ fontSize: `${player.state.fontSize}px` }}
       >
         {player.state.showChords ? (
           <ChordOverlay
             lyrics={song.lyrics}
             transpose={player.state.transpose}
-            columns={player.state.fontSize > 18 ? 2 : 4}
+            columns={player.state.fontSize > 22 ? 2 : 4}
             onChordClick={handleChordClick}
             isSeekEnabled={isSeekEnabled}
             isEditable={isEditable}

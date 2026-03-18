@@ -271,7 +271,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     isAutoScrollEnabled: false,
     transpose: 0,
     showChords: true,
-    fontSize: 16,
+    fontSize: 22,
     metronomeSoundEnabled: false
   })
 
@@ -331,7 +331,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
   }, [])
 
   const setFontSize = useCallback((size: number) => {
-    setState((prev) => ({ ...prev, fontSize: Math.max(12, Math.min(32, size)) }))
+    setState((prev) => ({ ...prev, fontSize: Math.max(16, Math.min(40, size)) }))
   }, [])
 
   const toggleMetronomeSound = useCallback(() => {

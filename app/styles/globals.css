@@ -52,6 +52,14 @@
   /* Fonts */
   --font-display: "Spline Sans", system-ui, sans-serif;
   --font-tuner: "Space Grotesk", monospace;
+
+  /* Player - Chord & Lyric accents */
+  --color-chord-accent: #38bdf8;
+  --color-chord-accent-dim: rgba(56, 189, 248, 0.5);
+  --color-lyrics-active: #ffffff;
+  --color-lyrics-inactive: rgba(255, 255, 255, 0.4);
+  --color-cell-border-edit: rgba(255, 255, 255, 0.1);
+  --color-cell-border-edit-hover: rgba(255, 255, 255, 0.25);
 }
 
 /* Base Styles */

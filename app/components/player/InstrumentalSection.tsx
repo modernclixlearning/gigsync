@@ -399,15 +399,13 @@ export function InstrumentalSection({
                   onClick={() => handleCellClick(index)}
                   className={cn(
                     'flex flex-col items-center justify-center',
-                    'rounded-lg border',
-                    'bg-white dark:bg-slate-800',
-                    'border-slate-200 dark:border-slate-700',
-                    compact ? 'py-2 px-1' : 'py-3 px-2',
-                    'transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50',
-                    isSeekEnabled && !isEditable && 'cursor-pointer hover:!bg-indigo-50 dark:hover:!bg-indigo-900/20',
+                    'rounded-md',
+                    compact ? 'py-2 px-1' : 'py-2 px-2',
+                    'transition-colors',
+                    isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
                   )}
                 >
-                  <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
+                  <span className={cn('font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}>
                     {bar.chord}
                   </span>
                   {bar.label && (
@@ -425,10 +423,9 @@ export function InstrumentalSection({
                 <div
                   key={`empty-${i}`}
                   className={cn(
-                    'flex items-center justify-center rounded-lg border border-dashed',
-                    'border-slate-200 dark:border-slate-700',
-                    compact ? 'py-2 px-1' : 'py-3 px-2',
-                    'opacity-30'
+                    'flex items-center justify-center rounded-md',
+                    compact ? 'py-2 px-1' : 'py-2 px-2',
+                    'opacity-0'
                   )}
                 />
               ))
@@ -459,13 +456,27 @@ export function InstrumentalSection({
 
   return (
     <div
-      className={cn('rounded-xl border overflow-hidden', colors.bg, colors.border, isEditable && 'ring-1 ring-amber-300 dark:ring-amber-700/50', className)}
+      className={cn(
+        'overflow-hidden',
+        isEditable
+          ? cn('rounded-xl border', colors.bg, colors.border, 'ring-1 ring-amber-300/40 dark:ring-amber-700/30')
+          : 'py-1',
+        className
+      )}
     >
       {/* Header */}
-      <div className={cn('flex items-center justify-between px-4 py-2', colors.headerBg, 'border-b', colors.border)}>
+      <div className={cn(
+        'flex items-center justify-between',
+        isEditable
+          ? cn('px-4 py-2', colors.headerBg, 'border-b', colors.border)
+          : 'px-1 py-1'
+      )}>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{icon}</span>
-          <span className={cn('font-semibold uppercase tracking-wide', colors.text, compact ? 'text-xs' : 'text-sm')}>
+          <span className={isEditable ? 'text-lg' : 'text-base'}>{icon}</span>
+          <span className={cn(
+            'font-semibold uppercase tracking-wide',
+            isEditable ? cn(colors.text, compact ? 'text-xs' : 'text-sm') : cn('text-xs', colors.text, 'opacity-70')
+          )}>
             {section.name}
           </span>
         </div>
