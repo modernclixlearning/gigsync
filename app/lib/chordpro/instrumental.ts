@@ -226,11 +226,9 @@ export function parseInstrumentalSection(
   for (const line of subsequentLines) {
     const parsed = parseChordBars(line)
     if (parsed) {
-      // Apply repeat count
-      const repeat = parsed.repeatCount || 1
-      for (let i = 0; i < repeat; i++) {
-        allChordBars.push(...parsed.bars)
-      }
+      // Store base chords without expanding repeats.
+      // Expansion is handled at display/timeline level using repeatCount.
+      allChordBars.push(...parsed.bars)
       if (parsed.repeatCount) {
         totalRepeat = parsed.repeatCount
       }

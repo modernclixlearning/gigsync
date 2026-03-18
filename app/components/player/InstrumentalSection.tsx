@@ -271,10 +271,18 @@ export function InstrumentalSection({
   )
 
   // Apply transposition to chords
-  const chords = section.chordBars.map(bar => ({
+  const baseChords = section.chordBars.map(bar => ({
     ...bar,
     chord: transpose !== 0 ? transposeChord(bar.chord, transpose) : bar.chord
   }))
+
+  // Expand chords by repeatCount for display (base chords are stored un-expanded)
+  const chords = useMemo(() => {
+    if (!section.repeatCount || section.repeatCount <= 1) return baseChords
+    const expanded: typeof baseChords = []
+    for (let i = 0; i < section.repeatCount; i++) expanded.push(...baseChords)
+    return expanded
+  }, [baseChords, section.repeatCount])
 
   const sortableIds = chords.map((_, i) => `instr-${elementId ?? 'x'}-${i}`)
   const activeChord = activeId

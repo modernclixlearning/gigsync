@@ -55,9 +55,10 @@ export function calculateElementDuration(
   switch (element.type) {
     case 'instrumental': {
       // Sum actual beats per bar — supports partial bars (anacrusis) via bar.beats
-      const { chordBars, bars } = (element as InstrumentalLine).section
+      const { chordBars, bars, repeatCount } = (element as InstrumentalLine).section
       if (chordBars.length > 0) {
-        return chordBars.reduce((sum, bar) => sum + (bar.beats ?? beatsPerBar), 0)
+        const baseBeats = chordBars.reduce((sum, bar) => sum + (bar.beats ?? beatsPerBar), 0)
+        return baseBeats * (repeatCount ?? 1)
       }
       return bars * beatsPerBar
     }
