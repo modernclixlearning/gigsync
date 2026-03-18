@@ -117,7 +117,7 @@ function SortableChordCell({
           ? 'opacity-30'
           : isActive
           ? 'ring-2 ring-indigo-500 shadow-md'
-          : 'hover:ring-2 hover:ring-amber-300 dark:hover:ring-amber-700 hover:shadow-sm'
+          : 'hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-600 hover:shadow-sm'
       )}
     >
       <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
@@ -457,9 +457,8 @@ export function InstrumentalSection({
   return (
     <div
       className={cn(
-        'overflow-hidden',
         isEditable
-          ? cn('rounded-xl border', colors.bg, colors.border, 'ring-1 ring-amber-300/40 dark:ring-amber-700/30')
+          ? cn('rounded-xl border', colors.bg, colors.border)
           : 'py-1',
         className
       )}

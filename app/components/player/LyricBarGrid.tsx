@@ -25,7 +25,7 @@ import {
 import {
   SortableContext,
   arrayMove,
-  horizontalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -306,129 +306,159 @@ export function LyricBarGrid({
 
   // ── Grid template: proportional widths based on beats ───────────────────────
   const displayBeats = dragState ? dragState.beats : chordBeats
-  const gridTemplate = isEditable
-    ? displayBeats.map(b => `${b}fr`).join(' ')
-    : `repeat(${effectiveCols}, minmax(0, 1fr))`
+  const readGridTemplate = `repeat(${effectiveCols}, minmax(0, 1fr))`
 
-  const grid = (
+  // ── Group segments into rows of `columns` for edit mode ─────────────────────
+  const editRows: number[][] = []
+  if (isEditable) {
+    for (let i = 0; i < segments.length; i += effectiveCols) {
+      editRows.push(
+        Array.from({ length: Math.min(effectiveCols, segments.length - i) }, (_, j) => i + j)
+      )
+    }
+  }
+
+  const renderCell = (index: number, isLastInRow: boolean) => {
+    const seg = segments[index]
+    const cellBubbleHandlers = isEditable
+      ? bubbleMenu.getHandlers(index, { enableLongPress: true })
+      : {}
+    return (
+      <div
+        key={index}
+        data-chord-index={index}
+        className="relative flex"
+      >
+        {/* Cell content */}
+        <div
+          role={!isEditable && isSeekEnabled ? 'button' : undefined}
+          tabIndex={!isEditable && isSeekEnabled ? 0 : (isEditable ? 0 : undefined)}
+          onClick={() => handleCellClick(index)}
+          onDoubleClick={() => handleDoubleClick(index)}
+          {...cellBubbleHandlers}
+          className={cn(
+            'flex flex-col gap-0.5 flex-1 min-w-0',
+            'px-1 py-1',
+            'transition-colors duration-150',
+            isEditable
+              ? 'rounded-lg border border-white/10 hover:border-white/25 bg-white/5'
+              : 'rounded-md',
+            isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
+          )}
+        >
+          {/* Chord badge — sortable via long-press drag */}
+          {isEditable ? (
+            <div className="relative flex items-center gap-1">
+              <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
+              {/* Chord picker popover */}
+              {editingChordIndex === index && (
+                <div
+                  ref={chordPickerRef}
+                  className="absolute top-full left-0 mt-1 z-50"
+                >
+                  <ChordPicker
+                    currentChord={seg.chord}
+                    onSelect={(chord) => handleChordChange(index, chord)}
+                    onClose={() => setEditingChordIndex(null)}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="font-mono font-bold text-[0.6em] text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none">
+              {seg.chord}
+            </span>
+          )}
+          {/* Lyric text — editable in edit mode */}
+          <InlineTextEditor
+            value={seg.text}
+            isEditable={isEditable}
+            onCommit={(newText) => handleSegmentTextChange(index, newText)}
+            className="text-slate-900 dark:text-white font-semibold leading-snug"
+            placeholder="Letra..."
+          />
+        </div>
+
+        {/* Resize handle between cells (not on last in row) */}
+        {isEditable && !isLastInRow && (
+          <div
+            onPointerDown={(e) => handlePointerDown(index, e)}
+            className={cn(
+              'absolute right-0 top-0 bottom-0 w-2 -mr-1 z-10',
+              'cursor-col-resize',
+              'flex items-center justify-center',
+              'group'
+            )}
+          >
+            <div
+              className={cn(
+                'w-0.5 h-2/3 rounded-full transition-colors',
+                'bg-slate-300 dark:bg-slate-600',
+                'group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500',
+                'group-active:bg-indigo-500 dark:group-active:bg-indigo-400',
+              )}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const editGrid = (
     <div
-      data-resize-container
-      className={cn('grid', isEditable ? 'gap-1' : 'gap-x-1')}
-      style={{ gridTemplateColumns: gridTemplate }}
+      className="flex flex-col gap-1"
       onPointerMove={dragState ? handlePointerMove : undefined}
       onPointerUp={dragState ? handlePointerUp : undefined}
     >
-      {segments.map((seg, index) => {
-        const isLast = index === segments.length - 1
-        const cellBubbleHandlers = isEditable
-          ? bubbleMenu.getHandlers(index, { enableLongPress: true })
-          : {}
+      {editRows.map((rowIndices, rowIndex) => {
+        const rowBeats = rowIndices.map(i => displayBeats[i])
+        const rowTemplate = rowBeats.map(b => `${b}fr`).join(' ')
         return (
           <div
-            key={index}
-            data-chord-index={index}
-            className="relative flex"
+            key={rowIndex}
+            data-resize-container
+            className="grid gap-1"
+            style={{ gridTemplateColumns: rowTemplate }}
           >
-            {/* Cell content */}
-            <div
-              role={!isEditable && isSeekEnabled ? 'button' : undefined}
-              tabIndex={!isEditable && isSeekEnabled ? 0 : (isEditable ? 0 : undefined)}
-              onClick={() => handleCellClick(index)}
-              onDoubleClick={() => handleDoubleClick(index)}
-              {...cellBubbleHandlers}
-              className={cn(
-                'flex flex-col gap-0.5 flex-1 min-w-0',
-                'px-1 py-1',
-                'transition-colors duration-150',
-                isEditable
-                  ? 'rounded-lg border border-white/10 hover:border-white/25 bg-white/5'
-                  : 'rounded-md',
-                isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
-              )}
-            >
-              {/* Chord badge — sortable via long-press drag */}
-              {isEditable ? (
-                <div className="relative flex items-center gap-1">
-                  <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
-                  {/* Chord picker popover */}
-                  {editingChordIndex === index && (
-                    <div
-                      ref={chordPickerRef}
-                      className="absolute top-full left-0 mt-1 z-50"
-                    >
-                      <ChordPicker
-                        currentChord={seg.chord}
-                        onSelect={(chord) => handleChordChange(index, chord)}
-                        onClose={() => setEditingChordIndex(null)}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <span className="font-mono font-bold text-[0.6em] text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none">
-                  {seg.chord}
-                </span>
-              )}
-              {/* Lyric text — editable in edit mode */}
-              <InlineTextEditor
-                value={seg.text}
-                isEditable={isEditable}
-                onCommit={(newText) => handleSegmentTextChange(index, newText)}
-                className="text-slate-900 dark:text-white font-semibold leading-snug"
-                placeholder="Letra..."
-              />
-            </div>
-
-            {/* Resize handle between cells (not on last cell) */}
-            {isEditable && !isLast && (
-              <div
-                onPointerDown={(e) => handlePointerDown(index, e)}
-                className={cn(
-                  'absolute right-0 top-0 bottom-0 w-2 -mr-1 z-10',
-                  'cursor-col-resize',
-                  'flex items-center justify-center',
-                  'group'
-                )}
-              >
-                <div
-                  className={cn(
-                    'w-0.5 h-2/3 rounded-full transition-colors',
-                    'bg-slate-300 dark:bg-slate-600',
-                    'group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500',
-                    'group-active:bg-indigo-500 dark:group-active:bg-indigo-400',
-                  )}
-                />
-              </div>
+            {rowIndices.map((segIndex, colIdx) =>
+              renderCell(segIndex, colIdx === rowIndices.length - 1)
             )}
           </div>
         )
       })}
 
-      {!isEditable && Array.from({ length: emptyCells }, (_, i) => (
+      {/* Add chord button */}
+      <button
+        onClick={handleAddChord}
+        className={cn(
+          'flex items-center justify-center',
+          'rounded-lg border-2 border-dashed',
+          'border-white/10 hover:border-white/25',
+          'text-slate-400 dark:text-slate-500',
+          'hover:text-indigo-400',
+          'transition-colors min-h-[48px]',
+          'px-3 py-2'
+        )}
+        aria-label="Agregar acorde"
+      >
+        <span className="text-lg">+</span>
+      </button>
+    </div>
+  )
+
+  const readGrid = (
+    <div
+      className="grid gap-x-1"
+      style={{ gridTemplateColumns: readGridTemplate }}
+    >
+      {segments.map((seg, index) => renderCell(index, index === segments.length - 1))}
+
+      {Array.from({ length: emptyCells }, (_, i) => (
         <div
           key={`pad-${i}`}
           className="py-1 px-1 opacity-0"
         />
       ))}
-
-      {/* Add chord button (when editable) */}
-      {isEditable && (
-        <button
-          onClick={handleAddChord}
-          className={cn(
-            'flex items-center justify-center',
-            'rounded-lg border-2 border-dashed',
-            'border-white/10 hover:border-white/25',
-            'text-slate-400 dark:text-slate-500',
-            'hover:text-indigo-400',
-            'transition-colors min-h-[48px]',
-            'px-3 py-2'
-          )}
-          aria-label="Agregar acorde"
-        >
-          <span className="text-lg">+</span>
-        </button>
-      )}
     </div>
   )
 
@@ -437,9 +467,8 @@ export function LyricBarGrid({
       data-element-id={elementId}
       data-bar-element
       className={cn(
-        'overflow-hidden',
         isEditable
-          ? 'rounded-xl border border-white/10 bg-white/[0.03] ring-1 ring-amber-300/40 dark:ring-amber-700/30'
+          ? 'rounded-xl border border-white/10 bg-white/[0.03]'
           : 'py-1',
         className
       )}
@@ -452,8 +481,8 @@ export function LyricBarGrid({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveId(null)}
           >
-            <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-              {grid}
+            <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+              {editGrid}
             </SortableContext>
             <DragOverlay>
               {activeChord && (
@@ -464,7 +493,7 @@ export function LyricBarGrid({
             </DragOverlay>
           </DndContext>
         ) : (
-          grid
+          readGrid
         )}
       </div>
 

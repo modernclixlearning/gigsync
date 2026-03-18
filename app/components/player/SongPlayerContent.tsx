@@ -446,7 +446,7 @@ export function SongPlayerContent({
           <ChordOverlay
             lyrics={song.lyrics}
             transpose={player.state.transpose}
-            columns={player.state.fontSize > 22 ? 2 : 4}
+            columns={2}
             onChordClick={handleChordClick}
             isSeekEnabled={isSeekEnabled}
             isEditable={isEditable}
