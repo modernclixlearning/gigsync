@@ -158,6 +158,44 @@ export function ChordOverlay({
 
   return (
     <div className={cn('space-y-3', className)}>
+      {/* Top insert controls — add before the first line (when editable) */}
+      {isEditable && (
+        <div className="flex items-center justify-center gap-2 py-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={() => handleAddLyricLine(-1)}
+            className={cn(
+              'text-xs px-2 py-1 rounded-full',
+              'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+              'hover:bg-indigo-100 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400',
+              'transition-colors'
+            )}
+          >
+            + Linea
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowSectionPicker(showSectionPicker === -1 ? null : -1)}
+              className={cn(
+                'text-xs px-2 py-1 rounded-full',
+                'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                'hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400',
+                'transition-colors'
+              )}
+            >
+              + Sección
+            </button>
+            {showSectionPicker === -1 && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
+                <SectionPicker
+                  onSelect={(type, name) => handleAddSection(-1, type, name)}
+                  onClose={() => setShowSectionPicker(null)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {displayLines.map((line, index) => {
         // Prefer the authoritative map from createSongTimeline (single source of truth).
         // Fall back to the local derivation when the timeline is not yet ready (e.g. first
