@@ -90,7 +90,7 @@ export function isInstrumentalSectionType(name: string): boolean {
 export function getSectionType(name: string): SectionType {
   const normalized = name.toLowerCase().trim()
   
-  if (normalized.includes('verse')) return 'verse'
+  if (normalized.includes('verse') || normalized.includes('estrofa')) return 'verse'
   if (normalized.includes('chorus') || normalized.includes('estribillo')) return 'chorus'
   if (normalized.includes('bridge') || normalized.includes('puente')) return 'bridge'
   if (normalized.includes('intro')) return 'intro'
