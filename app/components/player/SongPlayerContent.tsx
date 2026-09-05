@@ -493,10 +493,12 @@ export function SongPlayerContent({
         player.state.isAutoScrollEnabled &&
         !autoScroll.hasFallback && (() => {
           const eid = autoScroll.currentElementId
-          // Reading block: the current line's group-mates (if any) light up
-          // together with it — see groupMembersByElementId above.
-          const brightIds = groupMembersByElementId.get(eid) ?? [eid]
-          const brightSelector = brightIds.map((id) => `[data-element-id="${id}"]`).join(', ')
+          // Reading block: the current line's group-mates (if any) are the
+          // other original lines fused onto its row — they get a mid
+          // brightness (readable, but clearly not the active one), while
+          // everything outside the row stays fully dimmed.
+          const groupMateIds = (groupMembersByElementId.get(eid) ?? [eid]).filter((id) => id !== eid)
+          const groupMateSelector = groupMateIds.map((id) => `[data-element-id="${id}"]`).join(', ')
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
@@ -510,8 +512,14 @@ export function SongPlayerContent({
                 opacity: 0.25;
                 transition: opacity 0.4s ease;
               }
-              /* Active line (and its reading-block group-mates) full brightness */
-              ${brightSelector} {
+              ${groupMateSelector ? `
+              /* Reading-block group-mates: readable, but not the active line */
+              ${groupMateSelector} {
+                opacity: 0.6;
+              }
+              ` : ''}
+              /* Active line: full brightness */
+              [data-element-id="${eid}"] {
                 opacity: 1;
               }
               ${chordIdx !== null ? `
