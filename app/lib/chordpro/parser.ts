@@ -19,7 +19,7 @@ import type {
 } from './types'
 
 import { transposeChord } from './transpose'
-import { 
+import {
   parseSectionHeader, 
   getSectionType, 
   isInstrumentalSectionType,
@@ -322,6 +322,71 @@ export function stripChords(text: string): string {
   return text.replace(/\[([^\]]+)\]/g, (match, content) => {
     return isValidChord(content) ? '' : match
   })
+}
+
+/** One chord-anchored run of text within a lyric line. */
+export interface LineSegment {
+  chord: string
+  text: string
+}
+
+/**
+ * Split a lyric line's text into runs anchored at each chord position, in
+ * reading order. Each run's text is everything up to the next chord (or end
+ * of line) — used both by the bar-grid editor and the flowing verse renderer
+ * so the two stay in sync on how a line breaks around its chords.
+ */
+export function splitLineIntoSegments(line: LyricParsedLine, transpose = 0): LineSegment[] {
+  const { text, chords } = line
+  const sorted = [...chords].sort((a, b) => a.position - b.position)
+  return sorted.map((chordPos, i) => {
+    const startPos = chordPos.position
+    const endPos = i + 1 < sorted.length ? sorted[i + 1].position : text.length
+    const segText = text.slice(startPos, endPos)
+    const chord = transpose !== 0 ? transposeChord(chordPos.chord, transpose) : chordPos.chord
+    return { chord, text: segText }
+  })
+}
+
+/**
+ * Group consecutive sung lyric lines into reading blocks of up to
+ * `linesPerBlock` lines each. A block breaks on any non-sung line (section
+ * header, instrumental, chords-only, empty) so structure markers never get
+ * absorbed into a block. Returns a map of parsed-line-index → block id;
+ * lines that don't belong to a block (linesPerBlock <= 1, or non-lyric
+ * lines) are simply absent from the map — callers should treat that as
+ * "its own block."
+ *
+ * Kept in sync by construction: the renderer (grouping lines visually) and
+ * the playback highlighter (grouping which lines light up together) both
+ * call this with the same inputs, so they can never disagree on where a
+ * block starts or ends.
+ */
+export function groupLyricLineIndices(
+  lines: AnyParsedLine[],
+  linesPerBlock: number
+): Map<number, number> {
+  const groupOf = new Map<number, number>()
+  if (linesPerBlock <= 1) return groupOf
+
+  let groupId = 0
+  let count = 0
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]
+    const isGroupable = line.type === 'lyric' && (line as LyricParsedLine).chords.length > 0
+    if (isGroupable) {
+      groupOf.set(index, groupId)
+      count++
+      if (count >= linesPerBlock) {
+        groupId++
+        count = 0
+      }
+    } else if (count > 0) {
+      groupId++
+      count = 0
+    }
+  }
+  return groupOf
 }
 
 /**

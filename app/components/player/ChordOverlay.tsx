@@ -1,10 +1,17 @@
 import { useCallback, useMemo, useState } from 'react'
 import { cn } from '~/lib/utils'
-import { parseChordPro, type AnyParsedLine, type SectionType, isInstrumentalSectionType } from '~/lib/chordpro'
+import {
+  parseChordPro,
+  groupLyricLineIndices,
+  type AnyParsedLine,
+  type SectionType,
+  isInstrumentalSectionType,
+} from '~/lib/chordpro'
 import { getSectionType } from '~/lib/chordpro'
 import { serializeParsedSong } from '~/lib/chordpro/serializer'
 import { InstrumentalSection } from './InstrumentalSection'
 import { LyricBarGrid } from './LyricBarGrid'
+import { LyricVerseLine, LyricVerseRow } from './LyricVerseLine'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
 import { SectionPicker } from './SectionPicker'
@@ -43,6 +50,18 @@ interface ChordOverlayProps {
   lineIndexToElementId?: Map<number, string>
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
+  /**
+   * Consecutive sung lines merged into one reading block in read mode (rap
+   * needs more lines in view at once than a slow aria). 1 = no grouping.
+   * Ignored while editable.
+   */
+  linesPerBlock?: number
+  /** Currently playing element id — drives the marquee on an overflowing read-mode row. */
+  currentElementId?: string | null
+  /** Song tempo, used to time that marquee to the row's own beat span. */
+  bpm?: number
+  /** Time signature (e.g. "4/4") — must match what the real autoscroll timeline used, or the marquee drifts out of sync. */
+  timeSignature?: string
 }
 
 export function ChordOverlay({
@@ -56,6 +75,10 @@ export function ChordOverlay({
   onLyricsChange,
   lineIndexToElementId,
   gridResolution = 0.25,
+  linesPerBlock = 1,
+  currentElementId,
+  bpm,
+  timeSignature = '4/4',
 }: ChordOverlayProps) {
   const parsed = useMemo(() => parseChordPro(lyrics, transpose), [lyrics, transpose])
 
@@ -178,6 +201,31 @@ export function ChordOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditable])
 
+  // ── Reading blocks: fuse consecutive sung lines onto one row when linesPerBlock > 1 ────
+  // (read mode only — editing always shows one line at a time).
+  const groupOf = useMemo(
+    () => groupLyricLineIndices(displayLines, isEditable ? 1 : linesPerBlock),
+    [displayLines, isEditable, linesPerBlock]
+  )
+
+  const renderBlocks = useMemo(() => {
+    const blocks: number[][] = []
+    let currentGroup: number | undefined
+    let current: number[] = []
+    displayLines.forEach((_, index) => {
+      const g = groupOf.get(index)
+      if (g !== undefined && g === currentGroup) {
+        current.push(index)
+      } else {
+        if (current.length) blocks.push(current)
+        current = [index]
+        currentGroup = g
+      }
+    })
+    if (current.length) blocks.push(current)
+    return blocks
+  }, [displayLines, groupOf])
+
   return (
     <div className={cn('space-y-3', className)}>
       {/* Top insert controls — add before the first line (when editable) */}
@@ -218,7 +266,31 @@ export function ChordOverlay({
         </div>
       )}
 
-      {displayLines.map((line, index) => {
+      {renderBlocks.map((indices) => {
+        // A block of 2+ indices only happens when linesPerBlock > 1 — those
+        // original ChordPro lines share one visual row ("versos por línea"),
+        // not one each stacked underneath the other.
+        if (indices.length > 1) {
+          const entries = indices.map((index) => ({
+            line: displayLines[index] as LyricParsedLine,
+            elementId: lineIndexToElementId?.get(index) ?? `element-${index}`,
+          }))
+          return (
+            <LyricVerseRow
+              key={`block-${indices[0]}`}
+              entries={entries}
+              transpose={transpose}
+              onChordClick={onChordClick}
+              isSeekEnabled={isSeekEnabled}
+              currentElementId={currentElementId}
+              bpm={bpm}
+              timeSignature={timeSignature}
+            />
+          )
+        }
+
+        const index = indices[0]
+        const line = displayLines[index]
         // Prefer the authoritative map from createSongTimeline (single source of truth).
         // Fall back to the local derivation when the timeline is not yet ready (e.g. first
         // render before autoscroll initialises), so chord cells are never id-less.
@@ -244,6 +316,9 @@ export function ChordOverlay({
               onLineChange={(updated) => handleLineChange(index, updated)}
               onDeleteLine={() => handleDeleteLine(index)}
               gridResolution={gridResolution}
+              currentElementId={currentElementId}
+              bpm={bpm}
+              timeSignature={timeSignature}
               lineCount={displayLines.length}
             />
 
@@ -315,6 +390,9 @@ function ChordOverlayLine({
   onDeleteLine,
   gridResolution = 0.25,
   lineCount = 1,
+  currentElementId,
+  bpm,
+  timeSignature = '4/4',
 }: {
   line: AnyParsedLine
   transpose: number
@@ -327,6 +405,9 @@ function ChordOverlayLine({
   onDeleteLine?: () => void
   gridResolution?: number
   lineCount?: number
+  currentElementId?: string | null
+  bpm?: number
+  timeSignature?: string
 }) {
   // ── Line-level bubble menu (for deleting lines) ──────────────────────────────
   const canDeleteLine = isEditable && lineCount > 1 && line.type !== 'directive'
@@ -444,23 +525,36 @@ function ChordOverlayLine({
   if (lyricLine.chords.length > 0) {
     return (
       <div className="relative group" {...lineHandlers}>
-        <LyricBarGrid
-          line={lyricLine}
-          transpose={transpose}
-          columns={columns}
-          elementId={elementId}
-          className="my-1"
-          onChordClick={onChordClick}
-          isSeekEnabled={isSeekEnabled}
-          isEditable={isEditable}
-          onChordsReorder={(newChords) =>
-            onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
-          }
-          onTextChange={(newText, newChords) =>
-            onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
-          }
-          gridResolution={gridResolution}
-        />
+        {isEditable ? (
+          <LyricBarGrid
+            line={lyricLine}
+            transpose={transpose}
+            columns={columns}
+            elementId={elementId}
+            className="my-1"
+            onChordClick={onChordClick}
+            isSeekEnabled={isSeekEnabled}
+            isEditable={isEditable}
+            onChordsReorder={(newChords) =>
+              onLineChange({ ...lyricLine, chords: newChords } as LyricParsedLine)
+            }
+            onTextChange={(newText, newChords) =>
+              onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
+            }
+            gridResolution={gridResolution}
+          />
+        ) : (
+          <LyricVerseLine
+            line={lyricLine}
+            transpose={transpose}
+            elementId={elementId}
+            onChordClick={onChordClick}
+            isSeekEnabled={isSeekEnabled}
+            currentElementId={currentElementId}
+            bpm={bpm}
+            timeSignature={timeSignature}
+          />
+        )}
         {lineBubbleMenuPortal}
       </div>
     )

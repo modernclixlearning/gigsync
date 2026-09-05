@@ -34,10 +34,13 @@ export {
   parseLine,
   parseDirective,
   parseChordPositions,
+  splitLineIntoSegments,
+  groupLyricLineIndices,
   stripChords,
   extractChords,
   isValidChord,
 } from './parser'
+export type { LineSegment } from './parser'
 
 // Transpose functions
 export {

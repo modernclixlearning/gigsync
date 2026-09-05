@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from '@tanstack/react-router'
 import { cn } from '~/lib/utils'
+import { parseChordPro, groupLyricLineIndices } from '~/lib/chordpro'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
@@ -14,7 +15,7 @@ import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
-import type { Song } from '~/types'
+import type { Song, PlayerOverrideKey } from '~/types'
 
 export interface SetlistContext {
   setlistId: string
@@ -52,6 +53,48 @@ export function SongPlayerContent({
     settings?.player.smartScrollSmoothness ?? 70
   const showBeatIndicatorDebug =
     settings?.player.showBeatIndicatorDebug ?? false
+
+  // Apply this song's own control overrides (if any), else the global
+  // defaults saved via "Usar como default", once per song load. Guarded by
+  // ref so a later settings/song refetch (e.g. right after saving) doesn't
+  // stomp on a value the user is actively adjusting live.
+  const appliedOverridesForSongRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!settings) return
+    if (appliedOverridesForSongRef.current === song.id) return
+    appliedOverridesForSongRef.current = song.id
+
+    const overrides = song.playerOverrides
+    const resolve = (key: PlayerOverrideKey): number | undefined =>
+      overrides?.[key] ?? settings.player[key]
+
+    const autoScrollSpeed = resolve('autoScrollSpeed')
+    if (autoScrollSpeed !== undefined) player.setAutoScrollSpeed(autoScrollSpeed)
+    const fontSize = resolve('fontSize')
+    if (fontSize !== undefined) player.setFontSize(fontSize)
+    const linesPerBlock = resolve('linesPerBlock')
+    if (linesPerBlock !== undefined) player.setLinesPerBlock(linesPerBlock)
+    const contentWidth = resolve('contentWidth')
+    if (contentWidth !== undefined) player.setContentWidth(contentWidth)
+    const transpose = resolve('transpose')
+    if (transpose !== undefined) player.setTransposeAbsolute(transpose)
+    // player's setters are useCallback-stable; only re-run when the song or the loaded settings change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [song.id, song.playerOverrides, settings])
+
+  const handleSaveControlAsDefault = useCallback(
+    (key: PlayerOverrideKey, value: number) => {
+      void updatePlayerSettings({ [key]: value })
+    },
+    [updatePlayerSettings]
+  )
+
+  const handleSaveControlForSong = useCallback(
+    (key: PlayerOverrideKey, value: number) => {
+      void updateSong({ playerOverrides: { ...song.playerOverrides, [key]: value } })
+    },
+    [updateSong, song.playerOverrides]
+  )
 
   const handleContextWindowChange = useCallback(
     (value: number) => {
@@ -134,6 +177,30 @@ export function SongPlayerContent({
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
 
+  // Reading blocks: when linesPerBlock > 1, several consecutive sung lines
+  // light up together as one unit (see groupLyricLineIndices) — computed
+  // independently from the same inputs ChordOverlay uses, so both agree on
+  // where a block starts/ends without any prop plumbing between them.
+  const groupMembersByElementId = useMemo(() => {
+    const map = new Map<string, string[]>()
+    const lineIndexToElementId = autoScroll.lineIndexToElementId
+    if (!lineIndexToElementId || player.state.linesPerBlock <= 1) return map
+    const parsedForGrouping = parseChordPro(song.lyrics, player.state.transpose)
+    const groupOf = groupLyricLineIndices(parsedForGrouping.lines, player.state.linesPerBlock)
+    const byGroup = new Map<number, string[]>()
+    groupOf.forEach((groupId, lineIndex) => {
+      const eid = lineIndexToElementId.get(lineIndex)
+      if (!eid) return
+      const arr = byGroup.get(groupId) ?? []
+      arr.push(eid)
+      byGroup.set(groupId, arr)
+    })
+    byGroup.forEach((eids) => {
+      eids.forEach((eid) => map.set(eid, eids))
+    })
+    return map
+  }, [song.lyrics, player.state.transpose, player.state.linesPerBlock, autoScroll.lineIndexToElementId])
+
   const isSeekEnabled =
     autoScroll.isReady &&
     !autoScroll.hasFallback &&
@@ -148,7 +215,8 @@ export function SongPlayerContent({
   )
 
   // Chords are editable when stopped (drag-and-drop active)
-  const isEditable = !player.state.isPlaying && player.state.showChords
+  // Editing is an explicit choice (Edit button), never a side effect of pausing.
+  const isEditable = player.state.isEditMode && !player.state.isPlaying && player.state.showChords
 
   const handleLyricsChange = useCallback(
     (newLyrics: string) => {
@@ -402,6 +470,10 @@ export function SongPlayerContent({
         player.state.isAutoScrollEnabled &&
         !autoScroll.hasFallback && (() => {
           const eid = autoScroll.currentElementId
+          // Reading block: the current line's group-mates (if any) light up
+          // together with it — see groupMembersByElementId above.
+          const brightIds = groupMembersByElementId.get(eid) ?? [eid]
+          const brightSelector = brightIds.map((id) => `[data-element-id="${id}"]`).join(', ')
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
@@ -415,18 +487,16 @@ export function SongPlayerContent({
                 opacity: 0.4;
                 transition: opacity 0.4s ease;
               }
-              /* Active line full brightness */
-              [data-element-id="${eid}"] {
-                opacity: 1;
-              }
-              /* Bar-element variant */
-              [data-element-id="${eid}"][data-bar-element] {
+              /* Active line (and its reading-block group-mates) full brightness */
+              ${brightSelector} {
                 opacity: 1;
               }
               ${chordIdx !== null ? `
+              /* Beat follows the lyric as light, not a container highlight: */
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
-                background: rgba(56, 189, 248, 0.08) !important;
-                border-radius: 0.375rem;
+                color: #fff;
+                text-shadow: 0 0 0.4em rgba(56, 189, 248, 0.55);
+                transition: text-shadow 0.15s ease;
               }
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
                 color: rgb(56, 189, 248);
@@ -442,21 +512,27 @@ export function SongPlayerContent({
         className="flex-1 overflow-y-auto px-6 md:px-8 py-8"
         style={{ fontSize: `${player.state.fontSize}px` }}
       >
-        {player.state.showChords ? (
-          <ChordOverlay
-            lyrics={song.lyrics}
-            transpose={player.state.transpose}
-            columns={2}
-            onChordClick={handleChordClick}
-            isSeekEnabled={isSeekEnabled}
-            isEditable={isEditable}
-            onLyricsChange={handleLyricsChange}
-            lineIndexToElementId={autoScroll.lineIndexToElementId ?? undefined}
-            gridResolution={settings?.player.gridResolution ?? 0.25}
-          />
-        ) : (
-          <LyricsDisplay lyrics={song.lyrics} />
-        )}
+        <div className="mx-auto" style={{ maxWidth: `${player.state.contentWidth}px` }}>
+          {player.state.showChords ? (
+            <ChordOverlay
+              lyrics={song.lyrics}
+              transpose={player.state.transpose}
+              columns={2}
+              onChordClick={handleChordClick}
+              isSeekEnabled={isSeekEnabled}
+              isEditable={isEditable}
+              onLyricsChange={handleLyricsChange}
+              lineIndexToElementId={autoScroll.lineIndexToElementId ?? undefined}
+              gridResolution={settings?.player.gridResolution ?? 0.25}
+              linesPerBlock={player.state.linesPerBlock}
+              currentElementId={autoScroll.currentElementId}
+              bpm={song.bpm}
+              timeSignature={song.timeSignature}
+            />
+          ) : (
+            <LyricsDisplay lyrics={song.lyrics} />
+          )}
+        </div>
       </div>
 
       {/* Next song preview (setlist mode) */}
@@ -477,8 +553,14 @@ export function SongPlayerContent({
         onAutoScrollSpeedChange={player.setAutoScrollSpeed}
         showChords={player.state.showChords}
         onToggleChords={player.toggleChords}
+        isEditMode={player.state.isEditMode}
+        onToggleEditMode={player.toggleEditMode}
         fontSize={player.state.fontSize}
         onFontSizeChange={player.setFontSize}
+        linesPerBlock={player.state.linesPerBlock}
+        onLinesPerBlockChange={player.setLinesPerBlock}
+        contentWidth={player.state.contentWidth}
+        onContentWidthChange={player.setContentWidth}
         transpose={player.state.transpose}
         onTranspose={player.transpose}
         onResetTranspose={player.resetTranspose}
@@ -490,6 +572,8 @@ export function SongPlayerContent({
         onSmartScrollSmoothnessChange={handleSmoothnessChange}
         showBeatIndicatorDebug={showBeatIndicatorDebug}
         onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
+        onSaveControlAsDefault={handleSaveControlAsDefault}
+        onSaveControlForSong={handleSaveControlForSong}
       />
     </div>
   )

@@ -13,8 +13,14 @@ describe('PlayerControls', () => {
     onAutoScrollSpeedChange: vi.fn(),
     showChords: true,
     onToggleChords: vi.fn(),
+    isEditMode: false,
+    onToggleEditMode: vi.fn(),
     fontSize: 16,
     onFontSizeChange: vi.fn(),
+    linesPerBlock: 2,
+    onLinesPerBlockChange: vi.fn(),
+    contentWidth: 896,
+    onContentWidthChange: vi.fn(),
     transpose: 0,
     onTranspose: vi.fn(),
     onResetTranspose: vi.fn(),
@@ -26,6 +32,8 @@ describe('PlayerControls', () => {
     onSmartScrollSmoothnessChange: vi.fn(),
     showBeatIndicatorDebug: false,
     onToggleBeatIndicatorDebug: vi.fn(),
+    onSaveControlAsDefault: vi.fn(),
+    onSaveControlForSong: vi.fn(),
   }
 
   beforeEach(() => {
@@ -140,9 +148,10 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings/i })
     await user.click(settingsButton)
 
-    // Find and click increment button
-    const speedControls = screen.getByText('Scroll Speed').parentElement
-    const incrementButton = speedControls?.querySelectorAll('button')[1]
+    // Find and click increment button (the stepper is the row's last direct
+    // child — its first child holds the label + save-as-default/for-song buttons)
+    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
       expect(onAutoScrollSpeedChange).toHaveBeenCalledWith(60)
@@ -163,8 +172,8 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const speedControls = screen.getByText('Scroll Speed').parentElement
-    const decrementButton = speedControls?.querySelectorAll('button')[0]
+    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const decrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
 
@@ -182,8 +191,8 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const speedControls = screen.getByText('Scroll Speed').parentElement
-    const incrementButton = speedControls?.querySelectorAll('button')[1]
+    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
 
@@ -201,35 +210,35 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').parentElement
-    const incrementButton = fontSizeControls?.querySelectorAll('button')[1]
+    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
       expect(onFontSizeChange).toHaveBeenCalledWith(18)
     }
   })
 
-  it('should not decrease font size below 12', async () => {
+  it('should not decrease font size below 20', async () => {
     const user = userEvent.setup()
-    render(<PlayerControls {...defaultProps} fontSize={12} />)
+    render(<PlayerControls {...defaultProps} fontSize={20} />)
 
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').parentElement
-    const decrementButton = fontSizeControls?.querySelectorAll('button')[0]
+    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const decrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
 
-  it('should not increase font size above 32', async () => {
+  it('should not increase font size above 56', async () => {
     const user = userEvent.setup()
-    render(<PlayerControls {...defaultProps} fontSize={32} />)
+    render(<PlayerControls {...defaultProps} fontSize={56} />)
 
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').parentElement
-    const incrementButton = fontSizeControls?.querySelectorAll('button')[1]
+    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
 
@@ -243,18 +252,19 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    // Find the transpose controls section
+    // Find the transpose stepper (row's last direct child — its first child
+    // holds the label + save-as-default/for-song buttons)
     const transposeLabel = screen.getByText('Transpose')
-    const transposeControls = transposeLabel.parentElement
-    expect(transposeControls).toBeTruthy()
-    
-    // Find the increment button (third button in the controls div)
-    const buttons = transposeControls?.querySelectorAll('button') || []
+    const transposeRow = transposeLabel.closest('.justify-between')
+    expect(transposeRow).toBeTruthy()
+    const stepper = transposeRow?.querySelector(':scope > div:last-child')
+
+    const buttons = stepper?.querySelectorAll('button') || []
     expect(buttons.length).toBeGreaterThanOrEqual(3)
-    
+
     const incrementButton = buttons[2] // Third button is the increment (+)
     await user.click(incrementButton)
-    
+
     expect(onTranspose).toHaveBeenCalledWith(1)
   })
 
@@ -268,8 +278,8 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeControls = screen.getByText('Transpose').parentElement
-    const decrementButton = transposeControls?.querySelectorAll('button')[0]
+    const transposeControls = screen.getByText('Transpose').closest('.justify-between')
+    const decrementButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     if (decrementButton) {
       await user.click(decrementButton)
       expect(onTranspose).toHaveBeenCalledWith(-1)
@@ -290,8 +300,8 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeControls = screen.getByText('Transpose').parentElement
-    const resetButton = transposeControls?.querySelectorAll('button')[1]
+    const transposeControls = screen.getByText('Transpose').closest('.justify-between')
+    const resetButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (resetButton) {
       await user.click(resetButton)
       expect(onResetTranspose).toHaveBeenCalledTimes(1)

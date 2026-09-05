@@ -58,6 +58,18 @@ export interface PlayerPreferences {
    * 1.0 = quarter note, 0.5 = eighth note, 0.25 = sixteenth note (default).
    */
   gridResolution: number
+  /**
+   * Global defaults for the per-session player controls (Scroll Speed, Font
+   * Size, Versos por línea, Márgenes, Transpose) — each has its own "usar
+   * como default" button in Settings. Undefined per-field = keep the
+   * hardcoded fallback in useSongPlayer. A song's own playerOverrides (see
+   * types/setlist.ts) take precedence over these when both are set.
+   */
+  autoScrollSpeed?: number
+  fontSize?: number
+  linesPerBlock?: number
+  contentWidth?: number
+  transpose?: number
 }
 
 export interface SyncPreferences {

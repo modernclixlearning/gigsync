@@ -258,6 +258,10 @@ export interface UseSongPlayerReturn {
   toggleAutoScroll: () => void
   transpose: (semitones: number) => void
   resetTranspose: () => void
+  setTransposeAbsolute: (semitones: number) => void
+  setLinesPerBlock: (lines: number) => void
+  toggleEditMode: () => void
+  setContentWidth: (width: number) => void
   toggleChords: () => void
   setFontSize: (size: number) => void
   toggleMetronomeSound: () => void
@@ -271,18 +275,24 @@ export function useSongPlayer(): UseSongPlayerReturn {
     isAutoScrollEnabled: false,
     transpose: 0,
     showChords: true,
-    fontSize: 22,
-    metronomeSoundEnabled: false
+    isEditMode: false,
+    fontSize: 32,
+    metronomeSoundEnabled: false,
+    linesPerBlock: 2,
+    contentWidth: 896
   })
 
   const play = useCallback(async () => {
     if (Tone.context.state !== 'running') {
       await Tone.start()
     }
-    setState((prev) => ({ ...prev, isPlaying: true }))
+    // Editing and playing don't mix — starting playback always leaves edit mode.
+    setState((prev) => ({ ...prev, isPlaying: true, isEditMode: false }))
   }, [])
 
   const pause = useCallback(() => {
+    // Pausing only pauses. It must never flip the view into the chord-grid
+    // editor — that's an explicit action now (see toggleEditMode).
     setState((prev) => ({ ...prev, isPlaying: false }))
   }, [])
 
@@ -293,14 +303,21 @@ export function useSongPlayer(): UseSongPlayerReturn {
       await Tone.start()
     }
     setState((prev) => {
+      const willPlay = !prev.isPlaying
       const newState = {
         ...prev,
-        isPlaying: !prev.isPlaying,
+        isPlaying: willPlay,
         // Auto-enable autoscroll when starting playback
-        isAutoScrollEnabled: !prev.isPlaying ? true : prev.isAutoScrollEnabled
+        isAutoScrollEnabled: willPlay ? true : prev.isAutoScrollEnabled,
+        // Editing and playing don't mix — starting playback always leaves edit mode.
+        isEditMode: willPlay ? false : prev.isEditMode
       }
       return newState
     })
+  }, [])
+
+  const toggleEditMode = useCallback(() => {
+    setState((prev) => ({ ...prev, isEditMode: !prev.isEditMode }))
   }, [])
 
   const setPosition = useCallback((position: number) => {
@@ -326,12 +343,24 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, transpose: 0 }))
   }, [])
 
+  const setTransposeAbsolute = useCallback((semitones: number) => {
+    setState((prev) => ({ ...prev, transpose: ((semitones % 12) + 12) % 12 }))
+  }, [])
+
   const toggleChords = useCallback(() => {
     setState((prev) => ({ ...prev, showChords: !prev.showChords }))
   }, [])
 
   const setFontSize = useCallback((size: number) => {
-    setState((prev) => ({ ...prev, fontSize: Math.max(16, Math.min(40, size)) }))
+    setState((prev) => ({ ...prev, fontSize: Math.max(20, Math.min(56, size)) }))
+  }, [])
+
+  const setLinesPerBlock = useCallback((lines: number) => {
+    setState((prev) => ({ ...prev, linesPerBlock: Math.max(1, Math.min(4, Math.round(lines))) }))
+  }, [])
+
+  const setContentWidth = useCallback((width: number) => {
+    setState((prev) => ({ ...prev, contentWidth: Math.max(480, Math.min(1400, Math.round(width))) }))
   }, [])
 
   const toggleMetronomeSound = useCallback(() => {
@@ -348,8 +377,12 @@ export function useSongPlayer(): UseSongPlayerReturn {
     toggleAutoScroll,
     transpose,
     resetTranspose,
+    setTransposeAbsolute,
     toggleChords,
+    toggleEditMode,
     setFontSize,
+    setLinesPerBlock,
+    setContentWidth,
     toggleMetronomeSound
   }
 }
