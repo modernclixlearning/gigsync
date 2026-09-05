@@ -121,7 +121,7 @@ export function parseChordPositions(line: string): { text: string; chords: Chord
 /**
  * Parse a single line of ChordPro text
  */
-export function parseLine(line: string, transpose = 0): AnyParsedLine {
+export function parseLine(line: string, transpose = 0, forceUseFlats?: boolean): AnyParsedLine {
   const trimmed = line.trim()
   
   // Empty line
@@ -168,22 +168,22 @@ export function parseLine(line: string, transpose = 0): AnyParsedLine {
   const chordsOnly = createChordsOnlyLine(trimmed)
   if (chordsOnly) {
     // Apply transpose to chords
-    if (transpose !== 0) {
+    if (transpose !== 0 || forceUseFlats !== undefined) {
       chordsOnly.chordBars = chordsOnly.chordBars.map(bar => ({
         ...bar,
-        chord: transposeChord(bar.chord, transpose)
+        chord: transposeChord(bar.chord, transpose, forceUseFlats)
       }))
     }
     return chordsOnly
   }
-  
+
   // Regular lyric line with optional chords
   const { text, chords } = parseChordPositions(line)
-  
+
   // Apply transpose
   const transposedChords = chords.map(c => ({
     ...c,
-    chord: transposeChord(c.chord, transpose)
+    chord: transposeChord(c.chord, transpose, forceUseFlats)
   }))
   
   return {
@@ -202,8 +202,10 @@ export function parseLine(line: string, transpose = 0): AnyParsedLine {
  * Parse a complete ChordPro document
  * @param text - Raw ChordPro text
  * @param transpose - Semitones to transpose (optional)
+ * @param forceUseFlats - Override the enharmonic spelling for every
+ *   transposed chord (optional; defaults to minimal-accidentals per chord)
  */
-export function parseChordPro(text: string, transpose = 0): ParsedSong {
+export function parseChordPro(text: string, transpose = 0, forceUseFlats?: boolean): ParsedSong {
   const lines = text.split('\n')
   const directives: ChordProDirectives = {}
   const parsedLines: AnyParsedLine[] = []
@@ -249,10 +251,10 @@ export function parseChordPro(text: string, transpose = 0): ParsedSong {
         const instrumental = parseInstrumentalSection(trimmed, subsequentLines)
         if (instrumental) {
           // Apply transpose
-          if (transpose !== 0) {
+          if (transpose !== 0 || forceUseFlats !== undefined) {
             instrumental.chordBars = instrumental.chordBars.map(bar => ({
               ...bar,
-              chord: transposeChord(bar.chord, transpose)
+              chord: transposeChord(bar.chord, transpose, forceUseFlats)
             }))
           }
           parsedLines.push({
@@ -269,7 +271,7 @@ export function parseChordPro(text: string, transpose = 0): ParsedSong {
     }
     
     // Regular line parsing
-    parsedLines.push(parseLine(line, transpose))
+    parsedLines.push(parseLine(line, transpose, forceUseFlats))
     i++
   }
   
@@ -335,16 +337,19 @@ export interface LineSegment {
  * reading order. Each run's text is everything up to the next chord (or end
  * of line) — used both by the bar-grid editor and the flowing verse renderer
  * so the two stay in sync on how a line breaks around its chords.
+ *
+ * `line.chords[].chord` is already transposed (parseChordPro applies it
+ * before this ever runs) — this only re-slices text around it, it must not
+ * transpose again.
  */
-export function splitLineIntoSegments(line: LyricParsedLine, transpose = 0): LineSegment[] {
+export function splitLineIntoSegments(line: LyricParsedLine): LineSegment[] {
   const { text, chords } = line
   const sorted = [...chords].sort((a, b) => a.position - b.position)
   return sorted.map((chordPos, i) => {
     const startPos = chordPos.position
     const endPos = i + 1 < sorted.length ? sorted[i + 1].position : text.length
     const segText = text.slice(startPos, endPos)
-    const chord = transpose !== 0 ? transposeChord(chordPos.chord, transpose) : chordPos.chord
-    return { chord, text: segText }
+    return { chord: chordPos.chord, text: segText }
   })
 }
 

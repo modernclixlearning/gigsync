@@ -259,6 +259,7 @@ export interface UseSongPlayerReturn {
   transpose: (semitones: number) => void
   resetTranspose: () => void
   setTransposeAbsolute: (semitones: number) => void
+  setTransposePreferFlats: (value: boolean | null) => void
   setLinesPerBlock: (lines: number) => void
   toggleEditMode: () => void
   setContentWidth: (width: number) => void
@@ -274,6 +275,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     autoScrollSpeed: 50,
     isAutoScrollEnabled: false,
     transpose: 0,
+    transposePreferFlats: null,
     showChords: true,
     isEditMode: false,
     fontSize: 32,
@@ -335,16 +337,27 @@ export function useSongPlayer(): UseSongPlayerReturn {
   const transpose = useCallback((semitones: number) => {
     setState((prev) => ({
       ...prev,
-      transpose: ((prev.transpose + semitones + 12) % 12)
+      transpose: ((prev.transpose + semitones + 12) % 12),
+      // A new transpose amount likely lands on a different target key —
+      // drop any manual spelling override and recompute the default.
+      transposePreferFlats: null
     }))
   }, [])
 
   const resetTranspose = useCallback(() => {
-    setState((prev) => ({ ...prev, transpose: 0 }))
+    setState((prev) => ({ ...prev, transpose: 0, transposePreferFlats: null }))
   }, [])
 
   const setTransposeAbsolute = useCallback((semitones: number) => {
-    setState((prev) => ({ ...prev, transpose: ((semitones % 12) + 12) % 12 }))
+    setState((prev) => ({
+      ...prev,
+      transpose: ((semitones % 12) + 12) % 12,
+      transposePreferFlats: null
+    }))
+  }, [])
+
+  const setTransposePreferFlats = useCallback((value: boolean | null) => {
+    setState((prev) => ({ ...prev, transposePreferFlats: value }))
   }, [])
 
   const toggleChords = useCallback(() => {
@@ -378,6 +391,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     transpose,
     resetTranspose,
     setTransposeAbsolute,
+    setTransposePreferFlats,
     toggleChords,
     toggleEditMode,
     setFontSize,

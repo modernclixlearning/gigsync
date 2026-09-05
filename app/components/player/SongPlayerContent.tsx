@@ -3,7 +3,14 @@ import { ArrowLeft, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from '@tanstack/react-router'
 import { cn } from '~/lib/utils'
-import { parseChordPro, groupLyricLineIndices } from '~/lib/chordpro'
+import {
+  parseChordPro,
+  groupLyricLineIndices,
+  getTransposedKeyName,
+  getTransposedPitchIndex,
+  defaultPrefersFlats,
+  isAmbiguousPitch,
+} from '~/lib/chordpro'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
@@ -176,6 +183,23 @@ export function SongPlayerContent({
     return beats || 4
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
+
+  // Transpose target: which chromatic pitch the song's key lands on, and
+  // whether to spell it with sharps or flats. A manual override
+  // (transposePreferFlats) wins; otherwise default to whichever spelling
+  // has fewer accidentals for that pitch (see defaultPrefersFlats).
+  const targetPitchIndex = useMemo(
+    () => getTransposedPitchIndex(song.key, player.state.transpose),
+    [song.key, player.state.transpose]
+  )
+  const isTransposeSpellingFlexible = targetPitchIndex !== -1 && isAmbiguousPitch(targetPitchIndex)
+  const effectiveUseFlats =
+    player.state.transposePreferFlats ??
+    (targetPitchIndex === -1 ? false : defaultPrefersFlats(targetPitchIndex))
+  const transposeDisplay = getTransposedKeyName(song.key, player.state.transpose, effectiveUseFlats)
+  const handleToggleTransposeSpelling = useCallback(() => {
+    player.setTransposePreferFlats(!effectiveUseFlats)
+  }, [player.setTransposePreferFlats, effectiveUseFlats])
 
   // Reading blocks: when linesPerBlock > 1, several consecutive sung lines
   // light up together as one unit (see groupLyricLineIndices) — computed
@@ -396,8 +420,7 @@ export function SongPlayerContent({
           )}
         >
           <span>
-            {song.key}
-            {player.state.transpose !== 0 && ` (+${player.state.transpose})`}
+            {player.state.transpose === 0 ? song.key : `${song.key} → ${transposeDisplay}`}
           </span>
           <span>•</span>
           <span>{song.bpm} BPM</span>
@@ -517,6 +540,7 @@ export function SongPlayerContent({
             <ChordOverlay
               lyrics={song.lyrics}
               transpose={player.state.transpose}
+              preferFlats={effectiveUseFlats}
               columns={2}
               onChordClick={handleChordClick}
               isSeekEnabled={isSeekEnabled}
@@ -564,6 +588,10 @@ export function SongPlayerContent({
         transpose={player.state.transpose}
         onTranspose={player.transpose}
         onResetTranspose={player.resetTranspose}
+        transposeDisplay={transposeDisplay}
+        transposePreferFlats={effectiveUseFlats}
+        isTransposeSpellingFlexible={isTransposeSpellingFlexible}
+        onToggleTransposeSpelling={handleToggleTransposeSpelling}
         metronomeSoundEnabled={player.state.metronomeSoundEnabled}
         onToggleMetronomeSound={player.toggleMetronomeSound}
         smartScrollContextWindow={smartScrollContextWindowPercent}

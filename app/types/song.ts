@@ -35,6 +35,8 @@ export interface SongPlayerState {
   autoScrollSpeed: number
   isAutoScrollEnabled: boolean
   transpose: number
+  /** Enharmonic spelling override for the current transpose (null = minimal-accidentals default for the target key). */
+  transposePreferFlats: boolean | null
   showChords: boolean
   /** Chord-grid editing UI (drag/resize/subdivide). Entered explicitly, never as a side effect of pausing. */
   isEditMode: boolean

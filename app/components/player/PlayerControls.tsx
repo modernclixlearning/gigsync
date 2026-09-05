@@ -93,6 +93,13 @@ interface PlayerControlsProps {
   transpose: number
   onTranspose: (semitones: number) => void
   onResetTranspose: () => void
+  /** Target key name for the current transpose (e.g. "D#" or "Eb"), already spelled per transposePreferFlats. */
+  transposeDisplay: string
+  /** Current enharmonic spelling for the transpose target — only meaningful when isTransposeSpellingFlexible. */
+  transposePreferFlats: boolean
+  /** Whether the current target pitch has both a sharp and a flat name (natural notes don't). */
+  isTransposeSpellingFlexible: boolean
+  onToggleTransposeSpelling: () => void
   metronomeSoundEnabled: boolean
   onToggleMetronomeSound: () => void
   smartScrollContextWindow: number
@@ -125,6 +132,10 @@ export function PlayerControls({
   transpose,
   onTranspose,
   onResetTranspose,
+  transposeDisplay,
+  transposePreferFlats,
+  isTransposeSpellingFlexible,
+  onToggleTransposeSpelling,
   metronomeSoundEnabled,
   onToggleMetronomeSound,
   smartScrollContextWindow,
@@ -310,17 +321,30 @@ export function PlayerControls({
               <button
                 onClick={onResetTranspose}
                 className={cn(
-                  'w-12 text-center text-sm font-medium rounded-lg py-1',
+                  'w-14 text-center text-sm font-medium rounded-lg py-1',
                   transpose !== 0 && 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                 )}
               >
-                {transpose > 0 ? `+${transpose}` : transpose}
+                {transposeDisplay}
               </button>
               <button
                 onClick={() => onTranspose(1)}
                 className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
               >
                 <Plus className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onToggleTransposeSpelling}
+                disabled={!isTransposeSpellingFlexible}
+                title={isTransposeSpellingFlexible ? 'Cambiar entre sostenido y bemol' : 'Esta nota no tiene alteración alternativa'}
+                className={cn(
+                  'px-2 py-1 rounded-lg text-sm font-medium disabled:opacity-30',
+                  transposePreferFlats
+                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    : 'bg-slate-100 dark:bg-slate-800'
+                )}
+              >
+                {transposePreferFlats ? '♭' : '♯'}
               </button>
             </div>
           </div>

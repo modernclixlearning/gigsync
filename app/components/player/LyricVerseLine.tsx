@@ -32,7 +32,6 @@ interface VerseEntry {
 
 interface LyricVerseRowProps {
   entries: VerseEntry[]
-  transpose?: number
   className?: string
   onChordClick?: (elementId: string, chordIndex: number | null) => void
   isSeekEnabled?: boolean
@@ -62,7 +61,6 @@ function totalBeats(entries: VerseEntry[], timeSignature: string): number {
 
 export function LyricVerseRow({
   entries,
-  transpose = 0,
   className,
   onChordClick,
   isSeekEnabled = false,
@@ -121,7 +119,7 @@ export function LyricVerseRow({
       )}
     >
       {entries.map((entry, entryIndex) => {
-        const segments = splitLineIntoSegments(entry.line, transpose)
+        const segments = splitLineIntoSegments(entry.line)
         if (segments.length === 0) return null
 
         return (
@@ -161,7 +159,6 @@ export function LyricVerseRow({
 
 interface LyricVerseLineProps {
   line: LyricParsedLine
-  transpose?: number
   elementId: string
   className?: string
   onChordClick?: (elementId: string, chordIndex: number | null) => void

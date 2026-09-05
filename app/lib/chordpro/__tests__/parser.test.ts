@@ -320,8 +320,14 @@ describe('Transpose Utilities', () => {
     })
 
     it('should handle sharps and flats', () => {
-      expect(transposeChord('F#m', 2)).toBe('G#m')
+      // F#(6) + 2 = G#/Ab(8) — Ab has fewer accidentals (4 flats vs 8 sharps), so it's the default.
+      expect(transposeChord('F#m', 2)).toBe('Abm')
       expect(transposeChord('Bb', 2)).toBe('C')
+    })
+
+    it('should respect an explicit enharmonic override', () => {
+      expect(transposeChord('F#m', 2, false)).toBe('G#m')
+      expect(transposeChord('F#m', 2, true)).toBe('Abm')
     })
 
     it('should return original chord for 0 semitones', () => {

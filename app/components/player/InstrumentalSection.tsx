@@ -270,11 +270,9 @@ export function InstrumentalSection({
     useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
   )
 
-  // Apply transposition to chords
-  const baseChords = section.chordBars.map(bar => ({
-    ...bar,
-    chord: transpose !== 0 ? transposeChord(bar.chord, transpose) : bar.chord
-  }))
+  // section.chordBars is already transposed (parseChordPro applies it
+  // upstream) — must not transpose again here.
+  const baseChords = section.chordBars
 
   // Expand chords by repeatCount for display (base chords are stored un-expanded)
   const chords = useMemo(() => {
