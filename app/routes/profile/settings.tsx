@@ -29,6 +29,25 @@ interface PendingImportData {
   stats: string | null
 }
 
+const RELOAD_DELAY_MS = 1400
+
+function summarizeImport(newSongsCount: number, newSetlistsCount: number, overwrittenCount: number): string {
+  const parts: string[] = []
+  if (newSongsCount > 0) {
+    parts.push(`${newSongsCount} canción${newSongsCount === 1 ? '' : 'es'} nueva${newSongsCount === 1 ? '' : 's'}`)
+  }
+  if (overwrittenCount > 0) {
+    parts.push(`${overwrittenCount} actualizada${overwrittenCount === 1 ? '' : 's'}`)
+  }
+  if (newSetlistsCount > 0) {
+    parts.push(`${newSetlistsCount} setlist${newSetlistsCount === 1 ? '' : 's'}`)
+  }
+  if (parts.length === 0) {
+    return 'Ya estaba todo al día — nada nuevo para importar.'
+  }
+  return `Importado: ${parts.join(', ')}.`
+}
+
 export const Route = createFileRoute('/profile/settings')({
   component: SettingsPage,
 })
@@ -48,6 +67,7 @@ function SettingsPage() {
 
   const [importConflicts, setImportConflicts] = useState<SongConflict[] | null>(null)
   const [pendingImport, setPendingImport] = useState<PendingImportData | null>(null)
+  const [importToast, setImportToast] = useState<string | null>(null)
 
   const handleExportData = useCallback(async () => {
     const songs = await db.songs.toArray()
@@ -128,7 +148,8 @@ function SettingsPage() {
 
         if (conflicts.length === 0) {
           await applyNonConflictingImport(newSongs, newSetlists, localData)
-          window.location.reload()
+          setImportToast(summarizeImport(newSongs.length, newSetlists.length, 0))
+          setTimeout(() => window.location.reload(), RELOAD_DELAY_MS)
           return
         }
 
@@ -155,9 +176,12 @@ function SettingsPage() {
         await db.songs.bulkPut(songsToOverwrite)
       }
 
+      setImportToast(
+        summarizeImport(pendingImport.newSongs.length, pendingImport.newSetlists.length, songsToOverwrite.length)
+      )
       setImportConflicts(null)
       setPendingImport(null)
-      window.location.reload()
+      setTimeout(() => window.location.reload(), RELOAD_DELAY_MS)
     },
     [importConflicts, pendingImport, applyNonConflictingImport]
   )
@@ -351,6 +375,22 @@ function SettingsPage() {
           onCancel={handleCancelImport}
           onApply={handleApplyImport}
         />
+      )}
+
+      {importToast && (
+        <div
+          role="status"
+          className={cn(
+            'fixed bottom-24 left-1/2 -translate-x-1/2 z-50',
+            'px-4 py-3 rounded-xl shadow-lg',
+            'bg-slate-900 dark:bg-white text-white dark:text-slate-900',
+            'flex items-center gap-2 text-sm font-medium',
+            'max-w-[calc(100%-2rem)]'
+          )}
+        >
+          <span>✅</span>
+          <span>{importToast}</span>
+        </div>
       )}
     </div>
   )
