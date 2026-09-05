@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { cn } from '~/lib/utils'
 import { db } from '~/lib/db'
 import { useSettings } from '~/hooks/useSettings'
@@ -9,8 +9,25 @@ import { TunerSettings } from '~/components/profile/TunerSettings'
 import { PerformanceSettings } from '~/components/profile/PerformanceSettings'
 import { PlayerSettings } from '~/components/profile/PlayerSettings'
 import { DataSettings } from '~/components/profile/DataSettings'
+import { ImportConflictModal } from '~/components/profile/ImportConflictModal'
 import { BottomNav } from '~/components/navigation'
 import { ROUTES } from '~/lib/routes'
+import {
+  planSongImport,
+  planSetlistImport,
+  resolveSongsToWrite,
+  type ConflictResolution,
+  type SongConflict,
+} from '~/lib/importMerge'
+import type { Song, Setlist } from '~/types/setlist'
+
+interface PendingImportData {
+  newSongs: Song[]
+  newSetlists: Setlist[]
+  profile: string | null
+  settings: string | null
+  stats: string | null
+}
 
 export const Route = createFileRoute('/profile/settings')({
   component: SettingsPage,
@@ -28,6 +45,9 @@ function SettingsPage() {
     updateSyncSettings,
     resetSettings,
   } = useSettings()
+
+  const [importConflicts, setImportConflicts] = useState<SongConflict[] | null>(null)
+  const [pendingImport, setPendingImport] = useState<PendingImportData | null>(null)
 
   const handleExportData = useCallback(async () => {
     const songs = await db.songs.toArray()
@@ -56,6 +76,27 @@ function SettingsPage() {
     URL.revokeObjectURL(url)
   }, [])
 
+  const applyNonConflictingImport = useCallback(
+    async (newSongs: Song[], newSetlists: Setlist[], localData: Omit<PendingImportData, 'newSongs' | 'newSetlists'>) => {
+      if (newSongs.length > 0) {
+        await db.songs.bulkAdd(newSongs)
+      }
+      if (newSetlists.length > 0) {
+        await db.setlists.bulkAdd(newSetlists)
+      }
+      if (localData.profile) {
+        localStorage.setItem('gigsync_profile', localData.profile)
+      }
+      if (localData.settings) {
+        localStorage.setItem('gigsync_settings', localData.settings)
+      }
+      if (localData.stats) {
+        localStorage.setItem('gigsync_stats', localData.stats)
+      }
+    },
+    []
+  )
+
   const handleImportData = useCallback(() => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -68,34 +109,62 @@ function SettingsPage() {
         const text = await file.text()
         const data = JSON.parse(text)
 
-        if (data.profile) {
-          localStorage.setItem('gigsync_profile', data.profile)
-        }
-        if (data.settings) {
-          localStorage.setItem('gigsync_settings', data.settings)
-        }
-        if (data.stats) {
-          localStorage.setItem('gigsync_stats', data.stats)
+        const importedSongs: Song[] = Array.isArray(data.songs) ? data.songs : []
+        const importedSetlists: Setlist[] = Array.isArray(data.setlists) ? data.setlists : []
+
+        const [existingSongs, existingSetlists] = await Promise.all([
+          db.songs.toArray(),
+          db.setlists.toArray(),
+        ])
+
+        const { newSongs, conflicts } = planSongImport(existingSongs, importedSongs)
+        const { newSetlists } = planSetlistImport(existingSetlists, importedSetlists)
+
+        const localData = {
+          profile: data.profile ?? null,
+          settings: data.settings ?? null,
+          stats: data.stats ?? null,
         }
 
-        // Restore IndexedDB data (songs and setlists)
-        if (data.songs && Array.isArray(data.songs)) {
-          await db.songs.clear()
-          await db.songs.bulkAdd(data.songs)
-        }
-        if (data.setlists && Array.isArray(data.setlists)) {
-          await db.setlists.clear()
-          await db.setlists.bulkAdd(data.setlists)
+        if (conflicts.length === 0) {
+          await applyNonConflictingImport(newSongs, newSetlists, localData)
+          window.location.reload()
+          return
         }
 
-        // Reload to apply changes
-        window.location.reload()
+        // Hold off applying anything until the user resolves every conflict —
+        // nothing is written to Dexie/localStorage yet at this point.
+        setImportConflicts(conflicts)
+        setPendingImport({ newSongs, newSetlists, ...localData })
       } catch (error) {
         console.error('Failed to import data:', error)
         alert('Failed to import data. Please check the file format.')
       }
     }
     input.click()
+  }, [applyNonConflictingImport])
+
+  const handleApplyImport = useCallback(
+    async (resolutions: Record<string, ConflictResolution>) => {
+      if (!importConflicts || !pendingImport) return
+
+      await applyNonConflictingImport(pendingImport.newSongs, pendingImport.newSetlists, pendingImport)
+
+      const songsToOverwrite = resolveSongsToWrite(importConflicts, resolutions)
+      if (songsToOverwrite.length > 0) {
+        await db.songs.bulkPut(songsToOverwrite)
+      }
+
+      setImportConflicts(null)
+      setPendingImport(null)
+      window.location.reload()
+    },
+    [importConflicts, pendingImport, applyNonConflictingImport]
+  )
+
+  const handleCancelImport = useCallback(() => {
+    setImportConflicts(null)
+    setPendingImport(null)
   }, [])
 
   const handleDeleteAllData = useCallback(async () => {
@@ -275,6 +344,14 @@ function SettingsPage() {
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {importConflicts && importConflicts.length > 0 && (
+        <ImportConflictModal
+          conflicts={importConflicts}
+          onCancel={handleCancelImport}
+          onApply={handleApplyImport}
+        />
+      )}
     </div>
   )
 }
