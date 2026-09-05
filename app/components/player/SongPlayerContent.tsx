@@ -22,7 +22,7 @@ import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
-import type { Song, PlayerOverrideKey } from '~/types'
+import type { Song, PlayerOverrideKey, PlayerOverrideValue } from '~/types'
 
 export interface SetlistContext {
   setlistId: string
@@ -72,8 +72,10 @@ export function SongPlayerContent({
     appliedOverridesForSongRef.current = song.id
 
     const overrides = song.playerOverrides
-    const resolve = (key: PlayerOverrideKey): number | undefined =>
-      overrides?.[key] ?? settings.player[key]
+    // TODO(player-settings-v2): resolution is song → global only. A setlist
+    // tier (Setlist.playerOverrides) is being added between the two.
+    const resolve = <K extends PlayerOverrideKey>(key: K): PlayerOverrideValue<K> | undefined =>
+      (overrides?.[key] ?? settings.player[key]) as PlayerOverrideValue<K> | undefined
 
     const autoScrollSpeed = resolve('autoScrollSpeed')
     if (autoScrollSpeed !== undefined) player.setAutoScrollSpeed(autoScrollSpeed)
@@ -90,17 +92,28 @@ export function SongPlayerContent({
   }, [song.id, song.playerOverrides, settings])
 
   const handleSaveControlAsDefault = useCallback(
-    (key: PlayerOverrideKey, value: number) => {
+    (key: PlayerOverrideKey, value: number | string) => {
       void updatePlayerSettings({ [key]: value })
     },
     [updatePlayerSettings]
   )
 
   const handleSaveControlForSong = useCallback(
-    (key: PlayerOverrideKey, value: number) => {
+    (key: PlayerOverrideKey, value: number | string) => {
       void updateSong({ playerOverrides: { ...song.playerOverrides, [key]: value } })
     },
     [updateSong, song.playerOverrides]
+  )
+
+  // TODO(player-settings-v2): persist to Setlist.playerOverrides via useSetlist().updateSetlist
+  // once the setlist-tier resolution cascade lands. Only reachable when canSaveForSetlist is true.
+  const canSaveForSetlist = !!setlistContext
+  const handleSaveControlForSetlist = useCallback(
+    (_key: PlayerOverrideKey, _value: number | string) => {
+      if (!setlistContext) return
+      console.warn('Guardado a nivel setlist todavía no implementado')
+    },
+    [setlistContext]
   )
 
   const handleContextWindowChange = useCallback(
@@ -610,6 +623,20 @@ export function SongPlayerContent({
         onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
         onSaveControlAsDefault={handleSaveControlAsDefault}
         onSaveControlForSong={handleSaveControlForSong}
+        onSaveControlForSetlist={handleSaveControlForSetlist}
+        canSaveForSetlist={canSaveForSetlist}
+        chordFontSize={player.state.chordFontSize}
+        onChordFontSizeChange={player.setChordFontSize}
+        beatHighlightMode={player.state.beatHighlightMode}
+        onBeatHighlightModeChange={player.setBeatHighlightMode}
+        beatHighlightTextColor={player.state.beatHighlightTextColor}
+        onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
+        beatHighlightBgColor={player.state.beatHighlightBgColor}
+        onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
+        backgroundColor={player.state.backgroundColor}
+        onBackgroundColorChange={player.setBackgroundColor}
+        lyricsTextColor={player.state.lyricsTextColor}
+        onLyricsTextColorChange={player.setLyricsTextColor}
       />
     </div>
   )

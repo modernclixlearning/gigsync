@@ -2,12 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
 import * as Tone from 'tone'
 import { db } from '~/lib/db'
-import type { 
-  Song, 
-  CreateSongInput, 
-  UpdateSongInput, 
+import type {
+  Song,
+  CreateSongInput,
+  UpdateSongInput,
   SongPlayerState,
-  SongFilterOptions 
+  SongFilterOptions,
+  BeatHighlightMode
 } from '~/types'
 
 // ============================================================================
@@ -266,6 +267,12 @@ export interface UseSongPlayerReturn {
   toggleChords: () => void
   setFontSize: (size: number) => void
   toggleMetronomeSound: () => void
+  setChordFontSize: (size: number) => void
+  setBeatHighlightMode: (mode: BeatHighlightMode) => void
+  setBeatHighlightTextColor: (color: string) => void
+  setBeatHighlightBgColor: (color: string) => void
+  setBackgroundColor: (color: string | null) => void
+  setLyricsTextColor: (color: string | null) => void
 }
 
 export function useSongPlayer(): UseSongPlayerReturn {
@@ -281,7 +288,13 @@ export function useSongPlayer(): UseSongPlayerReturn {
     fontSize: 32,
     metronomeSoundEnabled: false,
     linesPerBlock: 2,
-    contentWidth: 896
+    contentWidth: 896,
+    chordFontSize: 26,
+    beatHighlightMode: 'text',
+    beatHighlightTextColor: '#38bdf8',
+    beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
+    backgroundColor: null,
+    lyricsTextColor: null
   })
 
   const play = useCallback(async () => {
@@ -380,6 +393,30 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, metronomeSoundEnabled: !prev.metronomeSoundEnabled }))
   }, [])
 
+  const setChordFontSize = useCallback((size: number) => {
+    setState((prev) => ({ ...prev, chordFontSize: Math.max(12, Math.min(80, Math.round(size))) }))
+  }, [])
+
+  const setBeatHighlightMode = useCallback((mode: BeatHighlightMode) => {
+    setState((prev) => ({ ...prev, beatHighlightMode: mode }))
+  }, [])
+
+  const setBeatHighlightTextColor = useCallback((color: string) => {
+    setState((prev) => ({ ...prev, beatHighlightTextColor: color }))
+  }, [])
+
+  const setBeatHighlightBgColor = useCallback((color: string) => {
+    setState((prev) => ({ ...prev, beatHighlightBgColor: color }))
+  }, [])
+
+  const setBackgroundColor = useCallback((color: string | null) => {
+    setState((prev) => ({ ...prev, backgroundColor: color }))
+  }, [])
+
+  const setLyricsTextColor = useCallback((color: string | null) => {
+    setState((prev) => ({ ...prev, lyricsTextColor: color }))
+  }, [])
+
   return {
     state,
     play,
@@ -397,6 +434,12 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setFontSize,
     setLinesPerBlock,
     setContentWidth,
-    toggleMetronomeSound
+    toggleMetronomeSound,
+    setChordFontSize,
+    setBeatHighlightMode,
+    setBeatHighlightTextColor,
+    setBeatHighlightBgColor,
+    setBackgroundColor,
+    setLyricsTextColor
   }
 }

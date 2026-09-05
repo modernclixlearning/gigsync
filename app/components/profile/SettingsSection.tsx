@@ -1,4 +1,5 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
+import { Minus, Plus, Music2, ListMusic, Library, Check, RotateCcw } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
 export interface SettingsSectionProps {
@@ -56,8 +57,11 @@ export interface SettingsRowProps {
 
 export function SettingsRow({ label, description, children }: SettingsRowProps) {
   return (
-    <div className="flex items-center justify-between p-4">
-      <div className="flex-1 mr-4">
+    <div
+      data-testid="settings-row"
+      className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="sm:flex-1 sm:mr-4">
         <p className="font-medium text-slate-900 dark:text-white">{label}</p>
         {description && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -190,6 +194,134 @@ export function SettingsSlider({
           {suffix}
         </span>
       )}
+    </div>
+  )
+}
+
+export interface SettingsStepperProps {
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (value: number) => void
+  /** Custom display for the value (e.g. a note name instead of a raw number). Defaults to the raw value. */
+  format?: (value: number) => string
+  disabled?: boolean
+}
+
+/** Discrete -/value/+ stepper — the shared control behind every numeric player setting (font size, margins, transpose, etc). */
+export function SettingsStepper({
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  format,
+  disabled,
+}: SettingsStepperProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - step))}
+        disabled={disabled || value <= min}
+        className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <span className="min-w-[2.5rem] text-center text-sm font-medium text-slate-900 dark:text-white">
+        {format ? format(value) : value}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(max, value + step))}
+        disabled={disabled || value >= max}
+        className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+export interface SettingsColorFieldProps {
+  value: string
+  onChange: (value: string) => void
+  /** Present only for nullable/overridable colors (e.g. background, lyrics text) — omit for always-on colors. */
+  onReset?: () => void
+}
+
+/** Native color swatch + optional reset-to-theme-default button. */
+export function SettingsColorField({ value, onChange, onReset }: SettingsColorFieldProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-9 h-9 rounded-lg border border-slate-200 dark:border-[#3b3f54] cursor-pointer bg-transparent p-0.5"
+      />
+      {onReset && (
+        <button
+          type="button"
+          onClick={onReset}
+          title="Restaurar color por defecto"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+export type SaveTier = 'song' | 'setlist' | 'library'
+
+export interface SaveTierButtonsProps {
+  onSave: (tier: SaveTier) => void
+  /** Only true when the player is opened from within a setlist — otherwise there's nothing to attach the override to. */
+  canSaveForSetlist?: boolean
+}
+
+const SAVE_TIER_CONFIG: Record<SaveTier, { icon: typeof Music2; label: string; title: string }> = {
+  song: { icon: Music2, label: 'Canción', title: 'Guardar solo para esta canción' },
+  setlist: { icon: ListMusic, label: 'Setlist', title: 'Guardar para este setlist' },
+  library: { icon: Library, label: 'Librería', title: 'Guardar como default de toda la librería' },
+}
+
+/**
+ * Compact icon+label buttons for the 3-tier save (song / setlist / library)
+ * shared by every player setting. Replaces verbose text-only buttons.
+ */
+export function SaveTierButtons({ onSave, canSaveForSetlist = false }: SaveTierButtonsProps) {
+  const [flash, setFlash] = useState<SaveTier | null>(null)
+
+  const trigger = (tier: SaveTier) => {
+    onSave(tier)
+    setFlash(tier)
+    setTimeout(() => setFlash(null), 1200)
+  }
+
+  const tiers: SaveTier[] = canSaveForSetlist ? ['song', 'setlist', 'library'] : ['song', 'library']
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      {tiers.map((tier) => {
+        const { icon: Icon, label, title } = SAVE_TIER_CONFIG[tier]
+        const saved = flash === tier
+        return (
+          <button
+            key={tier}
+            type="button"
+            onClick={() => trigger(tier)}
+            title={title}
+            className="flex items-center gap-1 text-[10px] leading-none px-1.5 py-1 rounded bg-slate-200/60 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+          >
+            {saved ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+            <span>{label}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }

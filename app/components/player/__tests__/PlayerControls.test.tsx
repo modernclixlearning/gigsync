@@ -38,6 +38,20 @@ describe('PlayerControls', () => {
     onToggleBeatIndicatorDebug: vi.fn(),
     onSaveControlAsDefault: vi.fn(),
     onSaveControlForSong: vi.fn(),
+    onSaveControlForSetlist: vi.fn(),
+    canSaveForSetlist: false,
+    chordFontSize: 26,
+    onChordFontSizeChange: vi.fn(),
+    beatHighlightMode: 'text' as const,
+    onBeatHighlightModeChange: vi.fn(),
+    beatHighlightTextColor: '#38bdf8',
+    onBeatHighlightTextColorChange: vi.fn(),
+    beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
+    onBeatHighlightBgColorChange: vi.fn(),
+    backgroundColor: null,
+    onBackgroundColorChange: vi.fn(),
+    lyricsTextColor: null,
+    onLyricsTextColorChange: vi.fn(),
   }
 
   beforeEach(() => {
@@ -154,7 +168,7 @@ describe('PlayerControls', () => {
 
     // Find and click increment button (the stepper is the row's last direct
     // child — its first child holds the label + save-as-default/for-song buttons)
-    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
     const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
@@ -176,7 +190,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
     const decrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
@@ -195,7 +209,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const speedControls = screen.getByText('Scroll Speed').closest('.justify-between')
+    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
     const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
@@ -214,7 +228,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
     const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
@@ -229,7 +243,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
     const decrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
@@ -241,7 +255,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const fontSizeControls = screen.getByText('Font Size').closest('.justify-between')
+    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
     const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
@@ -259,7 +273,7 @@ describe('PlayerControls', () => {
     // Find the transpose stepper (row's last direct child — its first child
     // holds the label + save-as-default/for-song buttons)
     const transposeLabel = screen.getByText('Transpose')
-    const transposeRow = transposeLabel.closest('.justify-between')
+    const transposeRow = transposeLabel.closest('[data-testid="settings-row"]')
     expect(transposeRow).toBeTruthy()
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
 
@@ -282,7 +296,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeControls = screen.getByText('Transpose').closest('.justify-between')
+    const transposeControls = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
     const decrementButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     if (decrementButton) {
       await user.click(decrementButton)
@@ -304,7 +318,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeControls = screen.getByText('Transpose').closest('.justify-between')
+    const transposeControls = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
     const resetButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (resetButton) {
       await user.click(resetButton)
@@ -362,7 +376,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeRow = screen.getByText('Transpose').closest('.justify-between')
+    const transposeRow = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
     const spellingToggle = stepper?.querySelectorAll('button')[3]
     expect(spellingToggle).toBeTruthy()
@@ -385,7 +399,7 @@ describe('PlayerControls', () => {
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    const transposeRow = screen.getByText('Transpose').closest('.justify-between')
+    const transposeRow = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
     const spellingToggle = stepper?.querySelectorAll('button')[3]
     expect(spellingToggle).toBeDisabled()

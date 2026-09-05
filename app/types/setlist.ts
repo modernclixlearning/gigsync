@@ -1,9 +1,14 @@
 // Setlist Types - Re-exported from shared contracts
 
+/** Whether the beat-follows-the-lyric highlight tints the text or the background. */
+export type BeatHighlightMode = 'text' | 'background'
+
 /**
  * Per-song overrides for player controls that otherwise reset every session
- * (see SongPlayerState). Undefined per-field = fall back to the global
- * default in PlayerPreferences, then to the hardcoded default.
+ * (see SongPlayerState). Resolution order for any field is: song override
+ * → setlist override (Setlist.playerOverrides, only when opened from a
+ * setlist) → global default in PlayerPreferences → hardcoded fallback.
+ * Undefined per-field falls through to the next tier.
  */
 export interface PlayerOverrides {
   autoScrollSpeed?: number
@@ -11,9 +16,19 @@ export interface PlayerOverrides {
   linesPerBlock?: number
   contentWidth?: number
   transpose?: number
+  /** Font size (px) of the floating chord labels above the lyrics. */
+  chordFontSize?: number
+  beatHighlightMode?: BeatHighlightMode
+  beatHighlightTextColor?: string
+  beatHighlightBgColor?: string
+  /** Player screen background color. Unset = theme default (light/dark). */
+  backgroundColor?: string
+  /** Lyrics text color. Unset = theme default (light/dark). */
+  lyricsTextColor?: string
 }
 
 export type PlayerOverrideKey = keyof PlayerOverrides
+export type PlayerOverrideValue<K extends PlayerOverrideKey> = Required<PlayerOverrides>[K]
 
 export interface Song {
   id: string
@@ -41,6 +56,7 @@ export interface Setlist {
   venue?: string
   date?: Date
   createdAt: Date
+  playerOverrides?: PlayerOverrides
 }
 
 export interface CreateSetlistInput {
@@ -55,4 +71,5 @@ export interface UpdateSetlistInput {
   songIds?: string[]
   venue?: string
   date?: Date
+  playerOverrides?: PlayerOverrides
 }
