@@ -15,7 +15,7 @@ import {
   VolumeX
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import type { PlayerOverrideKey, BeatHighlightMode } from '~/types/song'
+import type { PlayerOverrideKey, PlayerOverrides, BeatHighlightMode } from '~/types/song'
 import {
   SettingsRow,
   SettingsStepper,
@@ -76,6 +76,10 @@ interface PlayerControlsProps {
   onSaveControlAsDefault: (key: PlayerOverrideKey, value: number | string) => void
   onSaveControlForSong: (key: PlayerOverrideKey, value: number | string) => void
   onSaveControlForSetlist: (key: PlayerOverrideKey, value: number | string) => void
+  /** For rows that bundle several override keys behind one save button (e.g. beat highlight mode + its colors). */
+  onSaveControlsAsDefault: (values: Partial<PlayerOverrides>) => void
+  onSaveControlsForSong: (values: Partial<PlayerOverrides>) => void
+  onSaveControlsForSetlist: (values: Partial<PlayerOverrides>) => void
   /** Only true when the player is opened from within a setlist. */
   canSaveForSetlist: boolean
   chordFontSize: number
@@ -129,6 +133,9 @@ export function PlayerControls({
   onSaveControlAsDefault,
   onSaveControlForSong,
   onSaveControlForSetlist,
+  onSaveControlsAsDefault,
+  onSaveControlsForSong,
+  onSaveControlsForSetlist,
   canSaveForSetlist,
   chordFontSize,
   onChordFontSizeChange,
@@ -149,6 +156,12 @@ export function PlayerControls({
     if (tier === 'song') onSaveControlForSong(key, value)
     else if (tier === 'setlist') onSaveControlForSetlist(key, value)
     else onSaveControlAsDefault(key, value)
+  }
+
+  const saveHandlerForMultiple = (values: Partial<PlayerOverrides>) => (tier: SaveTier) => {
+    if (tier === 'song') onSaveControlsForSong(values)
+    else if (tier === 'setlist') onSaveControlsForSetlist(values)
+    else onSaveControlsAsDefault(values)
   }
 
   return (
@@ -331,7 +344,11 @@ export function PlayerControls({
                 </div>
               </div>
               <SaveTierButtons
-                onSave={saveHandlerFor('beatHighlightMode', beatHighlightMode)}
+                onSave={saveHandlerForMultiple({
+                  beatHighlightMode,
+                  beatHighlightTextColor,
+                  beatHighlightBgColor,
+                })}
                 canSaveForSetlist={canSaveForSetlist}
               />
             </div>
@@ -361,7 +378,10 @@ export function PlayerControls({
                 </div>
               </div>
               <SaveTierButtons
-                onSave={saveHandlerFor('backgroundColor', backgroundColor ?? '#101322')}
+                onSave={saveHandlerForMultiple({
+                  backgroundColor: backgroundColor ?? '#101322',
+                  lyricsTextColor: lyricsTextColor ?? '#ffffff',
+                })}
                 canSaveForSetlist={canSaveForSetlist}
               />
             </div>

@@ -66,6 +66,8 @@ interface ChordOverlayProps {
   timeSignature?: string
   /** Font size (px) of the floating chord labels above the lyrics. Default 26. */
   chordFontSize?: number
+  /** Overrides the theme's lyric text color in read mode. */
+  lyricsTextColor?: string | null
 }
 
 export function ChordOverlay({
@@ -85,6 +87,7 @@ export function ChordOverlay({
   bpm,
   timeSignature = '4/4',
   chordFontSize = 26,
+  lyricsTextColor,
 }: ChordOverlayProps) {
   const parsed = useMemo(
     () => parseChordPro(lyrics, transpose, preferFlats),
@@ -294,6 +297,7 @@ export function ChordOverlay({
               bpm={bpm}
               timeSignature={timeSignature}
               chordFontSize={chordFontSize}
+              lyricsTextColor={lyricsTextColor}
             />
           )
         }
@@ -330,6 +334,7 @@ export function ChordOverlay({
               timeSignature={timeSignature}
               lineCount={displayLines.length}
               chordFontSize={chordFontSize}
+              lyricsTextColor={lyricsTextColor}
             />
 
             {/* Between-line insert controls (when editable) */}
@@ -404,6 +409,7 @@ function ChordOverlayLine({
   bpm,
   timeSignature = '4/4',
   chordFontSize = 26,
+  lyricsTextColor,
 }: {
   line: AnyParsedLine
   transpose: number
@@ -420,6 +426,7 @@ function ChordOverlayLine({
   bpm?: number
   timeSignature?: string
   chordFontSize?: number
+  lyricsTextColor?: string | null
 }) {
   // ── Line-level bubble menu (for deleting lines) ──────────────────────────────
   const canDeleteLine = isEditable && lineCount > 1 && line.type !== 'directive'
@@ -566,6 +573,7 @@ function ChordOverlayLine({
             bpm={bpm}
             timeSignature={timeSignature}
             chordFontSize={chordFontSize}
+            lyricsTextColor={lyricsTextColor}
           />
         )}
         {lineBubbleMenuPortal}
@@ -607,7 +615,10 @@ function ChordOverlayLine({
           </button>
         </div>
       ) : (
-        <p className="text-slate-900 dark:text-white whitespace-pre leading-relaxed">
+        <p
+          className="text-slate-900 dark:text-white whitespace-pre leading-relaxed"
+          style={lyricsTextColor ? { color: lyricsTextColor } : undefined}
+        >
           {lyricLine.text}
         </p>
       )}

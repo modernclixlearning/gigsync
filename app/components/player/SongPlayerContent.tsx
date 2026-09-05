@@ -23,7 +23,7 @@ import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
-import type { Song, PlayerOverrideKey, PlayerOverrideValue } from '~/types'
+import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 
 export interface SetlistContext {
   setlistId: string
@@ -124,6 +124,33 @@ export function SongPlayerContent({
     (key: PlayerOverrideKey, value: number | string) => {
       if (!setlistContext) return
       void updateSetlist({ playerOverrides: { ...setlist?.playerOverrides, [key]: value } })
+    },
+    [setlistContext, updateSetlist, setlist?.playerOverrides]
+  )
+
+  // Some settings rows bundle several override keys behind one save button
+  // (e.g. beat highlight mode + its two colors, or background + lyrics
+  // color) — saving them one key at a time via the handlers above would
+  // race, since each call reads the same not-yet-updated `song`/`setlist`
+  // snapshot and would clobber the previous key's write.
+  const handleSaveControlsAsDefault = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      void updatePlayerSettings(values)
+    },
+    [updatePlayerSettings]
+  )
+
+  const handleSaveControlsForSong = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      void updateSong({ playerOverrides: { ...song.playerOverrides, ...values } })
+    },
+    [updateSong, song.playerOverrides]
+  )
+
+  const handleSaveControlsForSetlist = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      if (!setlistContext) return
+      void updateSetlist({ playerOverrides: { ...setlist?.playerOverrides, ...values } })
     },
     [setlistContext, updateSetlist, setlist?.playerOverrides]
   )
@@ -608,6 +635,7 @@ export function SongPlayerContent({
               bpm={song.bpm}
               timeSignature={song.timeSignature}
               chordFontSize={player.state.chordFontSize}
+              lyricsTextColor={player.state.lyricsTextColor}
             />
           ) : (
             <LyricsDisplay lyrics={song.lyrics} />
@@ -659,6 +687,9 @@ export function SongPlayerContent({
         onSaveControlAsDefault={handleSaveControlAsDefault}
         onSaveControlForSong={handleSaveControlForSong}
         onSaveControlForSetlist={handleSaveControlForSetlist}
+        onSaveControlsAsDefault={handleSaveControlsAsDefault}
+        onSaveControlsForSong={handleSaveControlsForSong}
+        onSaveControlsForSetlist={handleSaveControlsForSetlist}
         canSaveForSetlist={canSaveForSetlist}
         chordFontSize={player.state.chordFontSize}
         onChordFontSizeChange={player.setChordFontSize}
