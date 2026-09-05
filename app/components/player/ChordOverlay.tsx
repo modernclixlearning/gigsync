@@ -64,6 +64,8 @@ interface ChordOverlayProps {
   bpm?: number
   /** Time signature (e.g. "4/4") — must match what the real autoscroll timeline used, or the marquee drifts out of sync. */
   timeSignature?: string
+  /** Font size (px) of the floating chord labels above the lyrics. Default 26. */
+  chordFontSize?: number
 }
 
 export function ChordOverlay({
@@ -82,6 +84,7 @@ export function ChordOverlay({
   currentElementId,
   bpm,
   timeSignature = '4/4',
+  chordFontSize = 26,
 }: ChordOverlayProps) {
   const parsed = useMemo(
     () => parseChordPro(lyrics, transpose, preferFlats),
@@ -290,6 +293,7 @@ export function ChordOverlay({
               currentElementId={currentElementId}
               bpm={bpm}
               timeSignature={timeSignature}
+              chordFontSize={chordFontSize}
             />
           )
         }
@@ -325,6 +329,7 @@ export function ChordOverlay({
               bpm={bpm}
               timeSignature={timeSignature}
               lineCount={displayLines.length}
+              chordFontSize={chordFontSize}
             />
 
             {/* Between-line insert controls (when editable) */}
@@ -398,6 +403,7 @@ function ChordOverlayLine({
   currentElementId,
   bpm,
   timeSignature = '4/4',
+  chordFontSize = 26,
 }: {
   line: AnyParsedLine
   transpose: number
@@ -413,6 +419,7 @@ function ChordOverlayLine({
   currentElementId?: string | null
   bpm?: number
   timeSignature?: string
+  chordFontSize?: number
 }) {
   // ── Line-level bubble menu (for deleting lines) ──────────────────────────────
   const canDeleteLine = isEditable && lineCount > 1 && line.type !== 'directive'
@@ -547,6 +554,7 @@ function ChordOverlayLine({
               onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
             }
             gridResolution={gridResolution}
+            chordFontSize={chordFontSize}
           />
         ) : (
           <LyricVerseLine
@@ -557,6 +565,7 @@ function ChordOverlayLine({
             currentElementId={currentElementId}
             bpm={bpm}
             timeSignature={timeSignature}
+            chordFontSize={chordFontSize}
           />
         )}
         {lineBubbleMenuPortal}

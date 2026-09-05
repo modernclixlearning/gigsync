@@ -61,6 +61,8 @@ interface LyricBarGridProps {
   gridResolution?: number
   /** Default beats per chord when `beats` is undefined. Default 4. */
   defaultBeatsPerChord?: number
+  /** Font size (px) of the chord badge above each bar cell. Default 26. */
+  chordFontSize?: number
 }
 
 interface BarSegment {
@@ -122,6 +124,7 @@ export function LyricBarGrid({
   onTextChange,
   gridResolution = 0.25,
   defaultBeatsPerChord = 4,
+  chordFontSize = 26,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -366,7 +369,7 @@ export function LyricBarGrid({
               )}
             </div>
           ) : (
-            <span className="font-mono font-bold text-[0.6em] text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none">
+            <span className="font-mono font-bold text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none" style={{ fontSize: chordFontSize }}>
               {seg.chord}
             </span>
           )}
