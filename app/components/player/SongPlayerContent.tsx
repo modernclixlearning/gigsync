@@ -507,7 +507,7 @@ export function SongPlayerContent({
             <style>{`
               /* Dim all non-active lines */
               [data-element-id] {
-                opacity: 0.4;
+                opacity: 0.25;
                 transition: opacity 0.4s ease;
               }
               /* Active line (and its reading-block group-mates) full brightness */
