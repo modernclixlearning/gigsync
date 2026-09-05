@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import {
   parseChordPro,
@@ -380,6 +381,22 @@ export function ChordOverlay({
                     </div>
                   )}
                 </div>
+                {displayLines.length > 1 && line.type !== 'directive' && (
+                  <button
+                    onClick={() => handleDeleteLine(index)}
+                    aria-label="Eliminar línea"
+                    title="Eliminar línea"
+                    className={cn(
+                      'flex items-center justify-center h-[26px] w-[26px] rounded-full',
+                      'text-slate-400 dark:text-slate-500',
+                      'hover:bg-rose-100 dark:hover:bg-rose-900/30 hover:text-rose-600 dark:hover:text-rose-400',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60 dark:focus-visible:ring-rose-500/60',
+                      'transition-colors'
+                    )}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>
