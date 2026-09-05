@@ -24,6 +24,10 @@ describe('PlayerControls', () => {
     transpose: 0,
     onTranspose: vi.fn(),
     onResetTranspose: vi.fn(),
+    transposeDisplay: 'C',
+    transposePreferFlats: false,
+    isTransposeSpellingFlexible: false,
+    onToggleTransposeSpelling: vi.fn(),
     metronomeSoundEnabled: false,
     onToggleMetronomeSound: vi.fn(),
     smartScrollContextWindow: 33,
@@ -320,25 +324,70 @@ describe('PlayerControls', () => {
     expect(screen.queryByTitle('Reset transpose')).not.toBeInTheDocument()
   })
 
-  it('should display transpose value correctly', async () => {
+  it('should display the transpose target key name, not a raw semitone count', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
-      <PlayerControls {...defaultProps} transpose={3} />
+      <PlayerControls {...defaultProps} transpose={3} transposeDisplay="D#" />
     )
 
     const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
     await user.click(settingsButton)
 
-    // The transpose value is displayed in a button
-    expect(screen.getByText('+3')).toBeInTheDocument()
+    // The transpose target is displayed as a note name in a button
+    expect(screen.getByText('D#')).toBeInTheDocument()
 
-    rerender(<PlayerControls {...defaultProps} transpose={-2} />)
+    rerender(<PlayerControls {...defaultProps} transpose={-2} transposeDisplay="Bb" />)
     // Settings panel should still be open, but if not, click again
-    if (!screen.queryByText('-2')) {
+    if (!screen.queryByText('Bb')) {
       const settingsButton2 = screen.getByRole('button', { name: /show settings|hide settings/i })
       await user.click(settingsButton2)
     }
 
-    expect(screen.getByText('-2')).toBeInTheDocument()
+    expect(screen.getByText('Bb')).toBeInTheDocument()
+  })
+
+  it('should toggle the enharmonic spelling when the sharp/flat button is clicked', async () => {
+    const user = userEvent.setup()
+    const onToggleTransposeSpelling = vi.fn()
+    render(
+      <PlayerControls
+        {...defaultProps}
+        transpose={3}
+        transposeDisplay="D#"
+        isTransposeSpellingFlexible
+        onToggleTransposeSpelling={onToggleTransposeSpelling}
+      />
+    )
+
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
+    await user.click(settingsButton)
+
+    const transposeRow = screen.getByText('Transpose').closest('.justify-between')
+    const stepper = transposeRow?.querySelector(':scope > div:last-child')
+    const spellingToggle = stepper?.querySelectorAll('button')[3]
+    expect(spellingToggle).toBeTruthy()
+
+    await user.click(spellingToggle!)
+    expect(onToggleTransposeSpelling).toHaveBeenCalledTimes(1)
+  })
+
+  it('should disable the sharp/flat toggle when the target note has no alternative spelling', async () => {
+    const user = userEvent.setup()
+    render(
+      <PlayerControls
+        {...defaultProps}
+        transpose={0}
+        transposeDisplay="C"
+        isTransposeSpellingFlexible={false}
+      />
+    )
+
+    const settingsButton = screen.getByRole('button', { name: /show settings|hide settings/i })
+    await user.click(settingsButton)
+
+    const transposeRow = screen.getByText('Transpose').closest('.justify-between')
+    const stepper = transposeRow?.querySelector(':scope > div:last-child')
+    const spellingToggle = stepper?.querySelectorAll('button')[3]
+    expect(spellingToggle).toBeDisabled()
   })
 })

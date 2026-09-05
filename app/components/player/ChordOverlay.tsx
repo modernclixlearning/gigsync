@@ -31,6 +31,8 @@ import type {
 interface ChordOverlayProps {
   lyrics: string
   transpose?: number
+  /** Enharmonic spelling override for every transposed chord (undefined = minimal-accidentals default). */
+  preferFlats?: boolean
   /** Number of grid columns (2 = zoomed-in, 4 = normal). Default 4. */
   columns?: number
   className?: string
@@ -67,6 +69,7 @@ interface ChordOverlayProps {
 export function ChordOverlay({
   lyrics,
   transpose = 0,
+  preferFlats,
   columns = 4,
   className,
   onChordClick,
@@ -80,7 +83,10 @@ export function ChordOverlay({
   bpm,
   timeSignature = '4/4',
 }: ChordOverlayProps) {
-  const parsed = useMemo(() => parseChordPro(lyrics, transpose), [lyrics, transpose])
+  const parsed = useMemo(
+    () => parseChordPro(lyrics, transpose, preferFlats),
+    [lyrics, transpose, preferFlats]
+  )
 
   // Local editable copy of parsed lines — updated on every drag-and-drop
   const [lines, setLines] = useState<AnyParsedLine[]>(() => parsed.lines)
@@ -92,7 +98,7 @@ export function ChordOverlay({
     // When the source lyrics change (after save), reset local state
     return parsed.lines
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prevLyrics, transpose])
+  }, [prevLyrics, transpose, preferFlats])
 
   // Use synced lines when not editable, local state when editable
   const displayLines = isEditable ? lines : syncedLines
@@ -279,7 +285,6 @@ export function ChordOverlay({
             <LyricVerseRow
               key={`block-${indices[0]}`}
               entries={entries}
-              transpose={transpose}
               onChordClick={onChordClick}
               isSeekEnabled={isSeekEnabled}
               currentElementId={currentElementId}
@@ -546,7 +551,6 @@ function ChordOverlayLine({
         ) : (
           <LyricVerseLine
             line={lyricLine}
-            transpose={transpose}
             elementId={elementId}
             onChordClick={onChordClick}
             isSeekEnabled={isSeekEnabled}

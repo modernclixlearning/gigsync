@@ -33,6 +33,36 @@ const SHARP_TO_FLAT: Record<string, string> = {
   'A#': 'Bb',
 }
 
+/**
+ * Of the 5 chromatic pitch classes with two possible spellings, which one
+ * has fewer accidentals as a major-key signature (e.g. Eb major = 3 flats
+ * vs D# major = 9 sharps, so Eb reads as simpler/more legible). F#/Gb is a
+ * genuine 6-vs-6 tie — defaults to sharp (F#), the more common guitar-chart
+ * convention. Natural pitch classes (C, D, E, F, G, A, B) aren't ambiguous:
+ * NOTES_SHARP and NOTES_FLAT already agree on their name.
+ */
+const AMBIGUOUS_PITCH_PREFERS_FLAT: Partial<Record<number, boolean>> = {
+  1: true,  // Db over C#
+  3: true,  // Eb over D#
+  6: false, // F# over Gb (tie)
+  8: true,  // Ab over G#
+  10: true, // Bb over A#
+}
+
+/**
+ * Default enharmonic spelling for a chromatic pitch (0-11), chosen to
+ * minimize accidentals — the same logic that makes "transpose G to Bb"
+ * read as 2 flats instead of "A#" (10 sharps' worth of key signature).
+ */
+export function defaultPrefersFlats(pitchIndex: number): boolean {
+  return AMBIGUOUS_PITCH_PREFERS_FLAT[pitchIndex] ?? false
+}
+
+/** Whether a chromatic pitch (0-11) has two valid letter-name spellings. */
+export function isAmbiguousPitch(pitchIndex: number): boolean {
+  return pitchIndex in AMBIGUOUS_PITCH_PREFERS_FLAT
+}
+
 // ============================================================================
 // Parsing
 // ============================================================================
@@ -109,31 +139,70 @@ export function transposeNote(note: string, semitones: number, useFlats = false)
  * Transpose a chord by semitones
  * @param chord - Chord string (e.g., 'Am7', 'F#m', 'C/G')
  * @param semitones - Number of semitones to transpose
+ * @param forceUseFlats - Override the enharmonic spelling for the whole
+ *   chord (root + bass). When omitted, each note picks whichever spelling
+ *   has fewer accidentals for its own resulting pitch (see defaultPrefersFlats).
  * @returns Transposed chord string
  */
-export function transposeChord(chord: string, semitones: number): string {
-  if (semitones === 0) return chord
+export function transposeChord(chord: string, semitones: number, forceUseFlats?: boolean): string {
+  if (semitones === 0 && forceUseFlats === undefined) return chord
 
   const parsed = parseChordString(chord)
   if (!parsed) return chord
 
-  // Detect if original uses flats
-  const useFlats = parsed.accidental === 'b' || (parsed.bass?.accidental === 'b')
-
   // Transpose root
   const rootNote = parsed.root + parsed.accidental
-  const newRoot = transposeNote(rootNote, semitones, useFlats)
+  const rootIndex = getNoteIndex(rootNote)
+  if (rootIndex === -1) return chord
+  const newRootIndex = ((rootIndex + semitones) % 12 + 12) % 12
+  const rootUseFlats = forceUseFlats ?? defaultPrefersFlats(newRootIndex)
+  const newRoot = rootUseFlats ? NOTES_FLAT[newRootIndex] : NOTES_SHARP[newRootIndex]
 
   let result = newRoot + parsed.suffix
 
   // Transpose bass if present
   if (parsed.bass) {
     const bassNote = parsed.bass.note + parsed.bass.accidental
-    const newBass = transposeNote(bassNote, semitones, useFlats)
-    result += '/' + newBass
+    const bassIndex = getNoteIndex(bassNote)
+    if (bassIndex !== -1) {
+      const newBassIndex = ((bassIndex + semitones) % 12 + 12) % 12
+      const bassUseFlats = forceUseFlats ?? defaultPrefersFlats(newBassIndex)
+      const newBass = bassUseFlats ? NOTES_FLAT[newBassIndex] : NOTES_SHARP[newBassIndex]
+      result += '/' + newBass
+    } else {
+      result += '/' + bassNote
+    }
   }
 
   return result
+}
+
+/**
+ * Chromatic pitch (0-11) a song's key lands on after transposing. Returns
+ * -1 if `originalKey` isn't a recognizable note (e.g. empty/malformed).
+ */
+export function getTransposedPitchIndex(originalKey: string, semitones: number): number {
+  const root = /m$/.test(originalKey) ? originalKey.slice(0, -1) : originalKey
+  const index = getNoteIndex(root)
+  if (index === -1) return -1
+  return ((index + semitones) % 12 + 12) % 12
+}
+
+/**
+ * Name of the key a song lands on after transposing, following the same
+ * minimal-accidentals spelling as transposeChord (with the same manual
+ * override). Preserves a trailing 'm' (minor) if present.
+ * @example getTransposedKeyName('G', 3) → 'Bb'
+ * @example getTransposedKeyName('F#m', 0, false) → 'F#m'
+ */
+export function getTransposedKeyName(originalKey: string, semitones: number, forceUseFlats?: boolean): string {
+  const newIndex = getTransposedPitchIndex(originalKey, semitones)
+  if (newIndex === -1) return originalKey
+
+  const isMinor = /m$/.test(originalKey)
+  const useFlats = forceUseFlats ?? defaultPrefersFlats(newIndex)
+  const name = useFlats ? NOTES_FLAT[newIndex] : NOTES_SHARP[newIndex]
+  return isMinor ? `${name}m` : name
 }
 
 /**
@@ -154,10 +223,10 @@ export function getInterval(from: string, to: string): number {
  * @param line - Line with chords in brackets [Am] [G]
  * @param semitones - Number of semitones to transpose
  */
-export function transposeLine(line: string, semitones: number): string {
-  if (semitones === 0) return line
-  
+export function transposeLine(line: string, semitones: number, forceUseFlats?: boolean): string {
+  if (semitones === 0 && forceUseFlats === undefined) return line
+
   return line.replace(/\[([A-G][#b]?[^\]]*)\]/g, (_, chord) => {
-    return `[${transposeChord(chord, semitones)}]`
+    return `[${transposeChord(chord, semitones, forceUseFlats)}]`
   })
 }

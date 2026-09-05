@@ -68,14 +68,15 @@ interface BarSegment {
   text: string
 }
 
-function splitIntoBarSegments(line: LyricParsedLine, transpose: number): BarSegment[] {
+// `line.chords[].chord` is already transposed (parseChordPro applies it
+// upstream) — this only re-slices text around it, it must not transpose again.
+function splitIntoBarSegments(line: LyricParsedLine): BarSegment[] {
   const { text, chords } = line
   return chords.map((chordPos, i) => {
     const startPos = chordPos.position
     const endPos = i + 1 < chords.length ? chords[i + 1].position : text.length
     const segText = text.slice(startPos, endPos).trim()
-    const chord = transpose !== 0 ? transposeChord(chordPos.chord, transpose) : chordPos.chord
-    return { chord, text: segText }
+    return { chord: chordPos.chord, text: segText }
   })
 }
 
@@ -122,7 +123,7 @@ export function LyricBarGrid({
   gridResolution = 0.25,
   defaultBeatsPerChord = 4,
 }: LyricBarGridProps) {
-  const segments = splitIntoBarSegments(line, transpose)
+  const segments = splitIntoBarSegments(line)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
   const chordPickerRef = useRef<HTMLDivElement>(null)
