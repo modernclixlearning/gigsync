@@ -4,7 +4,6 @@ import {
   Pause,
   ChevronUp,
   ChevronDown,
-  Music,
   Eye,
   EyeOff,
   Pencil,
@@ -16,7 +15,14 @@ import {
   VolumeX
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import type { PlayerOverrideKey } from '~/types/song'
+import type { PlayerOverrideKey, PlayerOverrides, BeatHighlightMode } from '~/types/song'
+import {
+  SettingsRow,
+  SettingsStepper,
+  SettingsColorField,
+  SaveTierButtons,
+  type SaveTier,
+} from '~/components/profile/SettingsSection'
 
 // contentWidth (px) is the width of the reading column — smaller width means
 // bigger side margins. The "Márgenes" control below displays and steps the
@@ -28,49 +34,8 @@ const CONTENT_WIDTH_STEP = 40
 function contentWidthToMargin(contentWidth: number): number {
   return CONTENT_WIDTH_MIN + CONTENT_WIDTH_MAX - contentWidth
 }
-
-/**
- * Per-control persistence: "Usar como default" writes a global fallback
- * (AppSettings.player, applies to every song that hasn't overridden it
- * itself); "Solo esta canción" writes to the current song's own
- * playerOverrides (wins over the global default). Both are opt-in — the
- * control's live value never persists on its own.
- */
-function SaveControlButtons({
-  controlKey,
-  value,
-  onSaveAsDefault,
-  onSaveForSong,
-}: {
-  controlKey: PlayerOverrideKey
-  value: number
-  onSaveAsDefault: (key: PlayerOverrideKey, value: number) => void
-  onSaveForSong: (key: PlayerOverrideKey, value: number) => void
-}) {
-  const [flash, setFlash] = useState<'default' | 'song' | null>(null)
-
-  const trigger = (kind: 'default' | 'song', action: () => void) => {
-    action()
-    setFlash(kind)
-    setTimeout(() => setFlash(null), 1200)
-  }
-
-  return (
-    <div className="flex items-center gap-2 mt-1">
-      <button
-        onClick={() => trigger('default', () => onSaveAsDefault(controlKey, value))}
-        className="text-[10px] leading-none px-1.5 py-1 rounded bg-slate-200/60 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-      >
-        {flash === 'default' ? '✓ Guardado' : 'Usar como default'}
-      </button>
-      <button
-        onClick={() => trigger('song', () => onSaveForSong(controlKey, value))}
-        className="text-[10px] leading-none px-1.5 py-1 rounded bg-slate-200/60 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-      >
-        {flash === 'song' ? '✓ Guardado' : 'Solo esta canción'}
-      </button>
-    </div>
-  )
+function marginToContentWidth(margin: number): number {
+  return CONTENT_WIDTH_MIN + CONTENT_WIDTH_MAX - margin
 }
 
 interface PlayerControlsProps {
@@ -108,8 +73,29 @@ interface PlayerControlsProps {
   onSmartScrollSmoothnessChange: (value: number) => void
   showBeatIndicatorDebug: boolean
   onToggleBeatIndicatorDebug: () => void
-  onSaveControlAsDefault: (key: PlayerOverrideKey, value: number) => void
-  onSaveControlForSong: (key: PlayerOverrideKey, value: number) => void
+  onSaveControlAsDefault: (key: PlayerOverrideKey, value: number | string) => void
+  onSaveControlForSong: (key: PlayerOverrideKey, value: number | string) => void
+  onSaveControlForSetlist: (key: PlayerOverrideKey, value: number | string) => void
+  /** For rows that bundle several override keys behind one save button (e.g. beat highlight mode + its colors). */
+  onSaveControlsAsDefault: (values: Partial<PlayerOverrides>) => void
+  onSaveControlsForSong: (values: Partial<PlayerOverrides>) => void
+  onSaveControlsForSetlist: (values: Partial<PlayerOverrides>) => void
+  /** Only true when the player is opened from within a setlist. */
+  canSaveForSetlist: boolean
+  chordFontSize: number
+  onChordFontSizeChange: (size: number) => void
+  beatHighlightMode: BeatHighlightMode
+  onBeatHighlightModeChange: (mode: BeatHighlightMode) => void
+  beatHighlightTextColor: string
+  onBeatHighlightTextColorChange: (color: string) => void
+  beatHighlightBgColor: string
+  onBeatHighlightBgColorChange: (color: string) => void
+  /** null = theme default (light/dark), not yet overridden. */
+  backgroundColor: string | null
+  onBackgroundColorChange: (color: string | null) => void
+  /** null = theme default (light/dark), not yet overridden. */
+  lyricsTextColor: string | null
+  onLyricsTextColorChange: (color: string | null) => void
 }
 
 export function PlayerControls({
@@ -145,212 +131,264 @@ export function PlayerControls({
   showBeatIndicatorDebug,
   onToggleBeatIndicatorDebug,
   onSaveControlAsDefault,
-  onSaveControlForSong
+  onSaveControlForSong,
+  onSaveControlForSetlist,
+  onSaveControlsAsDefault,
+  onSaveControlsForSong,
+  onSaveControlsForSetlist,
+  canSaveForSetlist,
+  chordFontSize,
+  onChordFontSizeChange,
+  beatHighlightMode,
+  onBeatHighlightModeChange,
+  beatHighlightTextColor,
+  onBeatHighlightTextColorChange,
+  beatHighlightBgColor,
+  onBeatHighlightBgColorChange,
+  backgroundColor,
+  onBackgroundColorChange,
+  lyricsTextColor,
+  onLyricsTextColorChange
 }: PlayerControlsProps) {
   const [showSettings, setShowSettings] = useState(false)
+
+  const saveHandlerFor = (key: PlayerOverrideKey, value: number | string) => (tier: SaveTier) => {
+    if (tier === 'song') onSaveControlForSong(key, value)
+    else if (tier === 'setlist') onSaveControlForSetlist(key, value)
+    else onSaveControlAsDefault(key, value)
+  }
+
+  const saveHandlerForMultiple = (values: Partial<PlayerOverrides>) => (tier: SaveTier) => {
+    if (tier === 'song') onSaveControlsForSong(values)
+    else if (tier === 'setlist') onSaveControlsForSetlist(values)
+    else onSaveControlsAsDefault(values)
+  }
 
   return (
     <div className="sticky bottom-0 z-20 bg-white dark:bg-[#1a1f36] border-t border-slate-200 dark:border-slate-800 safe-area-pb">
       {/* Settings Panel */}
       {showSettings && (
-        <div
-          className="mx-auto px-6 md:px-8 py-4 border-b border-slate-200 dark:border-slate-800 space-y-4"
-        >
-          {/* Auto-scroll Speed */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                Scroll Speed
-              </span>
-              <SaveControlButtons
-                controlKey="autoScrollSpeed"
+        <div className="max-w-2xl mx-auto px-6 md:px-8 py-4 border-b border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+          <SettingsRow label="Scroll Speed">
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <SettingsStepper
                 value={autoScrollSpeed}
-                onSaveAsDefault={onSaveControlAsDefault}
-                onSaveForSong={onSaveControlForSong}
+                min={0}
+                max={100}
+                step={10}
+                onChange={onAutoScrollSpeedChange}
+              />
+              <SaveTierButtons
+                onSave={saveHandlerFor('autoScrollSpeed', autoScrollSpeed)}
+                canSaveForSetlist={canSaveForSetlist}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onAutoScrollSpeedChange(autoScrollSpeed - 10)}
-                disabled={autoScrollSpeed <= 0}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="w-8 text-center text-sm font-medium">
-                {autoScrollSpeed}
-              </span>
-              <button
-                onClick={() => onAutoScrollSpeedChange(autoScrollSpeed + 10)}
-                disabled={autoScrollSpeed >= 100}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          </SettingsRow>
 
-          {/* Font Size */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                Font Size
-              </span>
-              <SaveControlButtons
-                controlKey="fontSize"
+          <SettingsRow label="Font Size">
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <SettingsStepper
                 value={fontSize}
-                onSaveAsDefault={onSaveControlAsDefault}
-                onSaveForSong={onSaveControlForSong}
+                min={20}
+                max={56}
+                step={2}
+                onChange={onFontSizeChange}
+              />
+              <SaveTierButtons
+                onSave={saveHandlerFor('fontSize', fontSize)}
+                canSaveForSetlist={canSaveForSetlist}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onFontSizeChange(fontSize - 2)}
-                disabled={fontSize <= 20}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="w-8 text-center text-sm font-medium">
-                {fontSize}
-              </span>
-              <button
-                onClick={() => onFontSizeChange(fontSize + 2)}
-                disabled={fontSize >= 56}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          </SettingsRow>
 
-          {/* Lines per reading block */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                Versos por línea
-              </span>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                Varios versos cortos comparten la misma línea (rap); uno largo ocupa la línea entera (aria).
-              </p>
-              <SaveControlButtons
-                controlKey="linesPerBlock"
+          <SettingsRow
+            label="Versos por línea"
+            description="Varios versos cortos comparten la misma línea (rap); uno largo ocupa la línea entera (aria)."
+          >
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <SettingsStepper
                 value={linesPerBlock}
-                onSaveAsDefault={onSaveControlAsDefault}
-                onSaveForSong={onSaveControlForSong}
+                min={1}
+                max={4}
+                onChange={onLinesPerBlockChange}
+              />
+              <SaveTierButtons
+                onSave={saveHandlerFor('linesPerBlock', linesPerBlock)}
+                canSaveForSetlist={canSaveForSetlist}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onLinesPerBlockChange(linesPerBlock - 1)}
-                disabled={linesPerBlock <= 1}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="w-8 text-center text-sm font-medium">
-                {linesPerBlock}
-              </span>
-              <button
-                onClick={() => onLinesPerBlockChange(linesPerBlock + 1)}
-                disabled={linesPerBlock >= 4}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          </SettingsRow>
 
-          {/* Márgenes (ancho de la columna de lectura) */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                Márgenes
-              </span>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                Espacio a los costados de la letra. Mayor = más margen.
-              </p>
-              <SaveControlButtons
-                controlKey="contentWidth"
-                value={contentWidth}
-                onSaveAsDefault={onSaveControlAsDefault}
-                onSaveForSong={onSaveControlForSong}
+          <SettingsRow
+            label="Márgenes"
+            description="Espacio a los costados de la letra. Mayor = más margen."
+          >
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <SettingsStepper
+                value={contentWidthToMargin(contentWidth)}
+                min={CONTENT_WIDTH_MIN}
+                max={CONTENT_WIDTH_MAX}
+                step={CONTENT_WIDTH_STEP}
+                onChange={(margin) => onContentWidthChange(marginToContentWidth(margin))}
+              />
+              <SaveTierButtons
+                onSave={saveHandlerFor('contentWidth', contentWidth)}
+                canSaveForSetlist={canSaveForSetlist}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onContentWidthChange(contentWidth + CONTENT_WIDTH_STEP)}
-                disabled={contentWidth >= CONTENT_WIDTH_MAX}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="w-8 text-center text-sm font-medium">
-                {contentWidthToMargin(contentWidth)}
-              </span>
-              <button
-                onClick={() => onContentWidthChange(contentWidth - CONTENT_WIDTH_STEP)}
-                disabled={contentWidth <= CONTENT_WIDTH_MIN}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          </SettingsRow>
 
-          {/* Transpose */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                Transpose
-              </span>
-              <SaveControlButtons
-                controlKey="transpose"
-                value={transpose}
-                onSaveAsDefault={onSaveControlAsDefault}
-                onSaveForSong={onSaveControlForSong}
+          <SettingsRow label="Transpose">
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onTranspose(-1)}
+                  className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onResetTranspose}
+                  className={cn(
+                    'w-14 text-center text-sm font-medium rounded-lg py-1',
+                    transpose !== 0 && 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                  )}
+                >
+                  {transposeDisplay}
+                </button>
+                <button
+                  onClick={() => onTranspose(1)}
+                  className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onToggleTransposeSpelling}
+                  disabled={!isTransposeSpellingFlexible}
+                  title={isTransposeSpellingFlexible ? 'Cambiar entre sostenido y bemol' : 'Esta nota no tiene alteración alternativa'}
+                  className={cn(
+                    'px-2 py-1 rounded-lg text-sm font-medium disabled:opacity-30',
+                    transposePreferFlats
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                      : 'bg-slate-100 dark:bg-slate-800'
+                  )}
+                >
+                  {transposePreferFlats ? '♭' : '♯'}
+                </button>
+              </div>
+              <SaveTierButtons
+                onSave={saveHandlerFor('transpose', transpose)}
+                canSaveForSetlist={canSaveForSetlist}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onTranspose(-1)}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onResetTranspose}
-                className={cn(
-                  'w-14 text-center text-sm font-medium rounded-lg py-1',
-                  transpose !== 0 && 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                )}
-              >
-                {transposeDisplay}
-              </button>
-              <button
-                onClick={() => onTranspose(1)}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onToggleTransposeSpelling}
-                disabled={!isTransposeSpellingFlexible}
-                title={isTransposeSpellingFlexible ? 'Cambiar entre sostenido y bemol' : 'Esta nota no tiene alteración alternativa'}
-                className={cn(
-                  'px-2 py-1 rounded-lg text-sm font-medium disabled:opacity-30',
-                  transposePreferFlats
-                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                    : 'bg-slate-100 dark:bg-slate-800'
-                )}
-              >
-                {transposePreferFlats ? '♭' : '♯'}
-              </button>
+          </SettingsRow>
+
+          <SettingsRow
+            label="Tamaño de acordes"
+            description="Tamaño de las etiquetas de acorde flotando sobre la letra."
+          >
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <SettingsStepper
+                value={chordFontSize}
+                min={12}
+                max={80}
+                step={2}
+                onChange={onChordFontSizeChange}
+              />
+              <SaveTierButtons
+                onSave={saveHandlerFor('chordFontSize', chordFontSize)}
+                canSaveForSetlist={canSaveForSetlist}
+              />
             </div>
-          </div>
+          </SettingsRow>
+
+          <SettingsRow
+            label="Resaltado del beat"
+            description="Cómo se destaca la palabra que suena: cambiando el color de letra o el de fondo."
+          >
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onBeatHighlightModeChange('text')}
+                  className={cn(
+                    'px-2 py-1 rounded-lg text-xs font-medium',
+                    beatHighlightMode === 'text'
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  )}
+                >
+                  Letra
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBeatHighlightModeChange('background')}
+                  className={cn(
+                    'px-2 py-1 rounded-lg text-xs font-medium',
+                    beatHighlightMode === 'background'
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  )}
+                >
+                  Fondo
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-0.5">
+                  <SettingsColorField value={beatHighlightTextColor} onChange={onBeatHighlightTextColorChange} />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Letra</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <SettingsColorField value={beatHighlightBgColor} onChange={onBeatHighlightBgColorChange} />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Fondo</span>
+                </div>
+              </div>
+              <SaveTierButtons
+                onSave={saveHandlerForMultiple({
+                  beatHighlightMode,
+                  beatHighlightTextColor,
+                  beatHighlightBgColor,
+                })}
+                canSaveForSetlist={canSaveForSetlist}
+              />
+            </div>
+          </SettingsRow>
+
+          <SettingsRow
+            label="Colores del display"
+            description="Fondo de la pantalla y color de la letra. Por defecto siguen el tema claro/oscuro."
+          >
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-0.5">
+                  <SettingsColorField
+                    value={backgroundColor ?? '#101322'}
+                    onChange={onBackgroundColorChange}
+                    onReset={backgroundColor !== null ? () => onBackgroundColorChange(null) : undefined}
+                  />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Fondo</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <SettingsColorField
+                    value={lyricsTextColor ?? '#ffffff'}
+                    onChange={onLyricsTextColorChange}
+                    onReset={lyricsTextColor !== null ? () => onLyricsTextColorChange(null) : undefined}
+                  />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Letra</span>
+                </div>
+              </div>
+              <SaveTierButtons
+                onSave={saveHandlerForMultiple({
+                  backgroundColor: backgroundColor ?? '#101322',
+                  lyricsTextColor: lyricsTextColor ?? '#ffffff',
+                })}
+                canSaveForSetlist={canSaveForSetlist}
+              />
+            </div>
+          </SettingsRow>
 
           {/* Smart Scroll (Beta) */}
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 space-y-3">
+          <div className="pt-4 space-y-3">
             <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               Smart Scroll (Beta)
             </h4>

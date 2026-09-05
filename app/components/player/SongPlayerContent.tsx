@@ -12,6 +12,7 @@ import {
   isAmbiguousPitch,
 } from '~/lib/chordpro'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
+import { useSetlist } from '~/hooks/useSetlist'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useAutoScroll } from '~/components/player/AutoScroll'
@@ -22,7 +23,7 @@ import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
-import type { Song, PlayerOverrideKey } from '~/types'
+import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 
 export interface SetlistContext {
   setlistId: string
@@ -53,6 +54,7 @@ export function SongPlayerContent({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const { incrementPlayCount, updateSong } = useSong(song.id)
   const { settings, updatePlayerSettings } = useSettings()
+  const { setlist, updateSetlist } = useSetlist(setlistContext?.setlistId ?? '')
 
   const smartScrollContextWindowPercent =
     settings?.player.smartScrollContextWindow ?? 33
@@ -61,10 +63,11 @@ export function SongPlayerContent({
   const showBeatIndicatorDebug =
     settings?.player.showBeatIndicatorDebug ?? false
 
-  // Apply this song's own control overrides (if any), else the global
-  // defaults saved via "Usar como default", once per song load. Guarded by
-  // ref so a later settings/song refetch (e.g. right after saving) doesn't
-  // stomp on a value the user is actively adjusting live.
+  // Apply this song's own control overrides (if any), else the setlist's
+  // (if opened from one), else the global defaults saved via "Usar como
+  // default", once per song load. Guarded by ref so a later
+  // settings/song/setlist refetch (e.g. right after saving) doesn't stomp
+  // on a value the user is actively adjusting live.
   const appliedOverridesForSongRef = useRef<string | null>(null)
   useEffect(() => {
     if (!settings) return
@@ -72,8 +75,9 @@ export function SongPlayerContent({
     appliedOverridesForSongRef.current = song.id
 
     const overrides = song.playerOverrides
-    const resolve = (key: PlayerOverrideKey): number | undefined =>
-      overrides?.[key] ?? settings.player[key]
+    const setlistOverrides = setlist?.playerOverrides
+    const resolve = <K extends PlayerOverrideKey>(key: K): PlayerOverrideValue<K> | undefined =>
+      (overrides?.[key] ?? setlistOverrides?.[key] ?? settings.player[key]) as PlayerOverrideValue<K> | undefined
 
     const autoScrollSpeed = resolve('autoScrollSpeed')
     if (autoScrollSpeed !== undefined) player.setAutoScrollSpeed(autoScrollSpeed)
@@ -85,22 +89,70 @@ export function SongPlayerContent({
     if (contentWidth !== undefined) player.setContentWidth(contentWidth)
     const transpose = resolve('transpose')
     if (transpose !== undefined) player.setTransposeAbsolute(transpose)
-    // player's setters are useCallback-stable; only re-run when the song or the loaded settings change.
+    const chordFontSize = resolve('chordFontSize')
+    if (chordFontSize !== undefined) player.setChordFontSize(chordFontSize)
+    const beatHighlightMode = resolve('beatHighlightMode')
+    if (beatHighlightMode !== undefined) player.setBeatHighlightMode(beatHighlightMode)
+    const beatHighlightTextColor = resolve('beatHighlightTextColor')
+    if (beatHighlightTextColor !== undefined) player.setBeatHighlightTextColor(beatHighlightTextColor)
+    const beatHighlightBgColor = resolve('beatHighlightBgColor')
+    if (beatHighlightBgColor !== undefined) player.setBeatHighlightBgColor(beatHighlightBgColor)
+    const backgroundColor = resolve('backgroundColor')
+    if (backgroundColor !== undefined) player.setBackgroundColor(backgroundColor)
+    const lyricsTextColor = resolve('lyricsTextColor')
+    if (lyricsTextColor !== undefined) player.setLyricsTextColor(lyricsTextColor)
+    // player's setters are useCallback-stable; only re-run when the song, the loaded settings, or the setlist overrides change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song.id, song.playerOverrides, settings])
+  }, [song.id, song.playerOverrides, settings, setlist?.playerOverrides])
 
   const handleSaveControlAsDefault = useCallback(
-    (key: PlayerOverrideKey, value: number) => {
+    (key: PlayerOverrideKey, value: number | string) => {
       void updatePlayerSettings({ [key]: value })
     },
     [updatePlayerSettings]
   )
 
   const handleSaveControlForSong = useCallback(
-    (key: PlayerOverrideKey, value: number) => {
+    (key: PlayerOverrideKey, value: number | string) => {
       void updateSong({ playerOverrides: { ...song.playerOverrides, [key]: value } })
     },
     [updateSong, song.playerOverrides]
+  )
+
+  const canSaveForSetlist = !!setlistContext
+  const handleSaveControlForSetlist = useCallback(
+    (key: PlayerOverrideKey, value: number | string) => {
+      if (!setlistContext) return
+      void updateSetlist({ playerOverrides: { ...setlist?.playerOverrides, [key]: value } })
+    },
+    [setlistContext, updateSetlist, setlist?.playerOverrides]
+  )
+
+  // Some settings rows bundle several override keys behind one save button
+  // (e.g. beat highlight mode + its two colors, or background + lyrics
+  // color) — saving them one key at a time via the handlers above would
+  // race, since each call reads the same not-yet-updated `song`/`setlist`
+  // snapshot and would clobber the previous key's write.
+  const handleSaveControlsAsDefault = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      void updatePlayerSettings(values)
+    },
+    [updatePlayerSettings]
+  )
+
+  const handleSaveControlsForSong = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      void updateSong({ playerOverrides: { ...song.playerOverrides, ...values } })
+    },
+    [updateSong, song.playerOverrides]
+  )
+
+  const handleSaveControlsForSetlist = useCallback(
+    (values: Partial<PlayerOverrides>) => {
+      if (!setlistContext) return
+      void updateSetlist({ playerOverrides: { ...setlist?.playerOverrides, ...values } })
+    },
+    [setlistContext, updateSetlist, setlist?.playerOverrides]
   )
 
   const handleContextWindowChange = useCallback(
@@ -291,6 +343,7 @@ export function SongPlayerContent({
         'min-h-screen flex flex-col',
         isSetlistMode ? 'dark bg-[#05060b]' : 'bg-slate-50 dark:bg-[#101322]'
       )}
+      style={player.state.backgroundColor ? { backgroundColor: player.state.backgroundColor } : undefined}
     >
       {/* Setlist progress bar */}
       {isSetlistMode && setlistContext && (
@@ -522,17 +575,35 @@ export function SongPlayerContent({
               [data-element-id="${eid}"] {
                 opacity: 1;
               }
-              ${chordIdx !== null ? `
+              ${chordIdx !== null
+                ? player.state.beatHighlightMode === 'background'
+                  ? `
+              /* Beat follows the lyric as a background highlight box: */
+              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
+                background-color: ${player.state.beatHighlightBgColor};
+                color: #fff;
+                border-radius: 0.25em;
+                padding: 0 0.15em;
+                box-decoration-break: clone;
+                -webkit-box-decoration-break: clone;
+                transition: background-color 0.15s ease;
+              }
+              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
+                color: #fff;
+              }
+              `
+                  : `
               /* Beat follows the lyric as light, not a container highlight: */
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
-                color: #fff;
-                text-shadow: 0 0 0.4em rgba(56, 189, 248, 0.55);
+                color: ${player.state.beatHighlightTextColor};
+                text-shadow: 0 0 0.4em ${player.state.beatHighlightTextColor};
                 transition: text-shadow 0.15s ease;
               }
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
-                color: rgb(56, 189, 248);
+                color: ${player.state.beatHighlightTextColor};
               }
-              ` : ''}
+              `
+                : ''}
             `}</style>
           )
         })()}
@@ -541,7 +612,10 @@ export function SongPlayerContent({
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-6 md:px-8 py-8"
-        style={{ fontSize: `${player.state.fontSize}px` }}
+        style={{
+          fontSize: `${player.state.fontSize}px`,
+          ...(player.state.lyricsTextColor ? { color: player.state.lyricsTextColor } : {})
+        }}
       >
         <div className="mx-auto" style={{ maxWidth: `${player.state.contentWidth}px` }}>
           {player.state.showChords ? (
@@ -560,6 +634,8 @@ export function SongPlayerContent({
               currentElementId={autoScroll.currentElementId}
               bpm={song.bpm}
               timeSignature={song.timeSignature}
+              chordFontSize={player.state.chordFontSize}
+              lyricsTextColor={player.state.lyricsTextColor}
             />
           ) : (
             <LyricsDisplay lyrics={song.lyrics} />
@@ -610,6 +686,23 @@ export function SongPlayerContent({
         onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
         onSaveControlAsDefault={handleSaveControlAsDefault}
         onSaveControlForSong={handleSaveControlForSong}
+        onSaveControlForSetlist={handleSaveControlForSetlist}
+        onSaveControlsAsDefault={handleSaveControlsAsDefault}
+        onSaveControlsForSong={handleSaveControlsForSong}
+        onSaveControlsForSetlist={handleSaveControlsForSetlist}
+        canSaveForSetlist={canSaveForSetlist}
+        chordFontSize={player.state.chordFontSize}
+        onChordFontSizeChange={player.setChordFontSize}
+        beatHighlightMode={player.state.beatHighlightMode}
+        onBeatHighlightModeChange={player.setBeatHighlightMode}
+        beatHighlightTextColor={player.state.beatHighlightTextColor}
+        onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
+        beatHighlightBgColor={player.state.beatHighlightBgColor}
+        onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
+        backgroundColor={player.state.backgroundColor}
+        onBackgroundColorChange={player.setBackgroundColor}
+        lyricsTextColor={player.state.lyricsTextColor}
+        onLyricsTextColorChange={player.setLyricsTextColor}
       />
     </div>
   )

@@ -41,6 +41,10 @@ interface LyricVerseRowProps {
   bpm?: number
   /** Time signature (e.g. "4/4") the marquee timing is computed against. */
   timeSignature?: string
+  /** Font size (px) of the floating chord labels above the lyrics. Default 26. */
+  chordFontSize?: number
+  /** Overrides the theme's lyric text color. Applied inline since it must win over the default `dark:text-white` class. */
+  lyricsTextColor?: string | null
 }
 
 // Same options the real autoscroll timeline was built with (see useSmartAutoScroll's
@@ -67,6 +71,8 @@ export function LyricVerseRow({
   currentElementId,
   bpm,
   timeSignature = '4/4',
+  chordFontSize = 26,
+  lyricsTextColor,
 }: LyricVerseRowProps) {
   const rowRef = useRef<HTMLParagraphElement>(null)
   const animRef = useRef<Animation | null>(null)
@@ -117,6 +123,7 @@ export function LyricVerseRow({
         'text-slate-900 dark:text-white font-semibold',
         className
       )}
+      style={lyricsTextColor ? { color: lyricsTextColor } : undefined}
     >
       {entries.map((entry, entryIndex) => {
         const segments = splitLineIntoSegments(entry.line)
@@ -136,7 +143,8 @@ export function LyricVerseRow({
                 {seg.chord && (
                   <span
                     aria-hidden
-                    className="absolute -top-[0.9em] left-0 text-[0.4em] font-mono font-bold text-sky-400/70 leading-none select-none"
+                    className="absolute -top-[0.9em] left-0 font-mono font-bold text-sky-400/70 leading-none select-none"
+                    style={{ fontSize: chordFontSize }}
                   >
                     {seg.chord}
                   </span>
@@ -166,6 +174,10 @@ interface LyricVerseLineProps {
   currentElementId?: string | null
   bpm?: number
   timeSignature?: string
+  /** Font size (px) of the floating chord labels above the lyrics. Default 26. */
+  chordFontSize?: number
+  /** Overrides the theme's lyric text color. Applied inline since it must win over the default `dark:text-white` class. */
+  lyricsTextColor?: string | null
 }
 
 export function LyricVerseLine({ line, elementId, ...rest }: LyricVerseLineProps) {

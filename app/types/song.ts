@@ -1,8 +1,8 @@
 // Song Types - Extended types for song player functionality
 
-import type { Song, PlayerOverrides, PlayerOverrideKey } from './setlist'
+import type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode } from './setlist'
 
-export type { Song, PlayerOverrides, PlayerOverrideKey }
+export type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode }
 
 export interface CreateSongInput {
   title: string
@@ -46,6 +46,15 @@ export interface SongPlayerState {
   linesPerBlock: number
   /** Max width (px) of the centered reading column — smaller = more side margin. Shared by the lyrics and the footer controls. */
   contentWidth: number
+  /** Font size (px) of the floating chord labels above the lyrics. */
+  chordFontSize: number
+  beatHighlightMode: BeatHighlightMode
+  beatHighlightTextColor: string
+  beatHighlightBgColor: string
+  /** Player screen background color override. null = theme default (light/dark). */
+  backgroundColor: string | null
+  /** Lyrics text color override. null = theme default (light/dark). */
+  lyricsTextColor: string | null
 }
 
 export interface LyricLine {

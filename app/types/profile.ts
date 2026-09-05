@@ -1,5 +1,7 @@
 // Profile and Settings Types
 
+import type { PlayerOverrides } from './setlist'
+
 export interface UserProfile {
   id: string
   name: string
@@ -33,7 +35,7 @@ export interface PerformancePreferences {
   showMetronome: boolean
 }
 
-export interface PlayerPreferences {
+export interface PlayerPreferences extends PlayerOverrides {
   scrollBehavior: 'auto' | 'manual'
   scrollSensitivity: number // 1-10
   defaultZoom: number // 100-200%
@@ -58,18 +60,12 @@ export interface PlayerPreferences {
    * 1.0 = quarter note, 0.5 = eighth note, 0.25 = sixteenth note (default).
    */
   gridResolution: number
-  /**
-   * Global defaults for the per-session player controls (Scroll Speed, Font
-   * Size, Versos por línea, Márgenes, Transpose) — each has its own "usar
-   * como default" button in Settings. Undefined per-field = keep the
-   * hardcoded fallback in useSongPlayer. A song's own playerOverrides (see
-   * types/setlist.ts) take precedence over these when both are set.
-   */
-  autoScrollSpeed?: number
-  fontSize?: number
-  linesPerBlock?: number
-  contentWidth?: number
-  transpose?: number
+  // Global defaults for the per-session player controls (Scroll Speed, Font
+  // Size, Versos por línea, Márgenes, Transpose, chord font size, beat
+  // highlight, colors) — inherited from PlayerOverrides so both share one
+  // definition. Each has its own save-as-default button in Settings.
+  // Resolution order: song override → setlist override → these globals →
+  // hardcoded fallback in useSongPlayer.
 }
 
 export interface SyncPreferences {
