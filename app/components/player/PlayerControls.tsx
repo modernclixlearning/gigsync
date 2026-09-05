@@ -18,6 +18,17 @@ import {
 import { cn } from '~/lib/utils'
 import type { PlayerOverrideKey } from '~/types/song'
 
+// contentWidth (px) is the width of the reading column — smaller width means
+// bigger side margins. The "Márgenes" control below displays and steps the
+// inverse of that value so "+" always means "more margin", matching its label.
+const CONTENT_WIDTH_MIN = 480
+const CONTENT_WIDTH_MAX = 1400
+const CONTENT_WIDTH_STEP = 40
+
+function contentWidthToMargin(contentWidth: number): number {
+  return CONTENT_WIDTH_MIN + CONTENT_WIDTH_MAX - contentWidth
+}
+
 /**
  * Per-control persistence: "Usar como default" writes a global fallback
  * (AppSettings.player, applies to every song that hasn't overridden it
@@ -133,7 +144,6 @@ export function PlayerControls({
       {showSettings && (
         <div
           className="mx-auto px-6 md:px-8 py-4 border-b border-slate-200 dark:border-slate-800 space-y-4"
-          style={{ maxWidth: `${contentWidth}px` }}
         >
           {/* Auto-scroll Speed */}
           <div className="flex items-center justify-between">
@@ -247,7 +257,7 @@ export function PlayerControls({
                 Márgenes
               </span>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Ancho de la columna de letra. Menor = más margen a los costados.
+                Espacio a los costados de la letra. Mayor = más margen.
               </p>
               <SaveControlButtons
                 controlKey="contentWidth"
@@ -258,18 +268,18 @@ export function PlayerControls({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onContentWidthChange(contentWidth - 40)}
-                disabled={contentWidth <= 480}
+                onClick={() => onContentWidthChange(contentWidth + CONTENT_WIDTH_STEP)}
+                disabled={contentWidth >= CONTENT_WIDTH_MAX}
                 className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
               >
                 <Minus className="w-4 h-4" />
               </button>
               <span className="w-8 text-center text-sm font-medium">
-                {contentWidth}
+                {contentWidthToMargin(contentWidth)}
               </span>
               <button
-                onClick={() => onContentWidthChange(contentWidth + 40)}
-                disabled={contentWidth >= 1400}
+                onClick={() => onContentWidthChange(contentWidth - CONTENT_WIDTH_STEP)}
+                disabled={contentWidth <= CONTENT_WIDTH_MIN}
                 className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
@@ -408,10 +418,7 @@ export function PlayerControls({
       )}
 
       {/* Main Controls */}
-      <div
-        className="mx-auto flex items-center justify-between px-6 md:px-8 py-3"
-        style={{ maxWidth: `${contentWidth}px` }}
-      >
+      <div className="mx-auto flex items-center justify-between px-6 md:px-8 py-3">
         {/* Left Controls */}
         <div className="flex items-center gap-2">
           <button
