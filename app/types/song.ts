@@ -1,8 +1,8 @@
 // Song Types - Extended types for song player functionality
 
-import type { Song } from './setlist'
+import type { Song, PlayerOverrides, PlayerOverrideKey } from './setlist'
 
-export type { Song }
+export type { Song, PlayerOverrides, PlayerOverrideKey }
 
 export interface CreateSongInput {
   title: string
@@ -26,6 +26,7 @@ export interface UpdateSongInput {
   lyrics?: string
   tags?: string[]
   notes?: string
+  playerOverrides?: PlayerOverrides
 }
 
 export interface SongPlayerState {
@@ -35,8 +36,14 @@ export interface SongPlayerState {
   isAutoScrollEnabled: boolean
   transpose: number
   showChords: boolean
+  /** Chord-grid editing UI (drag/resize/subdivide). Entered explicitly, never as a side effect of pausing. */
+  isEditMode: boolean
   fontSize: number
   metronomeSoundEnabled: boolean
+  /** Consecutive lyric lines merged into one reading block (read mode only). 1 = each original line its own block. */
+  linesPerBlock: number
+  /** Max width (px) of the centered reading column — smaller = more side margin. Shared by the lyrics and the footer controls. */
+  contentWidth: number
 }
 
 export interface LyricLine {

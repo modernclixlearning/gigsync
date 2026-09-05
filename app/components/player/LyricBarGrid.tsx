@@ -327,7 +327,7 @@ export function LyricBarGrid({
       <div
         key={index}
         data-chord-index={index}
-        className="relative flex"
+        className={cn('relative flex', !isEditable && !isLastInRow && 'border-r border-white/[0.06]')}
       >
         {/* Cell content */}
         <div

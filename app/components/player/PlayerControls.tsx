@@ -7,6 +7,7 @@ import {
   Music,
   Eye,
   EyeOff,
+  Pencil,
   RotateCcw,
   Minus,
   Plus,
@@ -15,6 +16,51 @@ import {
   VolumeX
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
+import type { PlayerOverrideKey } from '~/types/song'
+
+/**
+ * Per-control persistence: "Usar como default" writes a global fallback
+ * (AppSettings.player, applies to every song that hasn't overridden it
+ * itself); "Solo esta canción" writes to the current song's own
+ * playerOverrides (wins over the global default). Both are opt-in — the
+ * control's live value never persists on its own.
+ */
+function SaveControlButtons({
+  controlKey,
+  value,
+  onSaveAsDefault,
+  onSaveForSong,
+}: {
+  controlKey: PlayerOverrideKey
+  value: number
+  onSaveAsDefault: (key: PlayerOverrideKey, value: number) => void
+  onSaveForSong: (key: PlayerOverrideKey, value: number) => void
+}) {
+  const [flash, setFlash] = useState<'default' | 'song' | null>(null)
+
+  const trigger = (kind: 'default' | 'song', action: () => void) => {
+    action()
+    setFlash(kind)
+    setTimeout(() => setFlash(null), 1200)
+  }
+
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <button
+        onClick={() => trigger('default', () => onSaveAsDefault(controlKey, value))}
+        className="text-[10px] leading-none px-1.5 py-1 rounded bg-slate-200/60 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+      >
+        {flash === 'default' ? '✓ Guardado' : 'Usar como default'}
+      </button>
+      <button
+        onClick={() => trigger('song', () => onSaveForSong(controlKey, value))}
+        className="text-[10px] leading-none px-1.5 py-1 rounded bg-slate-200/60 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+      >
+        {flash === 'song' ? '✓ Guardado' : 'Solo esta canción'}
+      </button>
+    </div>
+  )
+}
 
 interface PlayerControlsProps {
   isPlaying: boolean
@@ -25,8 +71,14 @@ interface PlayerControlsProps {
   onAutoScrollSpeedChange: (speed: number) => void
   showChords: boolean
   onToggleChords: () => void
+  isEditMode: boolean
+  onToggleEditMode: () => void
   fontSize: number
   onFontSizeChange: (size: number) => void
+  linesPerBlock: number
+  onLinesPerBlockChange: (lines: number) => void
+  contentWidth: number
+  onContentWidthChange: (width: number) => void
   transpose: number
   onTranspose: (semitones: number) => void
   onResetTranspose: () => void
@@ -38,6 +90,8 @@ interface PlayerControlsProps {
   onSmartScrollSmoothnessChange: (value: number) => void
   showBeatIndicatorDebug: boolean
   onToggleBeatIndicatorDebug: () => void
+  onSaveControlAsDefault: (key: PlayerOverrideKey, value: number) => void
+  onSaveControlForSong: (key: PlayerOverrideKey, value: number) => void
 }
 
 export function PlayerControls({
@@ -49,8 +103,14 @@ export function PlayerControls({
   onAutoScrollSpeedChange,
   showChords,
   onToggleChords,
+  isEditMode,
+  onToggleEditMode,
   fontSize,
   onFontSizeChange,
+  linesPerBlock,
+  onLinesPerBlockChange,
+  contentWidth,
+  onContentWidthChange,
   transpose,
   onTranspose,
   onResetTranspose,
@@ -61,20 +121,33 @@ export function PlayerControls({
   smartScrollSmoothness,
   onSmartScrollSmoothnessChange,
   showBeatIndicatorDebug,
-  onToggleBeatIndicatorDebug
+  onToggleBeatIndicatorDebug,
+  onSaveControlAsDefault,
+  onSaveControlForSong
 }: PlayerControlsProps) {
   const [showSettings, setShowSettings] = useState(false)
 
   return (
-    <div className="sticky bottom-0 bg-white dark:bg-[#1a1f36] border-t border-slate-200 dark:border-slate-800 safe-area-pb">
+    <div className="sticky bottom-0 z-20 bg-white dark:bg-[#1a1f36] border-t border-slate-200 dark:border-slate-800 safe-area-pb">
       {/* Settings Panel */}
       {showSettings && (
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-4">
+        <div
+          className="mx-auto px-6 md:px-8 py-4 border-b border-slate-200 dark:border-slate-800 space-y-4"
+          style={{ maxWidth: `${contentWidth}px` }}
+        >
           {/* Auto-scroll Speed */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              Scroll Speed
-            </span>
+            <div>
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Scroll Speed
+              </span>
+              <SaveControlButtons
+                controlKey="autoScrollSpeed"
+                value={autoScrollSpeed}
+                onSaveAsDefault={onSaveControlAsDefault}
+                onSaveForSong={onSaveControlForSong}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onAutoScrollSpeedChange(autoScrollSpeed - 10)}
@@ -98,13 +171,21 @@ export function PlayerControls({
 
           {/* Font Size */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              Font Size
-            </span>
+            <div>
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Font Size
+              </span>
+              <SaveControlButtons
+                controlKey="fontSize"
+                value={fontSize}
+                onSaveAsDefault={onSaveControlAsDefault}
+                onSaveForSong={onSaveControlForSong}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onFontSizeChange(fontSize - 2)}
-                disabled={fontSize <= 12}
+                disabled={fontSize <= 20}
                 className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
               >
                 <Minus className="w-4 h-4" />
@@ -114,7 +195,81 @@ export function PlayerControls({
               </span>
               <button
                 onClick={() => onFontSizeChange(fontSize + 2)}
-                disabled={fontSize >= 32}
+                disabled={fontSize >= 56}
+                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Lines per reading block */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Versos por línea
+              </span>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Varios versos cortos comparten la misma línea (rap); uno largo ocupa la línea entera (aria).
+              </p>
+              <SaveControlButtons
+                controlKey="linesPerBlock"
+                value={linesPerBlock}
+                onSaveAsDefault={onSaveControlAsDefault}
+                onSaveForSong={onSaveControlForSong}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onLinesPerBlockChange(linesPerBlock - 1)}
+                disabled={linesPerBlock <= 1}
+                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="w-8 text-center text-sm font-medium">
+                {linesPerBlock}
+              </span>
+              <button
+                onClick={() => onLinesPerBlockChange(linesPerBlock + 1)}
+                disabled={linesPerBlock >= 4}
+                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Márgenes (ancho de la columna de lectura) */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Márgenes
+              </span>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Ancho de la columna de letra. Menor = más margen a los costados.
+              </p>
+              <SaveControlButtons
+                controlKey="contentWidth"
+                value={contentWidth}
+                onSaveAsDefault={onSaveControlAsDefault}
+                onSaveForSong={onSaveControlForSong}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onContentWidthChange(contentWidth - 40)}
+                disabled={contentWidth <= 480}
+                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="w-8 text-center text-sm font-medium">
+                {contentWidth}
+              </span>
+              <button
+                onClick={() => onContentWidthChange(contentWidth + 40)}
+                disabled={contentWidth >= 1400}
                 className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
@@ -124,9 +279,17 @@ export function PlayerControls({
 
           {/* Transpose */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              Transpose
-            </span>
+            <div>
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Transpose
+              </span>
+              <SaveControlButtons
+                controlKey="transpose"
+                value={transpose}
+                onSaveAsDefault={onSaveControlAsDefault}
+                onSaveForSong={onSaveControlForSong}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onTranspose(-1)}
@@ -245,7 +408,10 @@ export function PlayerControls({
       )}
 
       {/* Main Controls */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div
+        className="mx-auto flex items-center justify-between px-6 md:px-8 py-3"
+        style={{ maxWidth: `${contentWidth}px` }}
+      >
         {/* Left Controls */}
         <div className="flex items-center gap-2">
           <button
@@ -260,6 +426,22 @@ export function PlayerControls({
           >
             {showChords ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
           </button>
+
+          {showChords && !isPlaying && (
+            <button
+              onClick={onToggleEditMode}
+              className={cn(
+                'p-3 rounded-xl transition-colors',
+                isEditMode
+                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              )}
+              title={isEditMode ? 'Salir de edición' : 'Editar acordes'}
+              aria-label={isEditMode ? 'Salir de edición' : 'Editar acordes'}
+            >
+              <Pencil className="w-5 h-5" />
+            </button>
+          )}
 
           <button
             onClick={onToggleAutoScroll}

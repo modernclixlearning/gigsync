@@ -1,5 +1,20 @@
 // Setlist Types - Re-exported from shared contracts
 
+/**
+ * Per-song overrides for player controls that otherwise reset every session
+ * (see SongPlayerState). Undefined per-field = fall back to the global
+ * default in PlayerPreferences, then to the hardcoded default.
+ */
+export interface PlayerOverrides {
+  autoScrollSpeed?: number
+  fontSize?: number
+  linesPerBlock?: number
+  contentWidth?: number
+  transpose?: number
+}
+
+export type PlayerOverrideKey = keyof PlayerOverrides
+
 export interface Song {
   id: string
   title: string
@@ -15,6 +30,7 @@ export interface Song {
   notes?: string
   createdAt: Date
   updatedAt: Date
+  playerOverrides?: PlayerOverrides
 }
 
 export interface Setlist {
