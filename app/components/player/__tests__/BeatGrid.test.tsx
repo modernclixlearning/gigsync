@@ -1,0 +1,46 @@
+import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
+import { ChordOverlay } from '../ChordOverlay'
+
+function editCells(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>('[data-beat-grid-row] > div[style]')).map((el) => ({
+    row: el.parentElement!.getAttribute('data-beat-grid-row'),
+    gridColumn: el.style.gridColumn,
+  }))
+}
+
+describe('Chord editor beat grid', () => {
+  it('sizes chords by their playback duration on a fixed 2-bar row', () => {
+    // No explicit beats: playback gives the line 2 bars split evenly → 2 beats each.
+    const { container } = render(
+      <ChordOverlay lyrics={'[C]uno [G]dos [Am]tres [F]cuatro'} isEditable columns={2} gridResolution={0.25} />
+    )
+    expect(editCells(container)).toEqual([
+      { row: '0', gridColumn: '1 / span 8' },
+      { row: '0', gridColumn: '9 / span 8' },
+      { row: '0', gridColumn: '17 / span 8' },
+      { row: '0', gridColumn: '25 / span 8' },
+    ])
+  })
+
+  it('keeps a short chord short instead of stretching it to the row', () => {
+    const { container } = render(<ChordOverlay lyrics={'[C:2]solo'} isEditable columns={2} gridResolution={0.25} />)
+    expect(editCells(container)).toEqual([{ row: '0', gridColumn: '1 / span 8' }])
+  })
+
+  it('puts bar lines at the same place for every line and follows the time signature', () => {
+    const { container } = render(
+      <ChordOverlay lyrics={'[C:3]a\n[G:3]b [D:3]c'} isEditable columns={2} timeSignature="3/4" gridResolution={1} />
+    )
+    const rows = container.querySelectorAll<HTMLElement>('[data-beat-grid-row]')
+    expect(rows).toHaveLength(2)
+    for (const row of rows) {
+      expect(row.style.gridTemplateColumns).toBe('repeat(6, minmax(0, 1fr))')
+    }
+    expect(editCells(container)).toEqual([
+      { row: '0', gridColumn: '1 / span 3' },
+      { row: '0', gridColumn: '1 / span 3' },
+      { row: '0', gridColumn: '4 / span 3' },
+    ])
+  })
+})

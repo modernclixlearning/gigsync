@@ -10,6 +10,7 @@ import {
 } from '~/lib/chordpro'
 import { getSectionType } from '~/lib/chordpro'
 import { serializeParsedSong } from '~/lib/chordpro/serializer'
+import { parseTimeSignature } from '~/lib/timeline/utils'
 import { InstrumentalSection } from './InstrumentalSection'
 import { LyricBarGrid } from './LyricBarGrid'
 import { LyricVerseLine, LyricVerseRow } from './LyricVerseLine'
@@ -537,6 +538,7 @@ function ChordOverlayLine({
             } as InstrumentalLine)
           }
           gridResolution={gridResolution}
+          beatsPerBar={parseTimeSignature(timeSignature).beats}
         />
         {lineBubbleMenuPortal}
       </div>
@@ -586,6 +588,7 @@ function ChordOverlayLine({
               onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
             }
             gridResolution={gridResolution}
+            beatsPerBar={parseTimeSignature(timeSignature).beats}
             chordFontSize={chordFontSize}
           />
         ) : (

@@ -5,7 +5,9 @@
  * When `isEditable`:
  *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Delete).
  *  - Chord cells are sortable via long-press drag (dnd-kit).
- *  - Cell borders show resize handles: drag to extend/shrink beats.
+ *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
+ *    duration, and bar lines align with the lyric lines above and below.
+ *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
  */
 
@@ -29,7 +31,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
+import type { BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
+import { BeatGrid, BeatGridResizeHandle } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { useBubbleMenu } from './useBubbleMenu'
 import { BubbleMenu } from './BubbleMenu'
@@ -50,6 +54,8 @@ interface InstrumentalSectionProps {
   onChordsChange?: (bars: ChordBar[]) => void
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
+  /** Beats per bar from the song's time signature. Default 4. */
+  beatsPerBar?: number
 }
 
 /** Get icon for section type */
@@ -152,14 +158,13 @@ export function InstrumentalSection({
   isEditable = false,
   onChordsChange,
   gridResolution = 0.25,
+  beatsPerBar = 4,
 }: InstrumentalSectionProps) {
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
-
-  const beatsPerBar = 4
 
   // ── Bubble menu ───────────────────────────────────────────────────────────────
   const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
@@ -230,10 +235,11 @@ export function InstrumentalSection({
     [section.chordBars, onChordsChange]
   )
 
-  const { dragState, handlePointerDown, handlePointerMove, handlePointerUp } =
+  const { dragState, handlePointerDown } =
     useChordResize({
       beats: chordBeats,
       gridResolution,
+      beatsPerRow: columns * beatsPerBar,
       onResize: handleResizeComplete,
     })
 
@@ -274,13 +280,15 @@ export function InstrumentalSection({
   // upstream) — must not transpose again here.
   const baseChords = section.chordBars
 
-  // Expand chords by repeatCount for display (base chords are stored un-expanded)
+  // Expand chords by repeatCount for display (base chords are stored un-expanded).
+  // The editor works on the base pattern: its indices must map 1:1 to
+  // section.chordBars (the ×N stays in the header).
   const chords = useMemo(() => {
-    if (!section.repeatCount || section.repeatCount <= 1) return baseChords
+    if (isEditable || !section.repeatCount || section.repeatCount <= 1) return baseChords
     const expanded: typeof baseChords = []
     for (let i = 0; i < section.repeatCount; i++) expanded.push(...baseChords)
     return expanded
-  }, [baseChords, section.repeatCount])
+  }, [baseChords, section.repeatCount, isEditable])
 
   const sortableIds = chords.map((_, i) => `instr-${elementId ?? 'x'}-${i}`)
   const activeChord = activeId
@@ -308,86 +316,81 @@ export function InstrumentalSection({
   // ── Grid template: proportional widths based on beats ───────────────────────
   const displayBeats = dragState ? dragState.beats : chordBeats
 
+  // ── Edit grid: fixed bar/beat grid, each chord spans exactly its beats ─────
+  const renderEditSegment = (s: BeatGridSegment) => {
+    const index = s.index
+    const bar = chords[index]
+    const id = sortableIds[index]
+    return (
+      <>
+        <div
+          className="m-0.5 flex min-w-0 flex-1"
+          onDoubleClick={() => handleDoubleClick(index)}
+          {...bubbleMenu.getHandlers(index)}
+        >
+          {s.isHead ? (
+            <div className="relative min-w-0 flex-1">
+              <SortableChordCell id={id} bar={bar} compact={compact} isActive={activeId === id} />
+              <span className="pointer-events-none absolute right-1 top-1 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums">
+                {displayBeats[index]}
+              </span>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+              <span className={cn('font-mono text-sm font-bold opacity-60', colors.text)}>↳ {bar.chord}</span>
+            </div>
+          )}
+        </div>
+        {s.isHead && editingChordIndex === index && (
+          <div ref={pickerRef} className="absolute top-full left-0 z-50 mt-1">
+            <ChordPicker
+              currentChord={bar.chord}
+              onSelect={(chord) => handleChordNameChange(index, chord)}
+              onClose={() => setEditingChordIndex(null)}
+            />
+          </div>
+        )}
+        {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
+      </>
+    )
+  }
+
+  const editGrid = (
+    <div className={cn(compact ? 'p-1' : 'p-2', 'flex flex-col gap-2')}>
+      <BeatGrid
+        beats={displayBeats}
+        beatsPerBar={beatsPerBar}
+        barsPerRow={columns}
+        gridResolution={gridResolution}
+        renderSegment={renderEditSegment}
+      />
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={handleAddChord}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-xs hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+        >
+          <span className="text-base leading-none">+</span> Acorde
+        </button>
+      </div>
+    </div>
+  )
+
   // ── Chord grid ───────────────────────────────────────────────────────────────
 
-  const chordGrid = rows.length > 0 ? (
+  const chordGrid = isEditable && chords.length > 0 ? editGrid : rows.length > 0 ? (
     <div className={cn(compact ? 'p-1' : 'p-3', 'flex flex-col gap-1')}>
       {rows.map((row, rowIndex) => {
         const rowStartIdx = rowIndex * columns
-        const rowBeats = row.map((_, ci) => displayBeats[rowStartIdx + ci] ?? beatsPerBar)
-        const rowTemplate = isEditable
-          ? rowBeats.map(b => `${b}fr`).join(' ')
-          : rowGridTemplate(row)
-
+        const rowTemplate = rowGridTemplate(row)
         return (
           <div
             key={rowIndex}
-            data-resize-container
             className="grid gap-0"
             style={{ gridTemplateColumns: rowTemplate }}
-            onPointerMove={dragState ? handlePointerMove : undefined}
-            onPointerUp={dragState ? handlePointerUp : undefined}
           >
             {row.map((bar, colIndex) => {
               const index = rowStartIdx + colIndex
-              const id = sortableIds[index]
-              const isLast = colIndex === row.length - 1
-
-              if (isEditable) {
-                const cellBubbleHandlers = bubbleMenu.getHandlers(index)
-                return (
-                  <div
-                    key={id}
-                    className="relative flex"
-                    {...cellBubbleHandlers}
-                  >
-                    <div
-                      onDoubleClick={() => handleDoubleClick(index)}
-                      className="flex-1 min-w-0 rounded-lg"
-                    >
-                      <SortableChordCell
-                        id={id}
-                        bar={bar}
-                        compact={compact}
-                        isActive={activeId === id}
-                      />
-                    </div>
-                    {/* Chord picker popover */}
-                    {editingChordIndex === index && (
-                      <div ref={pickerRef} className="absolute top-full left-0 z-50 mt-1">
-                        <ChordPicker
-                          currentChord={bar.chord}
-                          onSelect={(chord) => handleChordNameChange(index, chord)}
-                          onClose={() => setEditingChordIndex(null)}
-                        />
-                      </div>
-                    )}
-                    {/* Resize handle between cells */}
-                    {!isLast && (
-                      <div
-                        onPointerDown={(e) => handlePointerDown(index, e)}
-                        className={cn(
-                          'absolute right-0 top-0 bottom-0 w-2 -mr-1 z-10',
-                          'cursor-col-resize',
-                          'flex items-center justify-center',
-                          'group'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'w-0.5 h-2/3 rounded-full transition-colors',
-                            'bg-slate-300 dark:bg-slate-600',
-                            'group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500',
-                            'group-active:bg-indigo-500 dark:group-active:bg-indigo-400',
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              }
-
-              // Read-only cell
               return (
                 <div
                   key={index}
@@ -431,18 +434,6 @@ export function InstrumentalSection({
           </div>
         )
       })}
-      {/* Add chord button */}
-      {isEditable && (
-        <div className="flex justify-center pt-1">
-          <button
-            type="button"
-            onClick={handleAddChord}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-xs hover:border-indigo-400 hover:text-indigo-500 transition-colors"
-          >
-            <span className="text-base leading-none">+</span> Acorde
-          </button>
-        </div>
-      )}
     </div>
   ) : showPlaceholder ? (
     <div className={cn('p-4 text-center', colors.text, 'opacity-60')}>
