@@ -7,7 +7,9 @@
  * When `isEditable`:
  *  - Long-press or right-click a cell to open bubble menu (Edit / Delete).
  *  - Chord badges are sortable via long-press drag (dnd-kit).
- *  - Cell borders show resize handles: drag to extend/shrink beats.
+ *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
+ *    duration, and bar lines align across every row and line.
+ *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
  *  - '+' button to add new chord cell.
  */
@@ -32,7 +34,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '~/lib/utils'
 import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
+import { effectiveLyricChordBeats, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
+import { BeatGrid, BeatGridResizeHandle } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
 import { useBubbleMenu } from './useBubbleMenu'
@@ -59,8 +63,10 @@ interface LyricBarGridProps {
   onTextChange?: (newText: string, newChords: ChordPosition[]) => void
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
-  /** Default beats per chord when `beats` is undefined. Default 4. */
-  defaultBeatsPerChord?: number
+  /** Beats per bar from the song's time signature. Default 4. */
+  beatsPerBar?: number
+  /** Bars the playback timeline gives a line whose chords lack explicit beats. Default 2. */
+  defaultBarsPerLine?: number
   /** Font size (px) of the chord badge above each bar cell. Default 26. */
   chordFontSize?: number
 }
@@ -123,7 +129,8 @@ export function LyricBarGrid({
   onChordsReorder,
   onTextChange,
   gridResolution = 0.25,
-  defaultBeatsPerChord = 4,
+  beatsPerBar = 4,
+  defaultBarsPerLine = 2,
   chordFontSize = 26,
 }: LyricBarGridProps) {
   const segments = splitIntoBarSegments(line)
@@ -162,7 +169,12 @@ export function LyricBarGrid({
   }, [bubbleMenu.state.targetIndex, line.chords.length])
 
   // ── Beat values for each chord ──────────────────────────────────────────────
-  const chordBeats = line.chords.map(c => c.beats ?? defaultBeatsPerChord)
+  // What playback actually uses, so the grid shows real durations. Any
+  // structural edit writes them back explicitly (`withBeats`) so the line
+  // keeps its rhythm instead of being re-split evenly.
+  const chordBeats = effectiveLyricChordBeats(line.chords, beatsPerBar, defaultBarsPerLine)
+  const withBeats = (chords: ChordPosition[]) =>
+    chords.map((c, i) => ({ ...c, beats: chordBeats[i] }))
 
   // ── Chord name change ───────────────────────────────────────────────────────
   const handleChordChange = useCallback(
@@ -184,20 +196,22 @@ export function LyricBarGrid({
     const newChord: ChordPosition = {
       chord: lastChord?.chord ?? 'C',
       position: newPosition,
-      beats: defaultBeatsPerChord,
+      beats: beatsPerBar,
     }
-    onChordsReorder?.([...line.chords, newChord])
-  }, [line.chords, line.text.length, defaultBeatsPerChord, onChordsReorder])
+    onChordsReorder?.([...withBeats(line.chords), newChord])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [line.chords, line.text.length, beatsPerBar, chordBeats.join(), onChordsReorder])
 
   // ── Delete chord cell ───────────────────────────────────────────────────────
   const handleDeleteChord = useCallback(
     (index: number) => {
       if (line.chords.length <= 1) return // Keep at least one chord
-      const newChords = line.chords.filter((_, i) => i !== index)
+      const newChords = withBeats(line.chords).filter((_, i) => i !== index)
       onChordsReorder?.(newChords)
       setEditingChordIndex(null)
     },
-    [line.chords, onChordsReorder]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [line.chords, chordBeats.join(), onChordsReorder]
   )
 
   // ── Lyric text change for a segment ─────────────────────────────────────────
@@ -231,10 +245,11 @@ export function LyricBarGrid({
     [line.chords, onChordsReorder]
   )
 
-  const { dragState, handlePointerDown, handlePointerMove, handlePointerUp } =
+  const { dragState, handlePointerDown } =
     useChordResize({
       beats: chordBeats,
       gridResolution,
+      beatsPerRow: columns * beatsPerBar,
       onResize: handleResizeComplete,
     })
 
@@ -242,10 +257,9 @@ export function LyricBarGrid({
   const handleDoubleClick = useCallback(
     (index: number) => {
       if (!isEditable) return
-      const chords = line.chords
+      const chords = withBeats(line.chords)
       const cell = chords[index]
-      const cellBeats = cell.beats ?? defaultBeatsPerChord
-      const halfBeats = cellBeats / 2
+      const halfBeats = cell.beats! / 2
       if (halfBeats < gridResolution) return
 
       const nextPos = index + 1 < chords.length
@@ -262,7 +276,8 @@ export function LyricBarGrid({
       ]
       onChordsReorder?.(newChords)
     },
-    [isEditable, line.chords, line.text.length, defaultBeatsPerChord, gridResolution, onChordsReorder]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isEditable, line.chords, line.text.length, chordBeats.join(), gridResolution, onChordsReorder]
   )
 
   // ── Cell click (seek in player mode) ────────────────────────────────────────
@@ -295,141 +310,125 @@ export function LyricBarGrid({
     const newIdx = sortableIds.indexOf(over.id as string)
     if (oldIdx === -1 || newIdx === -1) return
 
-    // Reorder chord NAMES while keeping positions sorted by character offset.
-    const chordNames = segments.map((s) => s.chord)
+    // Reorder chord NAMES only: each slot keeps its text offset and duration,
+    // so moving a chord never changes the line's rhythm.
+    const chordNames = line.chords.map((c) => c.chord)
     const reorderedNames = arrayMove(chordNames, oldIdx, newIdx)
-    const sortedPositions = [...line.chords]
-      .sort((a, b) => a.position - b.position)
-      .map((c) => c.position)
+    const slots = withBeats(line.chords)
     const newChords: ChordPosition[] = reorderedNames.map((chord, i) => ({
+      ...slots[i],
       chord,
-      position: sortedPositions[i],
     }))
     onChordsReorder?.(newChords)
   }
 
-  // ── Grid template: proportional widths based on beats ───────────────────────
+  // ── Read grid: equal columns ────────────────────────────────────────────────
   const displayBeats = dragState ? dragState.beats : chordBeats
   const readGridTemplate = `repeat(${effectiveCols}, minmax(0, 1fr))`
 
-  // ── Group segments into rows of `columns` for edit mode ─────────────────────
-  const editRows: number[][] = []
-  if (isEditable) {
-    for (let i = 0; i < segments.length; i += effectiveCols) {
-      editRows.push(
-        Array.from({ length: Math.min(effectiveCols, segments.length - i) }, (_, j) => i + j)
-      )
-    }
-  }
-
   const renderCell = (index: number, isLastInRow: boolean) => {
     const seg = segments[index]
-    const cellBubbleHandlers = isEditable
-      ? bubbleMenu.getHandlers(index, { enableLongPress: true })
-      : {}
     return (
       <div
         key={index}
         data-chord-index={index}
-        className={cn('relative flex', !isEditable && !isLastInRow && 'border-r border-white/[0.06]')}
+        className={cn('relative flex', !isLastInRow && 'border-r border-white/[0.06]')}
       >
-        {/* Cell content */}
         <div
-          role={!isEditable && isSeekEnabled ? 'button' : undefined}
-          tabIndex={!isEditable && isSeekEnabled ? 0 : (isEditable ? 0 : undefined)}
+          role={isSeekEnabled ? 'button' : undefined}
+          tabIndex={isSeekEnabled ? 0 : undefined}
           onClick={() => handleCellClick(index)}
-          onDoubleClick={() => handleDoubleClick(index)}
-          {...cellBubbleHandlers}
           className={cn(
             'flex flex-col gap-0.5 flex-1 min-w-0',
-            'px-1 py-1',
+            'px-1 py-1 rounded-md',
             'transition-colors duration-150',
-            isEditable
-              ? 'rounded-lg border border-white/10 hover:border-white/25 bg-white/5'
-              : 'rounded-md',
-            isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
+            isSeekEnabled && 'cursor-pointer hover:bg-white/5',
           )}
         >
-          {/* Chord badge — sortable via long-press drag */}
-          {isEditable ? (
-            <div className="relative flex items-center gap-1">
-              <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
-              {/* Chord picker popover */}
-              {editingChordIndex === index && (
-                <div
-                  ref={chordPickerRef}
-                  className="absolute top-full left-0 mt-1 z-50"
-                >
-                  <ChordPicker
-                    currentChord={seg.chord}
-                    onSelect={(chord) => handleChordChange(index, chord)}
-                    onClose={() => setEditingChordIndex(null)}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <span className="font-mono font-bold text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none" style={{ fontSize: chordFontSize }}>
-              {seg.chord}
-            </span>
-          )}
-          {/* Lyric text — editable in edit mode */}
+          <span className="font-mono font-bold text-sky-400/80 dark:text-sky-400/80 text-indigo-500 leading-none" style={{ fontSize: chordFontSize }}>
+            {seg.chord}
+          </span>
           <InlineTextEditor
             value={seg.text}
-            isEditable={isEditable}
             onCommit={(newText) => handleSegmentTextChange(index, newText)}
             className="text-slate-900 dark:text-white font-semibold leading-snug"
-            placeholder="Letra..."
           />
         </div>
-
-        {/* Resize handle between cells (not on last in row) */}
-        {isEditable && !isLastInRow && (
-          <div
-            onPointerDown={(e) => handlePointerDown(index, e)}
-            className={cn(
-              'absolute right-0 top-0 bottom-0 w-2 -mr-1 z-10',
-              'cursor-col-resize',
-              'flex items-center justify-center',
-              'group'
-            )}
-          >
-            <div
-              className={cn(
-                'w-0.5 h-2/3 rounded-full transition-colors',
-                'bg-slate-300 dark:bg-slate-600',
-                'group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500',
-                'group-active:bg-indigo-500 dark:group-active:bg-indigo-400',
-              )}
-            />
-          </div>
-        )}
       </div>
     )
   }
 
+  // ── Edit grid: fixed bar/beat grid, each chord spans exactly its beats ─────
+  const renderEditSegment = (s: BeatGridSegment) => {
+    const index = s.index
+    const seg = segments[index]
+    const cellBubbleHandlers = bubbleMenu.getHandlers(index, { enableLongPress: true })
+    const beats = displayBeats[index]
+    return (
+      <>
+        <div
+          data-chord-index={s.isHead ? index : undefined}
+          tabIndex={s.isHead ? 0 : undefined}
+          onDoubleClick={() => handleDoubleClick(index)}
+          {...cellBubbleHandlers}
+          className={cn(
+            'm-0.5 flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden px-1.5 py-1',
+            'rounded-md border transition-colors duration-150',
+            s.isHead
+              ? 'border-slate-300 bg-white/60 hover:border-indigo-300 dark:border-white/15 dark:bg-white/[0.04] dark:hover:border-white/30'
+              : 'border-dashed border-slate-300 bg-transparent dark:border-white/10',
+            dragState?.index === index && 'border-indigo-400 dark:border-indigo-500',
+          )}
+        >
+          {s.isHead ? (
+            <>
+              <div className="relative flex items-center justify-between gap-1">
+                <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
+                <span
+                  className="shrink-0 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums"
+                  title={`${beats} ${beats === 1 ? 'tiempo' : 'tiempos'}`}
+                >
+                  {beats}
+                </span>
+                {editingChordIndex === index && (
+                  <div ref={chordPickerRef} className="absolute top-full left-0 mt-1 z-50">
+                    <ChordPicker
+                      currentChord={seg.chord}
+                      onSelect={(chord) => handleChordChange(index, chord)}
+                      onClose={() => setEditingChordIndex(null)}
+                    />
+                  </div>
+                )}
+              </div>
+              <InlineTextEditor
+                value={seg.text}
+                isEditable
+                onCommit={(newText) => handleSegmentTextChange(index, newText)}
+                className="text-slate-900 dark:text-white font-semibold leading-snug"
+                placeholder="Letra..."
+              />
+            </>
+          ) : (
+            <span className="font-mono text-sm font-bold leading-none text-indigo-400/60 dark:text-indigo-400/50">
+              ↳ {seg.chord}
+            </span>
+          )}
+        </div>
+
+        {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
+      </>
+    )
+  }
+
   const editGrid = (
-    <div
-      className="flex flex-col gap-1"
-      onPointerMove={dragState ? handlePointerMove : undefined}
-      onPointerUp={dragState ? handlePointerUp : undefined}
-    >
-      {editRows.map((rowIndices, rowIndex) => {
-        const rowBeats = rowIndices.map(i => displayBeats[i])
-        const rowTemplate = rowBeats.map(b => `${b}fr`).join(' ')
-        return (
-          <div
-            key={rowIndex}
-            data-resize-container
-            className="grid gap-1"
-            style={{ gridTemplateColumns: rowTemplate }}
-          >
-            {rowIndices.map((segIndex, colIdx) =>
-              renderCell(segIndex, colIdx === rowIndices.length - 1)
-            )}
-          </div>
-        )
-      })}
+    <div className="flex flex-col gap-2">
+      <BeatGrid
+        beats={displayBeats}
+        beatsPerBar={beatsPerBar}
+        barsPerRow={columns}
+        gridResolution={gridResolution}
+        renderSegment={renderEditSegment}
+      />
 
       {/* Add chord button */}
       <button
@@ -437,11 +436,11 @@ export function LyricBarGrid({
         className={cn(
           'flex items-center justify-center',
           'rounded-lg border-2 border-dashed',
-          'border-white/10 hover:border-white/25',
+          'border-slate-300 hover:border-indigo-300 dark:border-white/10 dark:hover:border-white/25',
           'text-slate-400 dark:text-slate-500',
           'hover:text-indigo-400',
-          'transition-colors min-h-[48px]',
-          'px-3 py-2'
+          'transition-colors min-h-[40px]',
+          'px-3 py-1'
         )}
         aria-label="Agregar acorde"
       >
