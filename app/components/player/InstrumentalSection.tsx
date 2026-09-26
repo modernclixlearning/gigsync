@@ -99,11 +99,14 @@ function SortableChordCell({
   bar,
   compact,
   isActive,
+  onChordNameClick,
 }: {
   id: string
   bar: ChordBar
   compact: boolean
   isActive: boolean
+  /** Tap on the chord name → open the chord picker. */
+  onChordNameClick: (e: React.MouseEvent) => void
 }) {
   // No transform: cells don't reflow while dragging on the time grid; the
   // drop target is highlighted instead (see noReflowStrategy).
@@ -131,7 +134,18 @@ function SortableChordCell({
           : 'hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-600 hover:shadow-sm'
       )}
     >
-      <span className={cn('font-mono font-bold text-slate-900 dark:text-white', compact ? 'text-sm' : 'text-base')}>
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={`Cambiar acorde ${bar.chord}`}
+        title="Tocá para cambiar el acorde"
+        onClick={onChordNameClick}
+        className={cn(
+          'cursor-pointer rounded px-1 font-mono font-bold text-slate-900 dark:text-white',
+          'hover:bg-indigo-50 hover:ring-2 hover:ring-indigo-300 dark:hover:bg-indigo-900/20 dark:hover:ring-indigo-700',
+          compact ? 'text-sm' : 'text-base'
+        )}
+      >
         {bar.chord}
       </span>
       {bar.label && (
@@ -380,6 +394,12 @@ export function InstrumentalSection({
                 bar={bar}
                 compact={compact}
                 isActive={activeId === id || selection.isSelected(index)}
+                onChordNameClick={(e) => {
+                  if (isExtendClick(e)) return
+                  e.stopPropagation()
+                  selection.select(index)
+                  setEditingChordIndex(index)
+                }}
               />
               <span className="pointer-events-none absolute right-1 top-1 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums">
                 {displayBeats[index]}
@@ -392,7 +412,12 @@ export function InstrumentalSection({
           )}
         </div>
         {s.isHead && editingChordIndex === index && (
-          <div ref={pickerRef} className="absolute top-full left-0 z-50 mt-1">
+          <div
+            ref={pickerRef}
+            className="absolute top-full left-0 z-50 mt-1"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
             <ChordPicker
               currentChord={bar.chord}
               onSelect={(chord) => handleChordNameChange(index, chord)}

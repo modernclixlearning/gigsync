@@ -443,7 +443,22 @@ export function LyricBarGrid({
                   title="Arrastrá para mover el bloque"
                   className="relative -mx-1.5 -mt-1 flex cursor-grab touch-none select-none items-center justify-between gap-1 px-1.5 pt-1 active:cursor-grabbing"
                 >
-                  <span className="rounded px-0.5 font-mono text-sm font-bold leading-none text-indigo-600 dark:text-indigo-400">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Cambiar acorde ${seg.chord}`}
+                    title="Tocá para cambiar el acorde"
+                    onClick={(e) => {
+                      if (isExtendClick(e)) return
+                      e.stopPropagation()
+                      selection.select(index)
+                      setEditingChordIndex(index)
+                    }}
+                    className={cn(
+                      'cursor-pointer rounded px-0.5 font-mono text-sm font-bold leading-none text-indigo-600 dark:text-indigo-400',
+                      'hover:bg-indigo-50 hover:ring-2 hover:ring-indigo-300 dark:hover:bg-indigo-900/20 dark:hover:ring-indigo-700'
+                    )}
+                  >
                     {seg.chord}
                   </span>
                   <span
@@ -452,15 +467,6 @@ export function LyricBarGrid({
                   >
                     {beats}
                   </span>
-                  {editingChordIndex === index && (
-                    <div ref={chordPickerRef} className="absolute top-full left-0 mt-1 z-50">
-                      <ChordPicker
-                        currentChord={seg.chord}
-                        onSelect={(chord) => handleChordChange(index, chord)}
-                        onClose={() => setEditingChordIndex(null)}
-                      />
-                    </div>
-                  )}
                 </div>
                 <InlineTextEditor
                   value={seg.text}
@@ -480,6 +486,21 @@ export function LyricBarGrid({
           </div>
         )}
 
+        {/* Chord picker: outside the cell, whose overflow-hidden would clip it */}
+        {s.isHead && editingChordIndex === index && (
+          <div
+            ref={chordPickerRef}
+            className="absolute top-full left-0 mt-1 z-50 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            <ChordPicker
+              currentChord={seg.chord}
+              onSelect={(chord) => handleChordChange(index, chord)}
+              onClose={() => setEditingChordIndex(null)}
+            />
+          </div>
+        )}
         {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
         {s.isTail && (
           <InsertBarButton visible={selection.single === index} onClick={() => handleInsertAfter(index)} />
