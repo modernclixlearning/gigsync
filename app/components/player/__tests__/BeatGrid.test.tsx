@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChordOverlay } from '../ChordOverlay'
 
@@ -20,6 +20,29 @@ describe('Chord editor — insert bar after a cell', () => {
     const firstSegment = container.querySelector<HTMLElement>('[data-beat-grid-row] > div[style]')!
     await user.click(within(firstSegment).getByRole('button', { name: 'Insertar compás después' }))
     expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Hola [D:4][G:4]mundo')
+  })
+})
+
+describe('Chord editor — select and merge cells', () => {
+  it('shift+click selects a run and "Fusionar" merges it back into one cell', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay
+        lyrics={'[D:2]Every [D:2]night [G:4]dreams'}
+        isEditable
+        columns={2}
+        onLyricsChange={onLyricsChange}
+      />
+    )
+    const cell = (i: number) => container.querySelector<HTMLElement>(`[data-chord-index="${i}"]`)!
+    await user.click(cell(0))
+    expect(screen.queryByRole('button', { name: /Fusionar/ })).toBeNull()
+    await user.keyboard('{Shift>}')
+    await user.click(cell(1))
+    await user.keyboard('{/Shift}')
+    await user.click(screen.getByRole('button', { name: 'Fusionar 2 celdas' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Every night [G:4]dreams')
   })
 })
 

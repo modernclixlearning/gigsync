@@ -9,7 +9,9 @@
  *  - Whole cells (chord + lyric + duration) move by dragging their header
  *    row (dnd-kit); the drop target is highlighted, no live reflow.
  *  - Clicking a cell selects it and shows "+" on its right edge to insert an
- *    empty bar right after it.
+ *    empty bar right after it. Shift/Ctrl/Cmd+click (or "Agregar a selección"
+ *    in the bubble menu) selects a run of cells; "Fusionar" merges them back
+ *    into one (inverse of the double-click subdivide).
  *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
  *    duration, and bar lines align across every row and line.
  *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
@@ -28,15 +30,18 @@ import { SortableContext, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
-import { insertBlankLyricCell, moveLyricCell } from '~/lib/chordpro/cellOps'
+import { insertBlankLyricCell, mergeLyricCells, moveLyricCell } from '~/lib/chordpro/cellOps'
 import { effectiveLyricChordBeats, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
 import {
   BeatGrid,
   BeatGridResizeHandle,
   InsertBarButton,
+  isExtendClick,
+  MergeSelectionBar,
   noReflowStrategy,
   useCellDragSensors,
+  useCellSelection,
 } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
@@ -151,8 +156,8 @@ export function LyricBarGrid({
   const segments = splitIntoBarSegments(line)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
-  /** Cell the user clicked — shows its "insert bar after" button. */
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  /** Selected run of cells: one → "+" insert button; 2+ → "Fusionar" bar. */
+  const selection = useCellSelection()
   const chordPickerRef = useRef<HTMLDivElement>(null)
 
   // ── Bubble menu ───────────────────────────────────────────────────────────────
@@ -178,6 +183,17 @@ export function LyricBarGrid({
       variant: 'default' as const,
       onAction: () => {
         handleInsertAfter(bubbleIdx)
+        bubbleMenu.close()
+      },
+    },
+    {
+      id: 'extend-selection',
+      label: 'Agregar a selección',
+      icon: '⇔',
+      variant: 'default' as const,
+      disabled: selection.range == null,
+      onAction: () => {
+        selection.select(bubbleIdx, true)
         bubbleMenu.close()
       },
     },
@@ -233,7 +249,15 @@ export function LyricBarGrid({
     if (index < 0 || index >= line.chords.length) return
     const r = insertBlankLyricCell(line.text, withBeats(line.chords), index, beatsPerBar)
     onTextChange?.(r.text, r.chords)
-    setSelectedIndex(index + 1)
+    selection.select(index + 1)
+  }
+
+  // ── Merge the selected cells into one (inverse of subdivide) ────────────────
+  const handleMergeSelection = () => {
+    if (!selection.range) return
+    const [a, b] = selection.range
+    onChordsReorder?.(mergeLyricCells(withBeats(line.chords), a, b))
+    selection.select(a)
   }
 
   // ── Delete chord cell ───────────────────────────────────────────────────────
@@ -344,7 +368,7 @@ export function LyricBarGrid({
 
     const r = moveLyricCell(line.text, withBeats(line.chords), oldIdx, newIdx)
     onTextChange?.(r.text, r.chords)
-    setSelectedIndex(newIdx)
+    selection.select(newIdx)
   }
 
   // ── Read grid: equal columns ────────────────────────────────────────────────
@@ -388,18 +412,18 @@ export function LyricBarGrid({
     const index = s.index
     const seg = segments[index]
     const beats = displayBeats[index]
-    const isSelected = selectedIndex === index
+    const isSelected = selection.isSelected(index)
     const cellClass = cn(
       'm-0.5 flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden px-1.5 py-1',
       'rounded-md border transition-colors duration-150',
       s.isHead
         ? 'border-slate-300 bg-white/60 hover:border-indigo-300 dark:border-white/15 dark:bg-white/[0.04] dark:hover:border-white/30'
         : 'border-dashed border-slate-300 bg-transparent dark:border-white/10',
-      isSelected && 'border-indigo-400 dark:border-indigo-400/70',
+      isSelected && 'border-indigo-400 bg-indigo-50/80 dark:border-indigo-400/70 dark:bg-indigo-500/10',
       dragState?.index === index && 'border-indigo-400 dark:border-indigo-500',
     )
     const cellProps: CellDivProps = {
-      onClick: () => setSelectedIndex(index),
+      onClick: (e: React.MouseEvent) => selection.select(index, isExtendClick(e)),
       onDoubleClick: () => handleDoubleClick(index),
       ...bubbleMenu.getHandlers(index, { enableLongPress: true }),
     }
@@ -457,7 +481,9 @@ export function LyricBarGrid({
         )}
 
         {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
-        {s.isTail && <InsertBarButton visible={isSelected} onClick={() => handleInsertAfter(index)} />}
+        {s.isTail && (
+          <InsertBarButton visible={selection.single === index} onClick={() => handleInsertAfter(index)} />
+        )}
       </>
     )
   }
@@ -471,6 +497,14 @@ export function LyricBarGrid({
         gridResolution={gridResolution}
         renderSegment={renderEditSegment}
       />
+
+      {selection.range && selection.range[1] > selection.range[0] && (
+        <MergeSelectionBar
+          count={selection.range[1] - selection.range[0] + 1}
+          onMerge={handleMergeSelection}
+          onCancel={selection.clear}
+        />
+      )}
 
       {/* Add chord button */}
       <button

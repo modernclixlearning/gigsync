@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { moveLyricCell, insertBlankLyricCell } from '../cellOps'
+import { moveLyricCell, insertBlankLyricCell, mergeLyricCells } from '../cellOps'
 import { parseChordPro } from '../parser'
 import { serializeParsedSong } from '../serializer'
 import type { LyricParsedLine } from '../types'
@@ -29,6 +29,24 @@ describe('moveLyricCell', () => {
     const l = line('[D:4]Hola [A:4][G:4]mundo')
     const r = moveLyricCell(l.text, l.chords, 1, 0)
     expect(toChordPro(r.text, r.chords)).toBe('[A:4][D:4]Hola [G:4]mundo')
+  })
+})
+
+describe('mergeLyricCells', () => {
+  it('undoes a subdivision: one cell, first chord, summed beats, joined lyric', () => {
+    const l = line('[D:2]Every [D:2]night [G:4]dreams')
+    const merged = mergeLyricCells(l.chords, 0, 1)
+    expect(toChordPro(l.text, merged)).toBe('[D:4]Every night [G:4]dreams')
+  })
+
+  it('merges a range in either direction', () => {
+    const l = line('[C:1]a [D:1]b [E:2]c [F:4]d')
+    expect(toChordPro(l.text, mergeLyricCells(l.chords, 2, 0))).toBe('[C:4]a b c [F:4]d')
+  })
+
+  it('is a no-op for a single cell', () => {
+    const l = line('[C:4]a [D:4]b')
+    expect(mergeLyricCells(l.chords, 1, 1)).toBe(l.chords)
   })
 })
 
