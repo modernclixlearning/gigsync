@@ -23,6 +23,20 @@ describe('Chord editor — insert bar after a cell', () => {
   })
 })
 
+describe('Chord editor — change a chord', () => {
+  it('tapping the chord name opens the picker and changes the chord', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(
+      <ChordOverlay lyrics={'[D:4]Hola [D:4][G:4]mundo'} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    // The blank bar inserted after "Hola" repeats D: change it to A.
+    await user.click(screen.getAllByRole('button', { name: 'Cambiar acorde D' })[1])
+    await user.click(screen.getByRole('button', { name: 'A' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Hola [A:4][G:4]mundo')
+  })
+})
+
 describe('Chord editor — select and merge cells', () => {
   it('shift+click selects a run and "Fusionar" merges it back into one cell', async () => {
     const user = userEvent.setup()
