@@ -311,6 +311,15 @@ export function SongPlayerContent({
   useEffect(() => {
     if (!setlistContext) return
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Typing in a text field (lyric/section editor): space and arrows are text.
+      const t = e.target
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        (t instanceof HTMLElement && t.isContentEditable)
+      ) {
+        return
+      }
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault()
         if (setlistContext.currentIndex < setlistContext.totalSongs - 1) {

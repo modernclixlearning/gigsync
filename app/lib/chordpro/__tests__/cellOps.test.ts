@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { moveLyricCell, insertBlankLyricCell, mergeLyricCells, deleteLyricCells } from '../cellOps'
+import {
+  moveLyricCell,
+  insertBlankLyricCell,
+  mergeLyricCells,
+  deleteLyricCells,
+  replaceLyricCellText,
+} from '../cellOps'
 import { parseChordPro } from '../parser'
 import { serializeParsedSong } from '../serializer'
 import type { LyricParsedLine } from '../types'
@@ -29,6 +35,38 @@ describe('moveLyricCell', () => {
     const l = line('[D:4]Hola [A:4][G:4]mundo')
     const r = moveLyricCell(l.text, l.chords, 1, 0)
     expect(toChordPro(r.text, r.chords)).toBe('[A:4][D:4]Hola [G:4]mundo')
+  })
+})
+
+describe('replaceLyricCellText', () => {
+  it('keeps the space that separates the cell from the next one', () => {
+    const l = line('[D:4]near [G:4]mundo')
+    const r = replaceLyricCellText(l.text, l.chords, 0, 'near me now')
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]near me now [G:4]mundo')
+  })
+
+  it('does not add a space inside a word split by a chord', () => {
+    const l = line('[D:4]dre[G:4]ams')
+    const r = replaceLyricCellText(l.text, l.chords, 0, 'drea')
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]drea[G:4]ams')
+  })
+
+  it('separates text typed into an inserted blank bar from the next word', () => {
+    const l = line('[D:4]Hola [D:4][G:4]mundo')
+    const r = replaceLyricCellText(l.text, l.chords, 1, 'que tal')
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]Hola [D:4]que tal [G:4]mundo')
+  })
+
+  it('edits the last cell without a trailing space', () => {
+    const l = line('[D:4]Hola [G:4]mundo')
+    const r = replaceLyricCellText(l.text, l.chords, 1, 'mundo cruel')
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]Hola [G:4]mundo cruel')
+  })
+
+  it('clearing a cell leaves it empty', () => {
+    const l = line('[D:4]Hola [G:4]mundo')
+    const r = replaceLyricCellText(l.text, l.chords, 0, '  ')
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4][G:4]mundo')
   })
 })
 

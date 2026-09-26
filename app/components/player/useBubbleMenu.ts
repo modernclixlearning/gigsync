@@ -4,7 +4,8 @@
  * Encapsulates trigger logic for a contextual bubble menu:
  *  - Long-press (configurable, default 600ms) — opt-in via `enableLongPress`
  *  - Right-click (context menu)
- *  - Keyboard: Enter/Space when focused, Delete/Backspace for direct delete
+ *  - Keyboard: Enter/Space when the target element itself is focused (never
+ *    while typing in a text field inside it)
  *
  * Returns handler props to spread onto the target element and state for
  * positioning the BubbleMenu portal.
@@ -34,6 +35,17 @@ export interface UseBubbleMenuOptions {
   longPressDelay?: number
   /** Max pointer movement (px) before cancelling long-press. Default 8. */
   longPressTolerance?: number
+}
+
+/** True for elements the user types into (inputs, textareas, contenteditable). */
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  )
 }
 
 export function useBubbleMenu({
@@ -85,6 +97,8 @@ export function useBubbleMenu({
       const enableLP = options?.enableLongPress ?? false
 
       const onContextMenu = (e: React.MouseEvent) => {
+        // Keep the native menu (copy/paste) inside a text field.
+        if (isEditableTarget(e.target)) return
         e.preventDefault()
         e.stopPropagation()
         const target = e.currentTarget as HTMLElement
@@ -92,6 +106,10 @@ export function useBubbleMenu({
       }
 
       const onKeyDown = (e: React.KeyboardEvent) => {
+        // Only when the cell/line itself has focus. Key events bubble up from
+        // the lyric input inside the cell: without this, typing a space (or
+        // Enter to confirm) swallowed the key and opened the menu.
+        if (e.target !== e.currentTarget || isEditableTarget(e.target)) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           e.stopPropagation()
@@ -109,9 +127,9 @@ export function useBubbleMenu({
         result.onPointerDown = (e: React.PointerEvent) => {
           // Only primary button (left click / touch)
           if (e.button !== 0) return
-          // Don't trigger if target is inside a sortable handle
+          // Don't trigger if target is inside a sortable handle or a text field
           const target = e.target as HTMLElement
-          if (target.closest('[data-sortable-handle]')) return
+          if (target.closest('[data-sortable-handle]') || isEditableTarget(target)) return
 
           startPosRef.current = { x: e.clientX, y: e.clientY }
           const anchor = e.currentTarget as HTMLElement
