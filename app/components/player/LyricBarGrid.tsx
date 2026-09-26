@@ -30,7 +30,12 @@ import { SortableContext, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
-import { insertBlankLyricCell, mergeLyricCells, moveLyricCell } from '~/lib/chordpro/cellOps'
+import {
+  deleteLyricCells,
+  insertBlankLyricCell,
+  mergeLyricCells,
+  moveLyricCell,
+} from '~/lib/chordpro/cellOps'
 import { effectiveLyricChordBeats, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
 import {
@@ -38,7 +43,7 @@ import {
   BeatGridResizeHandle,
   InsertBarButton,
   isExtendClick,
-  MergeSelectionBar,
+  SelectionActionsBar,
   noReflowStrategy,
   useCellDragSensors,
   useCellSelection,
@@ -258,6 +263,18 @@ export function LyricBarGrid({
     const [a, b] = selection.range
     onChordsReorder?.(mergeLyricCells(withBeats(line.chords), a, b))
     selection.select(a)
+  }
+
+  // ── Delete the selected cells as whole blocks (chord + lyric + beats) ───────
+  const canDeleteSelection =
+    selection.range != null && selection.range[1] - selection.range[0] + 1 < line.chords.length
+  const handleDeleteSelection = () => {
+    if (!selection.range || !canDeleteSelection) return
+    const [a, b] = selection.range
+    const r = deleteLyricCells(line.text, withBeats(line.chords), a, b)
+    onTextChange?.(r.text, r.chords)
+    selection.clear()
+    setEditingChordIndex(null)
   }
 
   // ── Delete chord cell ───────────────────────────────────────────────────────
@@ -520,9 +537,11 @@ export function LyricBarGrid({
       />
 
       {selection.range && selection.range[1] > selection.range[0] && (
-        <MergeSelectionBar
+        <SelectionActionsBar
           count={selection.range[1] - selection.range[0] + 1}
           onMerge={handleMergeSelection}
+          onDelete={handleDeleteSelection}
+          canDelete={canDeleteSelection}
           onCancel={selection.clear}
         />
       )}

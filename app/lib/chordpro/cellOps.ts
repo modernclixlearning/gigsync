@@ -65,6 +65,25 @@ export function moveLyricCell(
 }
 
 /**
+ * Delete cells `from`..`to` (inclusive) as whole blocks: their chords, their
+ * lyric text and their beats go away. The rest of the line keeps its rhythm.
+ */
+export function deleteLyricCells(
+  text: string,
+  chords: ChordPosition[],
+  from: number,
+  to: number
+): { text: string; chords: ChordPosition[] } {
+  const a = Math.max(0, Math.min(from, to))
+  const b = Math.min(chords.length - 1, Math.max(from, to))
+  const { prefix, texts } = splitCells(text, chords)
+  const cells = chords
+    .map((chord, i) => ({ chord, text: texts[i] }))
+    .filter((_, i) => i < a || i > b)
+  return joinCells(prefix, cells)
+}
+
+/**
  * Merge cells `from`..`to` (inclusive) into one: keeps the first cell's chord,
  * sums the beats, and joins the lyrics (the text itself is untouched — the
  * inner chord marks just go away). Inverse of subdividing a cell.

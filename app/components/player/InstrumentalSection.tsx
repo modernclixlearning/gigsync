@@ -32,7 +32,7 @@ import {
   InsertBarButton,
   noReflowStrategy,
   isExtendClick,
-  MergeSelectionBar,
+  SelectionActionsBar,
   useCellDragSensors,
   useCellSelection,
 } from './BeatGrid'
@@ -256,6 +256,18 @@ export function InstrumentalSection({
     selection.select(a)
   }
 
+  // ── Delete the selected cells at once ───────────────────────────────────────
+  const canDeleteSelection =
+    selection.range != null &&
+    selection.range[1] - selection.range[0] + 1 < section.chordBars.length
+  const handleDeleteSelection = () => {
+    if (!selection.range || !canDeleteSelection) return
+    const [a, b] = selection.range
+    onChordsChange?.(section.chordBars.filter((_, i) => i < a || i > b))
+    selection.clear()
+    setEditingChordIndex(null)
+  }
+
   // ── Chord name editing ──────────────────────────────────────────────────────
   const handleChordNameChange = useCallback(
     (index: number, newChord: string) => {
@@ -443,9 +455,11 @@ export function InstrumentalSection({
         renderSegment={renderEditSegment}
       />
       {selection.range && selection.range[1] > selection.range[0] && (
-        <MergeSelectionBar
+        <SelectionActionsBar
           count={selection.range[1] - selection.range[0] + 1}
           onMerge={handleMergeSelection}
+          onDelete={handleDeleteSelection}
+          canDelete={canDeleteSelection}
           onCancel={selection.clear}
         />
       )}

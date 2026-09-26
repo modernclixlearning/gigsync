@@ -127,19 +127,25 @@ export function isExtendClick(e: React.MouseEvent) {
 }
 
 /**
- * Action bar shown while 2+ cells are selected: merges them into one cell.
+ * Action bar shown while 2+ cells are selected: merge them into one cell, or
+ * delete them all at once.
  */
-export function MergeSelectionBar({
+export function SelectionActionsBar({
   count,
   onMerge,
+  onDelete,
+  canDelete,
   onCancel,
 }: {
   count: number
   onMerge: () => void
+  onDelete: () => void
+  /** False when the selection is every cell of the line (one must remain). */
+  canDelete: boolean
   onCancel: () => void
 }) {
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       <button
         type="button"
         onClick={onMerge}
@@ -150,6 +156,20 @@ export function MergeSelectionBar({
         )}
       >
         Fusionar {count} celdas
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={!canDelete}
+        title={canDelete ? undefined : 'La línea tiene que conservar al menos una celda'}
+        className={cn(
+          'rounded-full px-3 py-1 text-xs font-semibold',
+          'bg-rose-600 text-white hover:bg-rose-500',
+          'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-rose-600',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60'
+        )}
+      >
+        Eliminar {count} celdas
       </button>
       <button
         type="button"
