@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { moveLyricCell, insertBlankLyricCell, mergeLyricCells } from '../cellOps'
+import { moveLyricCell, insertBlankLyricCell, mergeLyricCells, deleteLyricCells } from '../cellOps'
 import { parseChordPro } from '../parser'
 import { serializeParsedSong } from '../serializer'
 import type { LyricParsedLine } from '../types'
@@ -29,6 +29,26 @@ describe('moveLyricCell', () => {
     const l = line('[D:4]Hola [A:4][G:4]mundo')
     const r = moveLyricCell(l.text, l.chords, 1, 0)
     expect(toChordPro(r.text, r.chords)).toBe('[A:4][D:4]Hola [G:4]mundo')
+  })
+})
+
+describe('deleteLyricCells', () => {
+  it('removes a run of cells with their lyric and beats', () => {
+    const l = line('[D:4]Every night [Bm:2]in my [A:2]own [G:4]dreams')
+    const r = deleteLyricCells(l.text, l.chords, 1, 2)
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]Every night [G:4]dreams')
+  })
+
+  it('removes trailing cells without leaving a trailing space', () => {
+    const l = line('[D:4]Hola [G:4]mundo [A:4]cruel')
+    const r = deleteLyricCells(l.text, l.chords, 2, 1)
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]Hola')
+  })
+
+  it('removes leading cells', () => {
+    const l = line('[D:4]Hola [G:4]mundo [A:4]cruel')
+    const r = deleteLyricCells(l.text, l.chords, 0, 1)
+    expect(toChordPro(r.text, r.chords)).toBe('[A:4]cruel')
   })
 })
 

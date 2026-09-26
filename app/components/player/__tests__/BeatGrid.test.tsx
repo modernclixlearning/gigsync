@@ -60,6 +60,35 @@ describe('Chord editor — select and merge cells', () => {
   })
 })
 
+describe('Chord editor — delete selected cells', () => {
+  it('deletes a selected run as whole blocks, and never the whole line', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay
+        lyrics={'[D:4]Every night [Bm:2]in my [A:2]own [G:4]dreams'}
+        isEditable
+        columns={2}
+        onLyricsChange={onLyricsChange}
+      />
+    )
+    const cell = (i: number) => container.querySelector<HTMLElement>(`[data-chord-index="${i}"]`)!
+    // Selecting every cell: delete is disabled (the line keeps one cell).
+    await user.click(cell(0))
+    await user.keyboard('{Shift>}')
+    await user.click(cell(3))
+    await user.keyboard('{/Shift}')
+    expect(screen.getByRole('button', { name: 'Eliminar 4 celdas' })).toBeDisabled()
+
+    await user.click(cell(1))
+    await user.keyboard('{Shift>}')
+    await user.click(cell(2))
+    await user.keyboard('{/Shift}')
+    await user.click(screen.getByRole('button', { name: 'Eliminar 2 celdas' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Every night [G:4]dreams')
+  })
+})
+
 describe('Chord editor beat grid', () => {
   it('sizes chords by their playback duration on a fixed 2-bar row', () => {
     // No explicit beats: playback gives the line 2 bars split evenly → 2 beats each.
