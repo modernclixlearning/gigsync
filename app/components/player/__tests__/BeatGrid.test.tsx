@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ChordOverlay } from '../ChordOverlay'
 
 function editCells(container: HTMLElement) {
@@ -8,6 +9,19 @@ function editCells(container: HTMLElement) {
     gridColumn: el.style.gridColumn,
   }))
 }
+
+describe('Chord editor — insert bar after a cell', () => {
+  it('inserts an empty bar with the same chord right after the clicked cell', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay lyrics={'[D:4]Hola [G:4]mundo'} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    const firstSegment = container.querySelector<HTMLElement>('[data-beat-grid-row] > div[style]')!
+    await user.click(within(firstSegment).getByRole('button', { name: 'Insertar compás después' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Hola [D:4][G:4]mundo')
+  })
+})
 
 describe('Chord editor beat grid', () => {
   it('sizes chords by their playback duration on a fixed 2-bar row', () => {

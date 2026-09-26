@@ -5,8 +5,11 @@
  * Each cell = one bar: chord badge (top) + lyric text (bottom).
  *
  * When `isEditable`:
- *  - Long-press or right-click a cell to open bubble menu (Edit / Delete).
- *  - Chord badges are sortable via long-press drag (dnd-kit).
+ *  - Long-press or right-click a cell to open bubble menu (Edit / Insert bar / Delete).
+ *  - Whole cells (chord + lyric + duration) move by dragging their header
+ *    row (dnd-kit); the drop target is highlighted, no live reflow.
+ *  - Clicking a cell selects it and shows "+" on its right edge to insert an
+ *    empty bar right after it.
  *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
  *    duration, and bar lines align across every row and line.
  *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
@@ -14,29 +17,27 @@
  *  - '+' button to add new chord cell.
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, type ReactNode } from 'react'
 import {
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { SortableContext, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
+import { insertBlankLyricCell, moveLyricCell } from '~/lib/chordpro/cellOps'
 import { effectiveLyricChordBeats, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
-import { BeatGrid, BeatGridResizeHandle } from './BeatGrid'
+import {
+  BeatGrid,
+  BeatGridResizeHandle,
+  InsertBarButton,
+  noReflowStrategy,
+  useCellDragSensors,
+} from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
 import { useBubbleMenu } from './useBubbleMenu'
@@ -88,30 +89,44 @@ function splitIntoBarSegments(line: LyricParsedLine): BarSegment[] {
   })
 }
 
-// ── Sortable chord badge ───────────────────────────────────────────────────────
+// ── Sortable cell (whole block: chord + lyric + duration) ─────────────────────
 
-function SortableChordBadge({ id, chord }: { id: string; chord: string }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+type CellDivProps = React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>
+
+/**
+ * The cell is the sortable node; its header row (chord + beats) is the drag
+ * handle, so the lyric stays clickable for editing and long-press still opens
+ * the bubble menu on the body.
+ */
+function SortableCell({
+  id,
+  className,
+  cellProps,
+  children,
+}: {
+  id: string
+  className: string
+  cellProps: CellDivProps
+  children: (handle: { ref: (el: HTMLElement | null) => void; props: Record<string, unknown> }) => ReactNode
+}) {
+  const { setNodeRef, setActivatorNodeRef, listeners, attributes, isDragging, isOver, active } =
     useSortable({ id })
-
+  const isDropTarget = isOver && active != null && active.id !== id
   return (
-    <span
+    <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      data-sortable-handle
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      {...cellProps}
       className={cn(
-        'font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 leading-none',
-        'touch-none select-none cursor-grab active:cursor-grabbing',
-        'rounded px-0.5',
-        isDragging
-          ? 'opacity-30'
-          : 'hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+        className,
+        isDragging && 'opacity-40',
+        isDropTarget && 'border-indigo-500 ring-2 ring-indigo-400 dark:border-indigo-400 dark:ring-indigo-500'
       )}
     >
-      {chord}
-    </span>
+      {children({
+        ref: setActivatorNodeRef,
+        props: { ...listeners, ...attributes, 'data-sortable-handle': true },
+      })}
+    </div>
   )
 }
 
@@ -136,37 +151,48 @@ export function LyricBarGrid({
   const segments = splitIntoBarSegments(line)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
+  /** Cell the user clicked — shows its "insert bar after" button. */
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const chordPickerRef = useRef<HTMLDivElement>(null)
 
   // ── Bubble menu ───────────────────────────────────────────────────────────────
   const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
 
-  const bubbleMenuActions = useMemo((): BubbleMenuAction[] => {
-    const idx = bubbleMenu.state.targetIndex
-    return [
-      {
-        id: 'edit',
-        label: 'Editar',
-        icon: '✎',
-        variant: 'default' as const,
-        onAction: () => {
-          setEditingChordIndex(idx)
-          bubbleMenu.close()
-        },
+  // Built every render (not memoized) so the actions never act on a stale line.
+  const bubbleIdx = bubbleMenu.state.targetIndex
+  const bubbleMenuActions: BubbleMenuAction[] = [
+    {
+      id: 'edit',
+      label: 'Editar',
+      icon: '✎',
+      variant: 'default' as const,
+      onAction: () => {
+        setEditingChordIndex(bubbleIdx)
+        bubbleMenu.close()
       },
-      {
-        id: 'delete',
-        label: 'Eliminar',
-        icon: '✕',
-        variant: 'danger' as const,
-        disabled: line.chords.length <= 1,
-        onAction: () => {
-          handleDeleteChord(idx)
-          bubbleMenu.close()
-        },
+    },
+    {
+      id: 'insert-after',
+      label: 'Compás después',
+      icon: '+',
+      variant: 'default' as const,
+      onAction: () => {
+        handleInsertAfter(bubbleIdx)
+        bubbleMenu.close()
       },
-    ]
-  }, [bubbleMenu.state.targetIndex, line.chords.length])
+    },
+    {
+      id: 'delete',
+      label: 'Eliminar',
+      icon: '✕',
+      variant: 'danger' as const,
+      disabled: line.chords.length <= 1,
+      onAction: () => {
+        handleDeleteChord(bubbleIdx)
+        bubbleMenu.close()
+      },
+    },
+  ]
 
   // ── Beat values for each chord ──────────────────────────────────────────────
   // What playback actually uses, so the grid shows real durations. Any
@@ -201,6 +227,14 @@ export function LyricBarGrid({
     onChordsReorder?.([...withBeats(line.chords), newChord])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.chords, line.text.length, beatsPerBar, chordBeats.join(), onChordsReorder])
+
+  // ── Insert an empty bar after a cell ────────────────────────────────────────
+  const handleInsertAfter = (index: number) => {
+    if (index < 0 || index >= line.chords.length) return
+    const r = insertBlankLyricCell(line.text, withBeats(line.chords), index, beatsPerBar)
+    onTextChange?.(r.text, r.chords)
+    setSelectedIndex(index + 1)
+  }
 
   // ── Delete chord cell ───────────────────────────────────────────────────────
   const handleDeleteChord = useCallback(
@@ -287,9 +321,7 @@ export function LyricBarGrid({
     }
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
-  )
+  const sensors = useCellDragSensors()
 
   if (segments.length === 0) return null
 
@@ -298,10 +330,10 @@ export function LyricBarGrid({
   const emptyCells = remainder === 0 ? 0 : effectiveCols - remainder
 
   const sortableIds = segments.map((_, i) => `lyric-${elementId}-${i}`)
-  const activeChord = activeId
-    ? segments[sortableIds.indexOf(activeId)]?.chord
-    : null
+  const activeIndex = activeId ? sortableIds.indexOf(activeId) : -1
+  const activeSegment = activeIndex >= 0 ? segments[activeIndex] : null
 
+  // Moves the whole block — chord, its lyric and its duration — to the drop slot.
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null)
     const { active, over } = e
@@ -310,16 +342,9 @@ export function LyricBarGrid({
     const newIdx = sortableIds.indexOf(over.id as string)
     if (oldIdx === -1 || newIdx === -1) return
 
-    // Reorder chord NAMES only: each slot keeps its text offset and duration,
-    // so moving a chord never changes the line's rhythm.
-    const chordNames = line.chords.map((c) => c.chord)
-    const reorderedNames = arrayMove(chordNames, oldIdx, newIdx)
-    const slots = withBeats(line.chords)
-    const newChords: ChordPosition[] = reorderedNames.map((chord, i) => ({
-      ...slots[i],
-      chord,
-    }))
-    onChordsReorder?.(newChords)
+    const r = moveLyricCell(line.text, withBeats(line.chords), oldIdx, newIdx)
+    onTextChange?.(r.text, r.chords)
+    setSelectedIndex(newIdx)
   }
 
   // ── Read grid: equal columns ────────────────────────────────────────────────
@@ -362,60 +387,77 @@ export function LyricBarGrid({
   const renderEditSegment = (s: BeatGridSegment) => {
     const index = s.index
     const seg = segments[index]
-    const cellBubbleHandlers = bubbleMenu.getHandlers(index, { enableLongPress: true })
     const beats = displayBeats[index]
+    const isSelected = selectedIndex === index
+    const cellClass = cn(
+      'm-0.5 flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden px-1.5 py-1',
+      'rounded-md border transition-colors duration-150',
+      s.isHead
+        ? 'border-slate-300 bg-white/60 hover:border-indigo-300 dark:border-white/15 dark:bg-white/[0.04] dark:hover:border-white/30'
+        : 'border-dashed border-slate-300 bg-transparent dark:border-white/10',
+      isSelected && 'border-indigo-400 dark:border-indigo-400/70',
+      dragState?.index === index && 'border-indigo-400 dark:border-indigo-500',
+    )
+    const cellProps: CellDivProps = {
+      onClick: () => setSelectedIndex(index),
+      onDoubleClick: () => handleDoubleClick(index),
+      ...bubbleMenu.getHandlers(index, { enableLongPress: true }),
+    }
     return (
       <>
-        <div
-          data-chord-index={s.isHead ? index : undefined}
-          tabIndex={s.isHead ? 0 : undefined}
-          onDoubleClick={() => handleDoubleClick(index)}
-          {...cellBubbleHandlers}
-          className={cn(
-            'm-0.5 flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden px-1.5 py-1',
-            'rounded-md border transition-colors duration-150',
-            s.isHead
-              ? 'border-slate-300 bg-white/60 hover:border-indigo-300 dark:border-white/15 dark:bg-white/[0.04] dark:hover:border-white/30'
-              : 'border-dashed border-slate-300 bg-transparent dark:border-white/10',
-            dragState?.index === index && 'border-indigo-400 dark:border-indigo-500',
-          )}
-        >
-          {s.isHead ? (
-            <>
-              <div className="relative flex items-center justify-between gap-1">
-                <SortableChordBadge id={sortableIds[index]} chord={seg.chord} />
-                <span
-                  className="shrink-0 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums"
-                  title={`${beats} ${beats === 1 ? 'tiempo' : 'tiempos'}`}
+        {s.isHead ? (
+          <SortableCell
+            id={sortableIds[index]}
+            className={cellClass}
+            cellProps={{ ...cellProps, 'data-chord-index': index, tabIndex: 0 }}
+          >
+            {(handle) => (
+              <>
+                <div
+                  ref={handle.ref}
+                  {...handle.props}
+                  title="Arrastrá para mover el bloque"
+                  className="relative -mx-1.5 -mt-1 flex cursor-grab touch-none select-none items-center justify-between gap-1 px-1.5 pt-1 active:cursor-grabbing"
                 >
-                  {beats}
-                </span>
-                {editingChordIndex === index && (
-                  <div ref={chordPickerRef} className="absolute top-full left-0 mt-1 z-50">
-                    <ChordPicker
-                      currentChord={seg.chord}
-                      onSelect={(chord) => handleChordChange(index, chord)}
-                      onClose={() => setEditingChordIndex(null)}
-                    />
-                  </div>
-                )}
-              </div>
-              <InlineTextEditor
-                value={seg.text}
-                isEditable
-                onCommit={(newText) => handleSegmentTextChange(index, newText)}
-                className="text-slate-900 dark:text-white font-semibold leading-snug"
-                placeholder="Letra..."
-              />
-            </>
-          ) : (
+                  <span className="rounded px-0.5 font-mono text-sm font-bold leading-none text-indigo-600 dark:text-indigo-400">
+                    {seg.chord}
+                  </span>
+                  <span
+                    className="shrink-0 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums"
+                    title={`${beats} ${beats === 1 ? 'tiempo' : 'tiempos'}`}
+                  >
+                    {beats}
+                  </span>
+                  {editingChordIndex === index && (
+                    <div ref={chordPickerRef} className="absolute top-full left-0 mt-1 z-50">
+                      <ChordPicker
+                        currentChord={seg.chord}
+                        onSelect={(chord) => handleChordChange(index, chord)}
+                        onClose={() => setEditingChordIndex(null)}
+                      />
+                    </div>
+                  )}
+                </div>
+                <InlineTextEditor
+                  value={seg.text}
+                  isEditable
+                  onCommit={(newText) => handleSegmentTextChange(index, newText)}
+                  className="text-slate-900 dark:text-white font-semibold leading-snug"
+                  placeholder="Letra..."
+                />
+              </>
+            )}
+          </SortableCell>
+        ) : (
+          <div className={cellClass} {...cellProps}>
             <span className="font-mono text-sm font-bold leading-none text-indigo-400/60 dark:text-indigo-400/50">
               ↳ {seg.chord}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
+        {s.isTail && <InsertBarButton visible={isSelected} onClick={() => handleInsertAfter(index)} />}
       </>
     )
   }
@@ -484,14 +526,19 @@ export function LyricBarGrid({
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveId(null)}
           >
-            <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+            <SortableContext items={sortableIds} strategy={noReflowStrategy}>
               {editGrid}
             </SortableContext>
             <DragOverlay>
-              {activeChord && (
-                <span className="font-mono font-bold text-sm px-2 py-1 rounded bg-indigo-600 text-white shadow-lg">
-                  {activeChord}
-                </span>
+              {activeSegment && (
+                <div className="flex max-w-[16rem] flex-col gap-0.5 rounded-md border border-indigo-500 bg-indigo-600 px-2 py-1 text-white shadow-xl">
+                  <span className="font-mono text-sm font-bold leading-none">
+                    {activeSegment.chord}
+                  </span>
+                  {activeSegment.text && (
+                    <span className="truncate text-sm font-semibold">{activeSegment.text}</span>
+                  )}
+                </div>
               )}
             </DragOverlay>
           </DndContext>
