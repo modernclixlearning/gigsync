@@ -35,6 +35,7 @@ import {
   insertBlankLyricCell,
   mergeLyricCells,
   moveLyricCell,
+  replaceLyricCellText,
 } from '~/lib/chordpro/cellOps'
 import { effectiveLyricChordBeats, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
@@ -292,21 +293,9 @@ export function LyricBarGrid({
   // ── Lyric text change for a segment ─────────────────────────────────────────
   const handleSegmentTextChange = useCallback(
     (index: number, newText: string) => {
-      // Rebuild the full text with updated segment + adjust chord positions
-      const chords = [...line.chords]
-      let fullText = ''
-      for (let i = 0; i < chords.length; i++) {
-        const segStart = fullText.length
-        chords[i] = { ...chords[i], position: segStart }
-        if (i === index) {
-          fullText += newText
-        } else {
-          const origStart = line.chords[i].position
-          const origEnd = i + 1 < line.chords.length ? line.chords[i + 1].position : line.text.length
-          fullText += line.text.slice(origStart, origEnd)
-        }
-      }
-      onTextChange?.(fullText, chords)
+      // Keeps the spacing around the cell (the editor shows it trimmed).
+      const r = replaceLyricCellText(line.text, line.chords, index, newText)
+      onTextChange?.(r.text, r.chords)
     },
     [line.chords, line.text, onTextChange]
   )

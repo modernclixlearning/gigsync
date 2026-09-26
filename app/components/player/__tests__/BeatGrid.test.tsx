@@ -60,6 +60,20 @@ describe('Chord editor — select and merge cells', () => {
   })
 })
 
+describe('Chord editor — typing lyrics', () => {
+  it('types spaces into the lyric instead of opening the cell menu', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(<ChordOverlay lyrics={'[D:4]near [G:4]mundo'} isEditable columns={2} onLyricsChange={onLyricsChange} />)
+    await user.click(screen.getByText('near'))
+    const input = screen.getByRole('textbox')
+    await user.clear(input)
+    await user.type(input, 'near me now{Enter}')
+    expect(screen.queryByRole('button', { name: /Compás después/ })).toBeNull()
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]near me now [G:4]mundo')
+  })
+})
+
 describe('Chord editor — delete selected cells', () => {
   it('deletes a selected run as whole blocks, and never the whole line', async () => {
     const user = userEvent.setup()
