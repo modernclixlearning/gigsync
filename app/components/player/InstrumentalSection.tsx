@@ -6,6 +6,7 @@
  *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Insert bar / Delete).
  *  - Chord cells move by dragging (dnd-kit); the drop target is highlighted.
  *  - Clicking a cell selects it and shows "+" to insert a bar right after it.
+ *    Shift/Ctrl/Cmd+click selects a run; "Fusionar" merges it into one cell.
  *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
  *    duration, and bar lines align with the lyric lines above and below.
  *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
@@ -30,7 +31,10 @@ import {
   BeatGridResizeHandle,
   InsertBarButton,
   noReflowStrategy,
+  isExtendClick,
+  MergeSelectionBar,
   useCellDragSensors,
+  useCellSelection,
 } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { useBubbleMenu } from './useBubbleMenu'
@@ -165,8 +169,8 @@ export function InstrumentalSection({
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
-  /** Cell the user clicked — shows its "insert bar after" button. */
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  /** Selected run of cells: one → "+" insert button; 2+ → "Fusionar" bar. */
+  const selection = useCellSelection()
   const pickerRef = useRef<HTMLDivElement>(null)
 
   // ── Bubble menu ───────────────────────────────────────────────────────────────
@@ -196,6 +200,17 @@ export function InstrumentalSection({
       },
     },
     {
+      id: 'extend-selection',
+      label: 'Agregar a selección',
+      icon: '⇔',
+      variant: 'default' as const,
+      disabled: selection.range == null,
+      onAction: () => {
+        selection.select(bubbleIdx, true)
+        bubbleMenu.close()
+      },
+    },
+    {
       id: 'delete',
       label: 'Eliminar',
       icon: '✕',
@@ -214,7 +229,17 @@ export function InstrumentalSection({
     if (index < 0 || index >= bars.length) return
     const newBar: ChordBar = { chord: bars[index].chord, beats: beatsPerBar }
     onChordsChange?.([...bars.slice(0, index + 1), newBar, ...bars.slice(index + 1)])
-    setSelectedIndex(index + 1)
+    selection.select(index + 1)
+  }
+
+  // ── Merge the selected cells into one (inverse of subdivide) ────────────────
+  const handleMergeSelection = () => {
+    if (!selection.range) return
+    const [a, b] = selection.range
+    const bars = section.chordBars
+    const beats = bars.slice(a, b + 1).reduce((sum, bar) => sum + (bar.beats ?? beatsPerBar), 0)
+    onChordsChange?.([...bars.slice(0, a), { ...bars[a], beats }, ...bars.slice(b + 1)])
+    selection.select(a)
   }
 
   // ── Chord name editing ──────────────────────────────────────────────────────
@@ -344,7 +369,7 @@ export function InstrumentalSection({
       <>
         <div
           className="m-0.5 flex min-w-0 flex-1"
-          onClick={() => setSelectedIndex(index)}
+          onClick={(e) => selection.select(index, isExtendClick(e))}
           onDoubleClick={() => handleDoubleClick(index)}
           {...bubbleMenu.getHandlers(index)}
         >
@@ -354,7 +379,7 @@ export function InstrumentalSection({
                 id={id}
                 bar={bar}
                 compact={compact}
-                isActive={activeId === id || selectedIndex === index}
+                isActive={activeId === id || selection.isSelected(index)}
               />
               <span className="pointer-events-none absolute right-1 top-1 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums">
                 {displayBeats[index]}
@@ -377,7 +402,7 @@ export function InstrumentalSection({
         )}
         {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
         {s.isTail && (
-          <InsertBarButton visible={selectedIndex === index} onClick={() => handleInsertAfter(index)} />
+          <InsertBarButton visible={selection.single === index} onClick={() => handleInsertAfter(index)} />
         )}
       </>
     )
@@ -392,6 +417,13 @@ export function InstrumentalSection({
         gridResolution={gridResolution}
         renderSegment={renderEditSegment}
       />
+      {selection.range && selection.range[1] > selection.range[0] && (
+        <MergeSelectionBar
+          count={selection.range[1] - selection.range[0] + 1}
+          onMerge={handleMergeSelection}
+          onCancel={selection.clear}
+        />
+      )}
       <div className="flex justify-center">
         <button
           type="button"

@@ -7,7 +7,7 @@
  * up across rows and across lines, and a chord's width is exactly its length.
  */
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { SortingStrategy } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
@@ -99,6 +99,72 @@ export function useCellDragSensors() {
  * the move is applied on drop.
  */
 export const noReflowStrategy: SortingStrategy = () => null
+
+/**
+ * Selection of a contiguous run of cells. A plain click selects one cell;
+ * Shift/Ctrl/Cmd+click (or "Agregar a selección" in the bubble menu, for
+ * touch) extends the run from the anchor to the clicked cell.
+ */
+export function useCellSelection() {
+  const [sel, setSel] = useState<{ anchor: number; focus: number } | null>(null)
+  const range: [number, number] | null = sel
+    ? [Math.min(sel.anchor, sel.focus), Math.max(sel.anchor, sel.focus)]
+    : null
+  return {
+    range,
+    /** Index of the selected cell when exactly one is selected */
+    single: range && range[0] === range[1] ? range[0] : null,
+    isSelected: (i: number) => range != null && i >= range[0] && i <= range[1],
+    select: (i: number, extend = false) =>
+      setSel((prev) => (extend && prev ? { anchor: prev.anchor, focus: i } : { anchor: i, focus: i })),
+    clear: () => setSel(null),
+  }
+}
+
+/** True when a click should extend the selection instead of replacing it. */
+export function isExtendClick(e: React.MouseEvent) {
+  return e.shiftKey || e.metaKey || e.ctrlKey
+}
+
+/**
+ * Action bar shown while 2+ cells are selected: merges them into one cell.
+ */
+export function MergeSelectionBar({
+  count,
+  onMerge,
+  onCancel,
+}: {
+  count: number
+  onMerge: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <button
+        type="button"
+        onClick={onMerge}
+        className={cn(
+          'rounded-full px-3 py-1 text-xs font-semibold',
+          'bg-indigo-600 text-white hover:bg-indigo-500',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60'
+        )}
+      >
+        Fusionar {count} celdas
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className={cn(
+          'rounded-full px-3 py-1 text-xs',
+          'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60'
+        )}
+      >
+        Cancelar
+      </button>
+    </div>
+  )
+}
 
 /**
  * "+" on a cell's right edge: inserts an empty bar right after that cell.

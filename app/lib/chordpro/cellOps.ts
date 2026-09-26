@@ -65,6 +65,19 @@ export function moveLyricCell(
 }
 
 /**
+ * Merge cells `from`..`to` (inclusive) into one: keeps the first cell's chord,
+ * sums the beats, and joins the lyrics (the text itself is untouched — the
+ * inner chord marks just go away). Inverse of subdividing a cell.
+ */
+export function mergeLyricCells(chords: ChordPosition[], from: number, to: number): ChordPosition[] {
+  const a = Math.min(from, to)
+  const b = Math.max(from, to)
+  if (a === b || a < 0 || b >= chords.length) return chords
+  const beats = chords.slice(a, b + 1).reduce((sum, c) => sum + (c.beats ?? 0), 0)
+  return [...chords.slice(0, a), { ...chords[a], beats }, ...chords.slice(b + 1)]
+}
+
+/**
  * Insert an empty cell (no lyric) right after `index`, repeating that cell's
  * chord for `beats` beats.
  */
