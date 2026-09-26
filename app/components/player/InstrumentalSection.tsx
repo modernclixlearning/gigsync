@@ -3,8 +3,9 @@
  * Visual grid display for instrumental passages with chord progressions.
  *
  * When `isEditable`:
- *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Delete).
- *  - Chord cells are sortable via long-press drag (dnd-kit).
+ *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Insert bar / Delete).
+ *  - Chord cells move by dragging (dnd-kit); the drop target is highlighted.
+ *  - Clicking a cell selects it and shows "+" to insert a bar right after it.
  *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
  *    duration, and bar lines align with the lyric lines above and below.
  *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
@@ -17,23 +18,20 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
 import type { BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
-import { BeatGrid, BeatGridResizeHandle } from './BeatGrid'
+import {
+  BeatGrid,
+  BeatGridResizeHandle,
+  InsertBarButton,
+  noReflowStrategy,
+  useCellDragSensors,
+} from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { useBubbleMenu } from './useBubbleMenu'
 import { BubbleMenu } from './BubbleMenu'
@@ -103,15 +101,16 @@ function SortableChordCell({
   compact: boolean
   isActive: boolean
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id })
+  // No transform: cells don't reflow while dragging on the time grid; the
+  // drop target is highlighted instead (see noReflowStrategy).
+  const { attributes, listeners, setNodeRef, isDragging, isOver, active } = useSortable({ id })
+  const isDropTarget = isOver && active != null && active.id !== id
 
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'flex flex-col items-center justify-center relative',
         'rounded-lg border',
@@ -121,6 +120,8 @@ function SortableChordCell({
         'touch-none select-none cursor-grab active:cursor-grabbing',
         isDragging
           ? 'opacity-30'
+          : isDropTarget
+          ? 'ring-2 ring-indigo-400 dark:ring-indigo-500'
           : isActive
           ? 'ring-2 ring-indigo-500 shadow-md'
           : 'hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-600 hover:shadow-sm'
@@ -164,37 +165,57 @@ export function InstrumentalSection({
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
+  /** Cell the user clicked — shows its "insert bar after" button. */
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
 
   // ── Bubble menu ───────────────────────────────────────────────────────────────
   const bubbleMenu = useBubbleMenu({ isEnabled: isEditable })
 
-  const bubbleMenuActions = useMemo((): BubbleMenuAction[] => {
-    const idx = bubbleMenu.state.targetIndex
-    return [
-      {
-        id: 'edit',
-        label: 'Editar',
-        icon: '✎',
-        variant: 'default' as const,
-        onAction: () => {
-          setEditingChordIndex(idx)
-          bubbleMenu.close()
-        },
+  // Built every render (not memoized) so the actions never act on stale bars.
+  const bubbleIdx = bubbleMenu.state.targetIndex
+  const bubbleMenuActions: BubbleMenuAction[] = [
+    {
+      id: 'edit',
+      label: 'Editar',
+      icon: '✎',
+      variant: 'default' as const,
+      onAction: () => {
+        setEditingChordIndex(bubbleIdx)
+        bubbleMenu.close()
       },
-      {
-        id: 'delete',
-        label: 'Eliminar',
-        icon: '✕',
-        variant: 'danger' as const,
-        disabled: section.chordBars.length <= 1,
-        onAction: () => {
-          handleDeleteChord(idx)
-          bubbleMenu.close()
-        },
+    },
+    {
+      id: 'insert-after',
+      label: 'Compás después',
+      icon: '+',
+      variant: 'default' as const,
+      onAction: () => {
+        handleInsertAfter(bubbleIdx)
+        bubbleMenu.close()
       },
-    ]
-  }, [bubbleMenu.state.targetIndex, section.chordBars.length])
+    },
+    {
+      id: 'delete',
+      label: 'Eliminar',
+      icon: '✕',
+      variant: 'danger' as const,
+      disabled: section.chordBars.length <= 1,
+      onAction: () => {
+        handleDeleteChord(bubbleIdx)
+        bubbleMenu.close()
+      },
+    },
+  ]
+
+  // ── Insert a bar after a cell (same chord, one full bar) ────────────────────
+  const handleInsertAfter = (index: number) => {
+    const bars = section.chordBars
+    if (index < 0 || index >= bars.length) return
+    const newBar: ChordBar = { chord: bars[index].chord, beats: beatsPerBar }
+    onChordsChange?.([...bars.slice(0, index + 1), newBar, ...bars.slice(index + 1)])
+    setSelectedIndex(index + 1)
+  }
 
   // ── Chord name editing ──────────────────────────────────────────────────────
   const handleChordNameChange = useCallback(
@@ -272,9 +293,7 @@ export function InstrumentalSection({
     }
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
-  )
+  const sensors = useCellDragSensors()
 
   // section.chordBars is already transposed (parseChordPro applies it
   // upstream) — must not transpose again here.
@@ -325,12 +344,18 @@ export function InstrumentalSection({
       <>
         <div
           className="m-0.5 flex min-w-0 flex-1"
+          onClick={() => setSelectedIndex(index)}
           onDoubleClick={() => handleDoubleClick(index)}
           {...bubbleMenu.getHandlers(index)}
         >
           {s.isHead ? (
             <div className="relative min-w-0 flex-1">
-              <SortableChordCell id={id} bar={bar} compact={compact} isActive={activeId === id} />
+              <SortableChordCell
+                id={id}
+                bar={bar}
+                compact={compact}
+                isActive={activeId === id || selectedIndex === index}
+              />
               <span className="pointer-events-none absolute right-1 top-1 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums">
                 {displayBeats[index]}
               </span>
@@ -351,6 +376,9 @@ export function InstrumentalSection({
           </div>
         )}
         {s.isTail && <BeatGridResizeHandle onPointerDown={(e) => handlePointerDown(index, e)} />}
+        {s.isTail && (
+          <InsertBarButton visible={selectedIndex === index} onClick={() => handleInsertAfter(index)} />
+        )}
       </>
     )
   }
@@ -484,7 +512,7 @@ export function InstrumentalSection({
           onDragEnd={handleDragEnd}
           onDragCancel={() => setActiveId(null)}
         >
-          <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+          <SortableContext items={sortableIds} strategy={noReflowStrategy}>
             {chordGrid}
           </SortableContext>
           <DragOverlay>
