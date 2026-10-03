@@ -69,3 +69,11 @@ export {
   formatChordBars,
   isChordsOnlyLine,
 } from './instrumental'
+
+// "Chords over lyrics" → ChordPro conversion
+export {
+  convertChordsOverLyrics,
+  parseChordLine,
+  mergeChordsIntoLyric,
+} from './chordsOverLyrics'
+export type { ChordsOverLyricsResult } from './chordsOverLyrics'
