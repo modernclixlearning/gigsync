@@ -14,6 +14,8 @@ export interface CreateSongInput {
   lyrics?: string
   tags?: string[]
   notes?: string
+  youtubeUrl?: string
+  youtubeStartSeconds?: number
 }
 
 export interface UpdateSongInput {
@@ -27,6 +29,8 @@ export interface UpdateSongInput {
   tags?: string[]
   notes?: string
   playerOverrides?: PlayerOverrides
+  youtubeUrl?: string
+  youtubeStartSeconds?: number
 }
 
 export interface SongPlayerState {

@@ -57,6 +57,21 @@ describe('planSongImport', () => {
     expect(conflicts[0].differingFields).toEqual(expect.arrayContaining(['lyrics', 'bpm']))
   })
 
+  it('keeps old songs without a YouTube link conflict-free, and flags a changed link/offset', () => {
+    const old = song()
+    expect(planSongImport([old], [song()]).conflicts).toHaveLength(0)
+
+    const withVideo = song({
+      youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      youtubeStartSeconds: 12,
+    })
+    expect(planSongImport([withVideo], [{ ...withVideo }]).conflicts).toHaveLength(0)
+
+    const { conflicts } = planSongImport([old], [withVideo])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].differingFields).toEqual(['youtubeUrl', 'youtubeStartSeconds'])
+  })
+
   it('treats reordered tags as equal, not a conflict', () => {
     const existing = song({ tags: ['favorite', 'live'] })
     const imported = song({ tags: ['live', 'favorite'] })
