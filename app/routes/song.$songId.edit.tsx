@@ -5,6 +5,8 @@ import { cn } from '~/lib/utils'
 import { useSong, useSongLibrary } from '~/hooks/useSongs'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
+import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
+import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, UpdateSongInput, ChordProSong } from '~/types'
 
@@ -21,6 +23,7 @@ function SongEditPage() {
   const { createSong, deleteSong } = useSongLibrary()
   
   const [showImporter, setShowImporter] = useState(false)
+  const [showAudioAnalysis, setShowAudioAnalysis] = useState(false)
   const [formData, setFormData] = useState<CreateSongInput>({
     title: '',
     artist: '',
@@ -112,6 +115,17 @@ function SongEditPage() {
     setShowImporter(false)
   }
 
+  // Detected chords are appended as a new section — existing lyrics/chords are
+  // never rewritten. Changes only persist when the user saves the form.
+  const handleApplyAnalysis = ({ bpm, section }: AudioAnalysisApply) => {
+    setFormData((prev) => ({
+      ...prev,
+      bpm: bpm ?? prev.bpm,
+      lyrics: section ? appendSection(prev.lyrics ?? '', section) : prev.lyrics
+    }))
+    setShowAudioAnalysis(false)
+  }
+
   if (isLoading && !isNewSong) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#101322] flex items-center justify-center">
@@ -171,6 +185,29 @@ function SongEditPage() {
             >
               Import from ChordPro
             </button>
+
+            {/* Chord/BPM detection from a local reference track (gs#28) */}
+            {showAudioAnalysis ? (
+              <AudioAnalysisPanel
+                timeSignature={formData.timeSignature ?? '4/4'}
+                currentBpm={formData.bpm ?? 120}
+                onApply={handleApplyAnalysis}
+                onClose={() => setShowAudioAnalysis(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setShowAudioAnalysis(true)}
+                className={cn(
+                  'w-full mb-4 px-4 py-3 rounded-xl',
+                  'bg-slate-100 dark:bg-slate-800',
+                  'text-slate-600 dark:text-slate-400',
+                  'hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'transition-colors text-sm font-medium'
+                )}
+              >
+                Detectar acordes y BPM desde audio
+              </button>
+            )}
 
             {/* Song Form */}
             <SongForm
