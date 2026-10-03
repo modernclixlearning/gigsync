@@ -495,6 +495,39 @@ describe('useSmartAutoScroll', () => {
     // This test verifies the callback mechanism works correctly
   })
 
+  it('feeds transportBpm (e.g. MIDI Clock) to the transport but keeps the timeline on the song bpm', () => {
+    renderHook(() =>
+      useSmartAutoScroll({
+        lyrics: mockLyrics,
+        bpm: 120,
+        transportBpm: 97.5,
+        timeSignature: '4/4',
+        isPlaying: true,
+        isEnabled: true,
+        containerRef
+      })
+    )
+
+    expect(vi.mocked(useBPMSync)).toHaveBeenLastCalledWith(expect.objectContaining({ bpm: 97.5 }))
+    expect(vi.mocked(useSongTimeline)).toHaveBeenLastCalledWith(expect.objectContaining({ bpm: 120 }))
+  })
+
+  it('falls back to the song bpm for the transport when transportBpm is null', () => {
+    renderHook(() =>
+      useSmartAutoScroll({
+        lyrics: mockLyrics,
+        bpm: 120,
+        transportBpm: null,
+        timeSignature: '4/4',
+        isPlaying: false,
+        isEnabled: true,
+        containerRef
+      })
+    )
+
+    expect(vi.mocked(useBPMSync)).toHaveBeenLastCalledWith(expect.objectContaining({ bpm: 120 }))
+  })
+
   it('should cleanup animation frame on unmount', () => {
     const { unmount } = renderHook(() =>
       useSmartAutoScroll({

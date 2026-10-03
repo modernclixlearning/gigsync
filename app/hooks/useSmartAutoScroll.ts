@@ -74,6 +74,12 @@ export interface UseSmartAutoScrollOptions extends UseSongTimelineOptions {
   contextWindowRatio?: number
   /** Duration of smooth scroll animation in milliseconds (default: 100ms) */
   smoothScrollDuration?: number
+  /**
+   * Tempo for the Tone.Transport only (e.g. the BPM followed from a DAW's MIDI
+   * Clock). The timeline is laid out in beats, so it keeps using `bpm` and is
+   * not recalculated on every tempo nudge. Defaults to `bpm`.
+   */
+  transportBpm?: number | null
 }
 
 /**
@@ -152,7 +158,8 @@ export function useSmartAutoScroll({
   isEnabled,
   containerRef,
   contextWindowRatio = 0.33,
-  smoothScrollDuration = DEFAULT_SMOOTH_SCROLL_DURATION
+  smoothScrollDuration = DEFAULT_SMOOTH_SCROLL_DURATION,
+  transportBpm
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
   const currentElementIdRef = useRef<string | null>(null)
   const currentElementStartBeatRef = useRef<number | null>(null)
@@ -279,7 +286,7 @@ export function useSmartAutoScroll({
   
   // BPM synchronization
   const bpmSync = useBPMSync({
-    bpm,
+    bpm: transportBpm ?? bpm,
     timeSignature,
     isPlaying: isPlaying && isEnabled,
     onBeatChange: handleBeatChange

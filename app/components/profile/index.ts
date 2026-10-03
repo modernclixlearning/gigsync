@@ -26,5 +26,8 @@ export type { PerformanceSettingsProps } from './PerformanceSettings'
 export { PlayerSettings } from './PlayerSettings'
 export type { PlayerSettingsProps } from './PlayerSettings'
 
+export { MidiClockSyncSettings } from './MidiClockSyncSettings'
+export type { MidiClockSyncSettingsProps } from './MidiClockSyncSettings'
+
 export { DataSettings } from './DataSettings'
 export type { DataSettingsProps } from './DataSettings'

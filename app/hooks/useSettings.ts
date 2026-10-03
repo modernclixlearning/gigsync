@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { AppSettings } from '~/types/profile'
-import { DEFAULT_SETTINGS } from '~/types/profile'
+import { DEFAULT_SETTINGS, DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 
 export interface UseSettingsReturn {
   settings: AppSettings | null
@@ -12,6 +12,7 @@ export interface UseSettingsReturn {
   updatePerformanceSettings: (updates: Partial<AppSettings['performance']>) => Promise<void>
   updatePlayerSettings: (updates: Partial<AppSettings['player']>) => Promise<void>
   updateSyncSettings: (updates: Partial<AppSettings['sync']>) => Promise<void>
+  updateMidiClockSyncSettings: (updates: Partial<NonNullable<AppSettings['midiClockSync']>>) => Promise<void>
   resetSettings: () => Promise<void>
 }
 
@@ -31,6 +32,7 @@ function getDefaultSettings(): AppSettings {
     performance: { ...DEFAULT_SETTINGS.performance },
     player: { ...DEFAULT_SETTINGS.player },
     sync: { ...DEFAULT_SETTINGS.sync },
+    midiClockSync: { ...DEFAULT_MIDI_CLOCK_SYNC },
     updatedAt: new Date(),
   }
 }
@@ -193,6 +195,28 @@ export function useSettings(): UseSettingsReturn {
     []
   )
 
+  const updateMidiClockSyncSettings = useCallback(
+    async (updates: Partial<NonNullable<AppSettings['midiClockSync']>>) => {
+      try {
+        setSettings((current: AppSettings | null) => {
+          if (!current) return current
+          const updated: AppSettings = {
+            ...current,
+            // Settings stored before this field existed don't have it yet.
+            midiClockSync: { ...DEFAULT_MIDI_CLOCK_SYNC, ...current.midiClockSync, ...updates },
+            updatedAt: new Date(),
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+          return updated
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to update MIDI clock sync settings'))
+        throw err
+      }
+    },
+    []
+  )
+
   const resetSettings = useCallback(async () => {
     try {
       const defaultSettings = getDefaultSettings()
@@ -214,6 +238,7 @@ export function useSettings(): UseSettingsReturn {
     updatePerformanceSettings,
     updatePlayerSettings,
     updateSyncSettings,
+    updateMidiClockSyncSettings,
     resetSettings,
   }
 }

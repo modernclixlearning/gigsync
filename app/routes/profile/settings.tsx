@@ -8,6 +8,7 @@ import { MetronomeSettings } from '~/components/profile/MetronomeSettings'
 import { TunerSettings } from '~/components/profile/TunerSettings'
 import { PerformanceSettings } from '~/components/profile/PerformanceSettings'
 import { PlayerSettings } from '~/components/profile/PlayerSettings'
+import { MidiClockSyncSettings } from '~/components/profile/MidiClockSyncSettings'
 import { DataSettings } from '~/components/profile/DataSettings'
 import { ImportConflictModal } from '~/components/profile/ImportConflictModal'
 import { BottomNav } from '~/components/navigation'
@@ -20,6 +21,7 @@ import {
   type SongConflict,
 } from '~/lib/importMerge'
 import type { Song, Setlist } from '~/types/setlist'
+import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 
 interface PendingImportData {
   newSongs: Song[]
@@ -62,6 +64,7 @@ function SettingsPage() {
     updatePerformanceSettings,
     updatePlayerSettings,
     updateSyncSettings,
+    updateMidiClockSyncSettings,
     resetSettings,
   } = useSettings()
 
@@ -282,6 +285,12 @@ function SettingsPage() {
           <PlayerSettings
             settings={settings.player}
             onUpdate={updatePlayerSettings}
+          />
+
+          {/* DAW sync (MIDI Clock) */}
+          <MidiClockSyncSettings
+            settings={settings.midiClockSync ?? DEFAULT_MIDI_CLOCK_SYNC}
+            onUpdate={updateMidiClockSyncSettings}
           />
 
           {/* Data & Privacy */}
