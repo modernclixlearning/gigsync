@@ -9,22 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TunerRouteImport } from './routes/tuner'
-import { Route as MetronomeRouteImport } from './routes/metronome'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SetlistsIndexRouteImport } from './routes/setlists/index'
+import { Route as MetronomeRouteImport } from './routes/metronome'
+import { Route as TunerRouteImport } from './routes/tuner'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
-import { Route as SongsNewRouteImport } from './routes/songs.new'
-import { Route as SongSongIdRouteImport } from './routes/song.$songId'
-import { Route as SetlistsSetlistIdRouteImport } from './routes/setlists/$setlistId'
 import { Route as ProfileSettingsRouteImport } from './routes/profile/settings'
+import { Route as SetlistsIndexRouteImport } from './routes/setlists/index'
+import { Route as SetlistsSetlistIdRouteImport } from './routes/setlists/$setlistId'
+import { Route as SongSongIdRouteImport } from './routes/song.$songId'
+import { Route as SongsNewRouteImport } from './routes/songs.new'
+import { Route as SetlistsSetlistIdPlayRouteImport } from './routes/setlists/$setlistId/play'
 import { Route as SongSongIdIndexRouteImport } from './routes/song.$songId.index'
 import { Route as SongSongIdEditRouteImport } from './routes/song.$songId.edit'
-import { Route as SetlistsSetlistIdPlayRouteImport } from './routes/setlists/$setlistId/play'
 
-const TunerRoute = TunerRouteImport.update({
-  id: '/tuner',
-  path: '/tuner',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetronomeRoute = MetronomeRouteImport.update({
@@ -32,14 +32,9 @@ const MetronomeRoute = MetronomeRouteImport.update({
   path: '/metronome',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetlistsIndexRoute = SetlistsIndexRouteImport.update({
-  id: '/setlists/',
-  path: '/setlists/',
+const TunerRoute = TunerRouteImport.update({
+  id: '/tuner',
+  path: '/tuner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
@@ -47,14 +42,14 @@ const ProfileIndexRoute = ProfileIndexRouteImport.update({
   path: '/profile/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SongsNewRoute = SongsNewRouteImport.update({
-  id: '/songs/new',
-  path: '/songs/new',
+const ProfileSettingsRoute = ProfileSettingsRouteImport.update({
+  id: '/profile/settings',
+  path: '/profile/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SongSongIdRoute = SongSongIdRouteImport.update({
-  id: '/song/$songId',
-  path: '/song/$songId',
+const SetlistsIndexRoute = SetlistsIndexRouteImport.update({
+  id: '/setlists/',
+  path: '/setlists/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetlistsSetlistIdRoute = SetlistsSetlistIdRouteImport.update({
@@ -62,10 +57,20 @@ const SetlistsSetlistIdRoute = SetlistsSetlistIdRouteImport.update({
   path: '/setlists/$setlistId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileSettingsRoute = ProfileSettingsRouteImport.update({
-  id: '/profile/settings',
-  path: '/profile/settings',
+const SongSongIdRoute = SongSongIdRouteImport.update({
+  id: '/song/$songId',
+  path: '/song/$songId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SongsNewRoute = SongsNewRouteImport.update({
+  id: '/songs/new',
+  path: '/songs/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetlistsSetlistIdPlayRoute = SetlistsSetlistIdPlayRouteImport.update({
+  id: '/play',
+  path: '/play',
+  getParentRoute: () => SetlistsSetlistIdRoute,
 } as any)
 const SongSongIdIndexRoute = SongSongIdIndexRouteImport.update({
   id: '/',
@@ -76,11 +81,6 @@ const SongSongIdEditRoute = SongSongIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
   getParentRoute: () => SongSongIdRoute,
-} as any)
-const SetlistsSetlistIdPlayRoute = SetlistsSetlistIdPlayRouteImport.update({
-  id: '/play',
-  path: '/play',
-  getParentRoute: () => SetlistsSetlistIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -183,11 +183,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tuner': {
-      id: '/tuner'
-      path: '/tuner'
-      fullPath: '/tuner'
-      preLoaderRoute: typeof TunerRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metronome': {
@@ -197,18 +197,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MetronomeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/setlists/': {
-      id: '/setlists/'
-      path: '/setlists'
-      fullPath: '/setlists/'
-      preLoaderRoute: typeof SetlistsIndexRouteImport
+    '/tuner': {
+      id: '/tuner'
+      path: '/tuner'
+      fullPath: '/tuner'
+      preLoaderRoute: typeof TunerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile/': {
@@ -218,18 +211,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/songs/new': {
-      id: '/songs/new'
-      path: '/songs/new'
-      fullPath: '/songs/new'
-      preLoaderRoute: typeof SongsNewRouteImport
+    '/profile/settings': {
+      id: '/profile/settings'
+      path: '/profile/settings'
+      fullPath: '/profile/settings'
+      preLoaderRoute: typeof ProfileSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/song/$songId': {
-      id: '/song/$songId'
-      path: '/song/$songId'
-      fullPath: '/song/$songId'
-      preLoaderRoute: typeof SongSongIdRouteImport
+    '/setlists/': {
+      id: '/setlists/'
+      path: '/setlists'
+      fullPath: '/setlists/'
+      preLoaderRoute: typeof SetlistsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setlists/$setlistId': {
@@ -239,12 +232,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SetlistsSetlistIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile/settings': {
-      id: '/profile/settings'
-      path: '/profile/settings'
-      fullPath: '/profile/settings'
-      preLoaderRoute: typeof ProfileSettingsRouteImport
+    '/song/$songId': {
+      id: '/song/$songId'
+      path: '/song/$songId'
+      fullPath: '/song/$songId'
+      preLoaderRoute: typeof SongSongIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/songs/new': {
+      id: '/songs/new'
+      path: '/songs/new'
+      fullPath: '/songs/new'
+      preLoaderRoute: typeof SongsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setlists/$setlistId/play': {
+      id: '/setlists/$setlistId/play'
+      path: '/play'
+      fullPath: '/setlists/$setlistId/play'
+      preLoaderRoute: typeof SetlistsSetlistIdPlayRouteImport
+      parentRoute: typeof SetlistsSetlistIdRoute
     }
     '/song/$songId/': {
       id: '/song/$songId/'
@@ -259,13 +266,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/song/$songId/edit'
       preLoaderRoute: typeof SongSongIdEditRouteImport
       parentRoute: typeof SongSongIdRoute
-    }
-    '/setlists/$setlistId/play': {
-      id: '/setlists/$setlistId/play'
-      path: '/play'
-      fullPath: '/setlists/$setlistId/play'
-      preLoaderRoute: typeof SetlistsSetlistIdPlayRouteImport
-      parentRoute: typeof SetlistsSetlistIdRoute
     }
   }
 }
