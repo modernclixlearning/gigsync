@@ -9,6 +9,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import appCss from "~/styles/globals.css?url";
 import { useThemeEffect } from "~/hooks/useThemeEffect";
+import { PwaUpdatePrompt } from "~/components/pwa/PwaUpdatePrompt";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -20,10 +21,14 @@ export const Route = createRootRouteWithContext<{
       { title: "GigSync - App para Músicos" },
       { name: "description", content: "Metrónomo, afinador, setlists offline-first" },
       { name: "theme-color", content: "#1337ec" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", href: "/favicon.ico" },
+      { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
       { 
         rel: "preconnect", 
         href: "https://fonts.googleapis.com" 
@@ -44,7 +49,12 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   useThemeEffect();
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <PwaUpdatePrompt />
+    </>
+  );
 }
 
 function RootDocument({ children }: { children: ReactNode }) {

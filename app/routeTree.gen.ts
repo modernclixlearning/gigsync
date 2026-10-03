@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppShellRouteImport } from './routes/app-shell'
 import { Route as MetronomeRouteImport } from './routes/metronome'
 import { Route as TunerRouteImport } from './routes/tuner'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
@@ -25,6 +26,11 @@ import { Route as SongSongIdEditRouteImport } from './routes/song.$songId.edit'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppShellRoute = AppShellRouteImport.update({
+  id: '/app-shell',
+  path: '/app-shell',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetronomeRoute = MetronomeRouteImport.update({
@@ -85,6 +91,7 @@ const SongSongIdEditRoute = SongSongIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app-shell': typeof AppShellRoute
   '/metronome': typeof MetronomeRoute
   '/tuner': typeof TunerRoute
   '/profile/settings': typeof ProfileSettingsRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app-shell': typeof AppShellRoute
   '/metronome': typeof MetronomeRoute
   '/tuner': typeof TunerRoute
   '/profile/settings': typeof ProfileSettingsRoute
@@ -113,6 +121,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app-shell': typeof AppShellRoute
   '/metronome': typeof MetronomeRoute
   '/tuner': typeof TunerRoute
   '/profile/settings': typeof ProfileSettingsRoute
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app-shell'
     | '/metronome'
     | '/tuner'
     | '/profile/settings'
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app-shell'
     | '/metronome'
     | '/tuner'
     | '/profile/settings'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/app-shell'
     | '/metronome'
     | '/tuner'
     | '/profile/settings'
@@ -171,6 +183,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppShellRoute: typeof AppShellRoute
   MetronomeRoute: typeof MetronomeRoute
   TunerRoute: typeof TunerRoute
   ProfileSettingsRoute: typeof ProfileSettingsRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app-shell': {
+      id: '/app-shell'
+      path: '/app-shell'
+      fullPath: '/app-shell'
+      preLoaderRoute: typeof AppShellRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metronome': {
@@ -297,6 +317,7 @@ const SongSongIdRouteWithChildren = SongSongIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppShellRoute: AppShellRoute,
   MetronomeRoute: MetronomeRoute,
   TunerRoute: TunerRoute,
   ProfileSettingsRoute: ProfileSettingsRoute,
