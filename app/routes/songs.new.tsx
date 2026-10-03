@@ -6,6 +6,9 @@ import { createSongSchema } from '~/lib/schemas'
 import { useSongLibrary } from '~/hooks/useSongs'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
+import { SongSearchPanel } from '~/components/songs/SongSearchPanel'
+import { ChordSheetPaste } from '~/components/songs/ChordSheetPaste'
+import type { LyricsSearchResult } from '~/lib/lyrics/lrclib'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, ChordProSong } from '~/types'
 
@@ -43,6 +46,28 @@ function NewSongPage() {
       }
       console.error('Failed to create song:', error)
     }
+  }
+
+  /** Ask before overwriting lyrics the user already typed or imported. */
+  const confirmReplaceLyrics = (next: string) =>
+    !formData.lyrics?.trim() ||
+    formData.lyrics === next ||
+    window.confirm('¿Reemplazar la letra actual del formulario?')
+
+  const handleSelectSearchResult = (result: LyricsSearchResult) => {
+    const replaceLyrics = !!result.lyrics && confirmReplaceLyrics(result.lyrics)
+    setFormData((prev) => ({
+      ...prev,
+      title: result.title || prev.title,
+      artist: result.artist || prev.artist,
+      duration: result.duration || prev.duration,
+      lyrics: replaceLyrics ? result.lyrics : prev.lyrics
+    }))
+  }
+
+  const handleApplyChordSheet = (chordPro: string) => {
+    if (!confirmReplaceLyrics(chordPro)) return
+    setFormData((prev) => ({ ...prev, lyrics: chordPro }))
   }
 
   const handleImport = (chordProSong: ChordProSong) => {
@@ -119,6 +144,16 @@ function NewSongPage() {
             >
               Import from ChordPro
             </button>
+
+            {/* LRCLIB search + chord-sheet paste (#37) */}
+            <div className="mb-4 space-y-3">
+              <SongSearchPanel
+                artist={formData.artist}
+                title={formData.title}
+                onSelect={handleSelectSearchResult}
+              />
+              <ChordSheetPaste onApply={handleApplyChordSheet} />
+            </div>
 
             {/* Song Form */}
             <SongForm

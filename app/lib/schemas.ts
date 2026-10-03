@@ -10,6 +10,8 @@ export const createSongSchema = z.object({
   lyrics: z.string().optional().default(''),
   tags: z.array(z.string()).optional().default([]),
   notes: z.string().optional().default(''),
+  youtubeUrl: z.string().optional(),
+  youtubeStartSeconds: z.number().min(0).optional(),
 })
 
 export const createSetlistSchema = z.object({

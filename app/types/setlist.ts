@@ -46,6 +46,10 @@ export interface Song {
   createdAt: Date
   updatedAt: Date
   playerOverrides?: PlayerOverrides
+  /** Optional YouTube link for play-along (canonical watch?v= form). */
+  youtubeUrl?: string
+  /** Second of the video where play-along starts (default 0). */
+  youtubeStartSeconds?: number
 }
 
 export interface Setlist {

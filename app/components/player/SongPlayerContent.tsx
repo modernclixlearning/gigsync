@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from '@tanstack/react-router'
@@ -24,6 +24,8 @@ import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
+import { YouTubePlayAlong } from '~/components/player/YouTubePlayAlong'
+import { normalizeStartSeconds, parseYouTubeUrl } from '~/lib/youtube'
 import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 
@@ -198,10 +200,16 @@ export function SongPlayerContent({
   const playerRef = useRef(player)
   playerRef.current = player
   const resetTransportRef = useRef<() => void>(() => {})
+  // Bumped whenever the transport restarts from the top, so the play-along
+  // video jumps back to its start offset too.
+  const [videoRestartKey, setVideoRestartKey] = useState(0)
 
   const startFromMidi = useCallback((fromTop: boolean) => {
     const p = playerRef.current
-    if (fromTop) resetTransportRef.current()
+    if (fromTop) {
+      resetTransportRef.current()
+      setVideoRestartKey((k) => k + 1)
+    }
     if (!p.state.isPlaying) {
       // togglePlay also turns autoscroll on, which is what runs the transport.
       void p.togglePlay()
@@ -379,6 +387,28 @@ export function SongPlayerContent({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setlistContext, player, autoScroll])
+
+  // YouTube play-along (#38). No play state of its own: the video follows
+  // player.state.isPlaying — the same flag Play/Pause, the setlist keyboard
+  // shortcuts and the MIDI Clock Start/Continue/Stop drive — so video and
+  // autoscroll always start/stop together. Tempo stays the song's BPM.
+  const youtubeVideo = useMemo(() => parseYouTubeUrl(song.youtubeUrl), [song.youtubeUrl])
+  const [videoStartSeconds, setVideoStartSeconds] = useState(() =>
+    normalizeStartSeconds(song.youtubeStartSeconds)
+  )
+  useEffect(() => {
+    setVideoStartSeconds(normalizeStartSeconds(song.youtubeStartSeconds))
+  }, [song.id, song.youtubeStartSeconds])
+  const handleVideoStartChange = useCallback(
+    (seconds: number) => {
+      setVideoStartSeconds(seconds)
+      void updateSong({ youtubeStartSeconds: seconds })
+    },
+    [updateSong]
+  )
+  const handleVideoPausedByUser = useCallback(() => {
+    if (playerRef.current.state.isPlaying) playerRef.current.pause()
+  }, [])
 
   const isSetlistMode = !!setlistContext
 
@@ -561,6 +591,18 @@ export function SongPlayerContent({
         >
           🎛️ {midiClock.message}
         </p>
+      )}
+
+      {youtubeVideo && (
+        <YouTubePlayAlong
+          key={song.id}
+          videoId={youtubeVideo.videoId}
+          startSeconds={videoStartSeconds}
+          isPlaying={player.state.isPlaying}
+          restartKey={videoRestartKey}
+          onStartSecondsChange={handleVideoStartChange}
+          onVideoPausedByUser={handleVideoPausedByUser}
+        />
       )}
 
       {/* Fallback notification */}
