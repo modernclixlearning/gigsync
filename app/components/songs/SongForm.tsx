@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { cn } from '~/lib/utils'
+import { SongYouTubeField } from '~/components/songs/SongYouTubeField'
 import type { CreateSongInput } from '~/types'
 
 interface SongFormProps {
@@ -28,6 +29,8 @@ export function SongForm({
 }: SongFormProps) {
   // Local state for tags input to allow typing commas
   const [tagsInput, setTagsInput] = useState(data.tags?.join(', ') ?? '')
+  // An invalid YouTube link blocks saving (it would otherwise be dropped silently).
+  const [isYouTubeValid, setIsYouTubeValid] = useState(true)
   
   // Sync local state when external data changes (e.g., from ChordPro import)
   useEffect(() => {
@@ -281,10 +284,20 @@ export function SongForm({
         />
       </div>
 
+      {/* YouTube play-along (#38) */}
+      <SongYouTubeField
+        artist={data.artist}
+        title={data.title}
+        youtubeUrl={data.youtubeUrl}
+        youtubeStartSeconds={data.youtubeStartSeconds}
+        onChange={(value) => onChange({ ...data, ...value })}
+        onValidityChange={setIsYouTubeValid}
+      />
+
       {/* Submit Button */}
       <button
         onClick={onSubmit}
-        disabled={!data.title || !data.artist}
+        disabled={!data.title || !data.artist || !isYouTubeValid}
         className={cn(
           'w-full py-4 rounded-xl font-semibold',
           'bg-indigo-500 text-white',

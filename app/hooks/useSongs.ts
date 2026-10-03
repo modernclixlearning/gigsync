@@ -60,6 +60,10 @@ export function useSongLibrary(): UseSongLibraryReturn {
         tags: input.tags ?? [],
         timesPlayed: 0,
         notes: input.notes,
+        ...(input.youtubeUrl ? { youtubeUrl: input.youtubeUrl } : {}),
+        ...(input.youtubeUrl && input.youtubeStartSeconds
+          ? { youtubeStartSeconds: input.youtubeStartSeconds }
+          : {}),
         createdAt: now,
         updatedAt: now
       }

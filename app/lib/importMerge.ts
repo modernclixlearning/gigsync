@@ -33,6 +33,8 @@ const SONG_CONTENT_FIELDS = [
   'tags',
   'notes',
   'playerOverrides',
+  'youtubeUrl',
+  'youtubeStartSeconds',
 ] as const
 
 export type SongContentField = (typeof SONG_CONTENT_FIELDS)[number]

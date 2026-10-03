@@ -48,7 +48,9 @@ function SongEditPage() {
         duration: song.duration,
         lyrics: song.lyrics,
         tags: song.tags,
-        notes: song.notes ?? ''
+        notes: song.notes ?? '',
+        youtubeUrl: song.youtubeUrl,
+        youtubeStartSeconds: song.youtubeStartSeconds
       })
     }
   }, [song, isNewSong])
