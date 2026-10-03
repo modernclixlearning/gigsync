@@ -35,6 +35,9 @@ export type { UseSongTimelineReturn, UseSongTimelineOptions } from './useSongTim
 export { useBPMSync } from './useBPMSync'
 export type { UseBPMSyncReturn, UseBPMSyncOptions } from './useBPMSync'
 
+export { useMIDIClockSync } from './useMIDIClockSync'
+export type { UseMIDIClockSyncOptions, UseMIDIClockSyncReturn, MIDIInputInfo } from './useMIDIClockSync'
+
 export { useSmartAutoScroll } from './useSmartAutoScroll'
 export type { UseSmartAutoScrollReturn, UseSmartAutoScrollOptions } from './useSmartAutoScroll'
 

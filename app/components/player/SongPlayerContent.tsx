@@ -14,6 +14,7 @@ import {
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSetlist } from '~/hooks/useSetlist'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
+import { useMIDIClockSync } from '~/hooks/useMIDIClockSync'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
@@ -24,6 +25,7 @@ import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
 import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
+import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 
 export interface SetlistContext {
   setlistId: string
@@ -187,6 +189,37 @@ export function SongPlayerContent({
     return Math.round(minDuration + (maxDuration - minDuration) * normalized)
   }
 
+  // External sync: follow a DAW's MIDI Clock (opt-in). It only feeds the one
+  // existing Tone.Transport (tempo) and the player's play/pause (transport
+  // events) — autoscroll and the metronome keep following that transport,
+  // there's no second clock. Callbacks read refs because they fire from MIDI
+  // events, outside React's render cycle.
+  const midiClockPrefs = settings?.midiClockSync ?? DEFAULT_MIDI_CLOCK_SYNC
+  const playerRef = useRef(player)
+  playerRef.current = player
+  const resetTransportRef = useRef<() => void>(() => {})
+
+  const startFromMidi = useCallback((fromTop: boolean) => {
+    const p = playerRef.current
+    if (fromTop) resetTransportRef.current()
+    if (!p.state.isPlaying) {
+      // togglePlay also turns autoscroll on, which is what runs the transport.
+      void p.togglePlay()
+    } else if (!p.state.isAutoScrollEnabled) {
+      p.toggleAutoScroll()
+    }
+  }, [])
+
+  const midiClock = useMIDIClockSync({
+    enabled: midiClockPrefs.enabled,
+    inputName: midiClockPrefs.inputName,
+    onStart: () => startFromMidi(true),
+    onContinue: () => startFromMidi(false),
+    onStop: () => {
+      if (playerRef.current.state.isPlaying) playerRef.current.pause()
+    }
+  })
+
   const autoScroll = useSmartAutoScroll({
     lyrics: song.lyrics || '',
     bpm: song.bpm || 120,
@@ -196,12 +229,15 @@ export function SongPlayerContent({
     containerRef: scrollContainerRef,
     contextWindowRatio: clamp(smartScrollContextWindowPercent, 0, 100) / 100,
     smoothScrollDuration: mapSmoothnessToDuration(smartScrollSmoothness),
+    transportBpm: midiClock.bpm,
     calculationOptions: {
       defaultBarsPerLine: 2,
       defaultBeatsPerChord: 4,
       intelligentEstimation: false
     }
   })
+
+  resetTransportRef.current = autoScroll.reset
 
   useAutoScroll({
     containerRef: scrollContainerRef,
@@ -485,7 +521,16 @@ export function SongPlayerContent({
             {player.state.transpose === 0 ? song.key : `${song.key} → ${transposeDisplay}`}
           </span>
           <span>•</span>
-          <span>{song.bpm} BPM</span>
+          {midiClock.status === 'listening' ? (
+            <span
+              title={`Siguiendo el MIDI Clock de "${midiClock.activeInputName ?? ''}"`}
+              className="text-indigo-500 dark:text-indigo-400"
+            >
+              {midiClock.bpm !== null ? `${Math.round(midiClock.bpm)} BPM` : 'Esperando clock'} · MIDI
+            </span>
+          ) : (
+            <span>{song.bpm} BPM</span>
+          )}
           <span>•</span>
           <span>{song.timeSignature}</span>
           {player.state.isAutoScrollEnabled &&
@@ -507,6 +552,16 @@ export function SongPlayerContent({
             )}
         </div>
       </header>
+
+      {/* MIDI Clock sync couldn't start — informative only, playback keeps the song's BPM */}
+      {midiClock.message && (
+        <p
+          role="status"
+          className="mx-4 mt-3 px-3 py-2 rounded-lg text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+        >
+          🎛️ {midiClock.message}
+        </p>
+      )}
 
       {/* Fallback notification */}
       <AnimatePresence>
