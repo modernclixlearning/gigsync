@@ -68,9 +68,9 @@ describe('sw-config (#39)', () => {
     return expect(plugin.cacheWillUpdate?.({} as never)).resolves.toBeNull()
   })
 
-  it('modelo de basic-pitch y worker chunk: CacheFirst en runtime', () => {
+  it('modelo de basic-pitch (NetworkFirst) y worker chunk (CacheFirst) en runtime', () => {
     const [model] = matching(ctx(`${ORIGIN}/models/basic-pitch/group1-shard1of1.bin`))
-    expect(model.handler).toBe('CacheFirst')
+    expect(model.handler).toBe('NetworkFirst')
     expect(model.options?.cacheName).toBe('gigsync-models')
 
     const [worker] = matching(ctx(`${ORIGIN}/assets/analysis.worker-abc123.js`))

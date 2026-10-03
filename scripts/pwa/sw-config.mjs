@@ -121,7 +121,11 @@ export function createSwConfig(globDirectory, buildId) {
       },
       {
         urlPattern: isModelFile,
-        handler: 'CacheFirst',
+        // NetworkFirst (no CacheFirst): el modelo se sirve siempre con la
+        // misma URL, así que un CacheFirst se quedaría con una versión vieja
+        // si cambia. La copia principal ya vive en IndexedDB (#28); esto es la
+        // red de seguridad offline si esa copia falta.
+        handler: 'NetworkFirst',
         options: {
           cacheName: `${CACHE_PREFIX}-models`,
           expiration: { maxEntries: 20 },
