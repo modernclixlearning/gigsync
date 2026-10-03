@@ -74,6 +74,16 @@ export interface SyncPreferences {
   lastSyncDate?: Date
 }
 
+/**
+ * Follow a DAW's MIDI Clock (Web MIDI, Chrome/Edge). Opt-in, off by default.
+ * The input is persisted by name (port ids aren't stable across sessions).
+ */
+export interface MidiClockSyncPreferences {
+  enabled: boolean
+  /** MIDI input to follow. Null → first available input. */
+  inputName: string | null
+}
+
 export interface AppSettings {
   id: string
   // General
@@ -85,6 +95,8 @@ export interface AppSettings {
   performance: PerformancePreferences
   player: PlayerPreferences
   sync: SyncPreferences
+  /** Optional in stored data: settings saved before this field existed don't have it. */
+  midiClockSync?: MidiClockSyncPreferences
   updatedAt: Date
 }
 
@@ -145,6 +157,15 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
     autoSync: false,
     lastSyncDate: undefined,
   },
+  midiClockSync: {
+    enabled: false,
+    inputName: null,
+  },
+}
+
+export const DEFAULT_MIDI_CLOCK_SYNC: MidiClockSyncPreferences = {
+  enabled: false,
+  inputName: null,
 }
 
 export const INSTRUMENTS = [
