@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -12,8 +12,18 @@ import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput, UpdateSetlistInput } from '~/types'
 
 export const Route = createFileRoute('/setlists/$setlistId')({
-  component: SetlistDetailPage,
+  component: SetlistRoute,
 })
+
+/**
+ * `/setlists/$setlistId/play` is a child of this route, so it only renders
+ * through an <Outlet />. Without one, the detail page kept rendering and the
+ * live setlist player never showed up.
+ */
+function SetlistRoute() {
+  const childMatches = useChildMatches()
+  return childMatches.length > 0 ? <Outlet /> : <SetlistDetailPage />
+}
 
 function SetlistDetailPage() {
   const { setlistId } = Route.useParams()
