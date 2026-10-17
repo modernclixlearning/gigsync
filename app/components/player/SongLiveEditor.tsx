@@ -62,6 +62,8 @@ interface SongLiveEditorProps {
  */
 export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEditMode }: SongLiveEditorProps) {
   const [draft, setDraft] = useState<CreateSongInput>(() => toFormData(song))
+  /** The ChordPro text starts read-only; "Editar" unlocks it. */
+  const [isLyricsLocked, setIsLyricsLocked] = useState(true)
   const songRef = useRef(song)
   songRef.current = song
   const pendingRef = useRef<CreateSongInput | null>(null)
@@ -135,7 +137,11 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
         Los cambios se guardan solos y se ven al instante en la canción.
       </p>
 
-      <SongForm data={draft} onChange={handleChange} />
+      <SongForm
+        data={draft}
+        onChange={handleChange}
+        lyricsLock={{ locked: isLyricsLocked, onToggle: () => setIsLyricsLocked((locked) => !locked) }}
+      />
 
       <Link
         {...routeHelpers.songEdit(song.id)}
