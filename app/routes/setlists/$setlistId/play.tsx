@@ -117,7 +117,7 @@ function SetlistPlayPage() {
 
       {/* Keyboard hint */}
       <div className="fixed bottom-4 left-4 text-xs text-slate-600 z-10">
-        <span>← → to navigate • ESC to exit</span>
+        <span>Espacio: play/pausa • ← →: canción anterior/siguiente • ESC: salir</span>
       </div>
     </div>
   )

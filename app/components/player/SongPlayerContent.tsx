@@ -37,6 +37,7 @@ import { normalizeStartSeconds, parseYouTubeUrl } from '~/lib/youtube'
 import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 import { useCountIn } from '~/hooks/useCountIn'
+import { useSpaceToPlay } from '~/hooks/useSpaceToPlay'
 import { isSongFinished, resolvePlaybackPreferences } from '~/lib/playback'
 import { AutoAdvanceBanner } from '~/components/player/AutoAdvanceBanner'
 import { beatHighlightCss, chordColorsCss, pickupHighlightCss } from '~/components/player/beatHighlightCss'
@@ -486,6 +487,11 @@ export function SongPlayerContent({
     }
   }, [player.state.isPlaying, song?.id, incrementPlayCount])
 
+  // Space bar = the Play/Pause button, in and out of a setlist. In chord
+  // edit mode space belongs to the editor (cell menu), and playing would
+  // leave edit mode anyway.
+  useSpaceToPlay({ enabled: !player.state.isEditMode, onToggle: handlePlayPause })
+
   // Keyboard navigation in setlist mode
   useEffect(() => {
     if (!setlistContext) return
@@ -499,7 +505,7 @@ export function SongPlayerContent({
       ) {
         return
       }
-      if (e.key === 'ArrowRight' || e.key === ' ') {
+      if (e.key === 'ArrowRight') {
         e.preventDefault()
         if (setlistContext.currentIndex < setlistContext.totalSongs - 1) {
           player.pause()
