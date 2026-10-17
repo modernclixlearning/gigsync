@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import {
@@ -96,9 +96,43 @@ export function ChordOverlay({
     [lyrics, transpose, preferFlats]
   )
 
+  // The editor works on the song exactly as written: no transpose and no
+  // re-spelling. Every edit serializes all lines, so a transposed or
+  // re-spelled copy would rewrite every chord of the song (a written "Bb"
+  // saved back as "A#", or the whole song saved transposed).
+  const asWritten = useMemo(() => parseChordPro(lyrics), [lyrics])
+
   // Local editable copy of parsed lines — updated on every drag-and-drop
-  const [lines, setLines] = useState<AnyParsedLine[]>(() => parsed.lines)
+  const [lines, setLines] = useState<AnyParsedLine[]>(() => asWritten.lines)
+  const linesRef = useRef(lines)
+  linesRef.current = lines
   const [showSectionPicker, setShowSectionPicker] = useState<number | null>(null)
+
+  // Lyrics this editor wrote and that may still come back through the
+  // save/refetch round trip. Anything else is an outside change (the
+  // ChordPro text field, another tab) and the editor reloads from it, so
+  // the next grid edit never overwrites what was typed there.
+  const emittedRef = useRef<Set<string>>(new Set())
+  const lastEmittedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const emitted = emittedRef.current
+    if (emitted.has(lyrics)) {
+      if (lyrics === lastEmittedRef.current) emitted.clear()
+      return
+    }
+    emitted.clear()
+    setLines(asWritten.lines)
+  }, [lyrics, asWritten])
+
+  const emit = useCallback(
+    (next: AnyParsedLine[]) => {
+      const serialized = serializeParsedSong(next)
+      emittedRef.current.add(serialized)
+      lastEmittedRef.current = serialized
+      onLyricsChange?.(serialized)
+    },
+    [onLyricsChange]
+  )
 
   // Re-sync when lyrics prop changes (e.g. after save)
   const prevLyrics = useMemo(() => lyrics, [lyrics])
@@ -113,23 +147,22 @@ export function ChordOverlay({
 
   const handleLineChange = useCallback(
     (idx: number, updated: AnyParsedLine) => {
-      setLines((prev) => {
-        const next = prev.map((l, i) => (i === idx ? updated : l))
-        const serialized = serializeParsedSong(next)
-        onLyricsChange?.(serialized)
-        return next
-      })
+      const next = linesRef.current.map((l, i) => (i === idx ? updated : l))
+      linesRef.current = next
+      setLines(next)
+      emit(next)
     },
-    [onLyricsChange]
+    [emit]
   )
 
   // ── Structural editing: insert / delete lines ───────────────────────────────
   const persistLines = useCallback(
     (newLines: AnyParsedLine[]) => {
+      linesRef.current = newLines
       setLines(newLines)
-      onLyricsChange?.(serializeParsedSong(newLines))
+      emit(newLines)
     },
-    [onLyricsChange]
+    [emit]
   )
 
   const handleInsertLine = useCallback(
@@ -326,7 +359,7 @@ export function ChordOverlay({
           <div key={index}>
             <ChordOverlayLine
               line={line}
-              transpose={transpose}
+              transpose={isEditable ? 0 : transpose}
               columns={columns}
               elementId={elementId}
               onChordClick={onChordClick}

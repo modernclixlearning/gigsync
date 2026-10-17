@@ -9,6 +9,11 @@ interface SongFormProps {
   /** Omit for live editing (changes are saved as they happen) — hides the submit button. */
   onSubmit?: () => void
   submitLabel?: string
+  /**
+   * Pass to make the ChordPro text read-only until "Editar" is pressed
+   * (the player's side panel). Omit for an always-editable field.
+   */
+  lyricsLock?: { locked: boolean; onToggle: () => void }
 }
 
 const KEYS = [
@@ -26,7 +31,8 @@ export function SongForm({
   data,
   onChange,
   onSubmit,
-  submitLabel = 'Save'
+  submitLabel = 'Save',
+  lyricsLock
 }: SongFormProps) {
   // Local state for tags input to allow typing commas
   const [tagsInput, setTagsInput] = useState(data.tags?.join(', ') ?? '')
@@ -240,22 +246,43 @@ export function SongForm({
 
       {/* Lyrics */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-          Lyrics & Chords
-        </label>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label htmlFor="song-lyrics" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Lyrics & Chords
+          </label>
+          {lyricsLock && (
+            <button
+              type="button"
+              onClick={lyricsLock.onToggle}
+              aria-pressed={!lyricsLock.locked}
+              className={cn(
+                'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
+                lyricsLock.locked
+                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  : 'bg-indigo-500 text-white hover:bg-indigo-600'
+              )}
+            >
+              {lyricsLock.locked ? 'Editar texto' : 'Listo'}
+            </button>
+          )}
+        </div>
         <textarea
+          id="song-lyrics"
           value={data.lyrics}
           onChange={(e) => handleChange('lyrics', e.target.value)}
+          readOnly={lyricsLock?.locked}
           placeholder="Enter lyrics with chords in brackets, e.g., [Am]Hello [G]World"
           rows={12}
           className={cn(
             'w-full px-4 py-3 rounded-xl font-mono text-sm',
-            'bg-white dark:bg-[#1a1f36]',
             'border border-slate-200 dark:border-slate-700',
             'text-slate-900 dark:text-white',
             'placeholder:text-slate-400',
             'focus:outline-none focus:ring-2 focus:ring-indigo-500',
-            'resize-y'
+            'resize-y',
+            lyricsLock?.locked
+              ? 'bg-slate-50 dark:bg-[#151a2e] text-slate-600 dark:text-slate-300 cursor-default focus:ring-0'
+              : 'bg-white dark:bg-[#1a1f36]'
           )}
         />
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
