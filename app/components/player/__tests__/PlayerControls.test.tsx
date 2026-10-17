@@ -58,6 +58,9 @@ describe('PlayerControls', () => {
     onLyricsTextColorChange: vi.fn(),
     isSettingsOpen: false,
     onToggleSettings: vi.fn(),
+    onRestart: vi.fn(),
+    onCountInPlay: vi.fn(),
+    isCountingIn: false,
   }
 
   beforeEach(() => {
@@ -69,7 +72,7 @@ describe('PlayerControls', () => {
 
     expect(screen.getByTitle('Hide chords')).toBeInTheDocument()
     expect(screen.getByTitle('Start auto-scroll')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /play|pause/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument()
   })
 
   it('should toggle play/pause when play button is clicked', async () => {
@@ -77,7 +80,7 @@ describe('PlayerControls', () => {
     const onPlayPause = vi.fn()
     render(<PlayerControls {...defaultProps} onPlayPause={onPlayPause} />)
 
-    const playButton = screen.getByRole('button', { name: /play|pause/i })
+    const playButton = screen.getByRole('button', { name: /^(play|pause)$/i })
     await user.click(playButton)
 
     expect(onPlayPause).toHaveBeenCalledTimes(1)
@@ -86,14 +89,14 @@ describe('PlayerControls', () => {
   it('should show pause icon when playing', () => {
     render(<PlayerControls {...defaultProps} isPlaying={true} />)
 
-    const pauseIcon = screen.getByRole('button', { name: /play|pause/i })
+    const pauseIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
     expect(pauseIcon).toBeInTheDocument()
   })
 
   it('should show play icon when paused', () => {
     render(<PlayerControls {...defaultProps} isPlaying={false} />)
 
-    const playIcon = screen.getByRole('button', { name: /play|pause/i })
+    const playIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
     expect(playIcon).toBeInTheDocument()
   })
 
@@ -157,6 +160,39 @@ describe('PlayerControls', () => {
 
     rerender(<PlayerControls {...defaultProps} isSettingsOpen onToggleSettings={onToggleSettings} />)
     expect(screen.getByRole('button', { name: /hide settings/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('restarts the song from the top', async () => {
+    const user = userEvent.setup()
+    const onRestart = vi.fn()
+    render(<PlayerControls {...defaultProps} onRestart={onRestart} />)
+    await user.click(screen.getByRole('button', { name: 'Desde el inicio' }))
+    expect(onRestart).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts the count-in, and offers to cancel it while counting', async () => {
+    const user = userEvent.setup()
+    const onCountInPlay = vi.fn()
+    const { rerender } = render(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} />)
+    await user.click(screen.getByRole('button', { name: 'Play con precuenta' }))
+    expect(onCountInPlay).toHaveBeenCalledTimes(1)
+
+    rerender(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} isCountingIn />)
+    expect(screen.getByRole('button', { name: 'Cancelar precuenta' })).toHaveAttribute('aria-pressed', 'true')
+
+    rerender(<PlayerControls {...defaultProps} isPlaying />)
+    expect(screen.getByRole('button', { name: 'Play con precuenta' })).toBeDisabled()
+  })
+
+  it('shows "next song" only when there is one', async () => {
+    const user = userEvent.setup()
+    const onNextSong = vi.fn()
+    const { rerender } = render(<PlayerControls {...defaultProps} />)
+    expect(screen.queryByRole('button', { name: 'Siguiente canción' })).toBeNull()
+
+    rerender(<PlayerControls {...defaultProps} onNextSong={onNextSong} />)
+    await user.click(screen.getByRole('button', { name: 'Siguiente canción' }))
+    expect(onNextSong).toHaveBeenCalledTimes(1)
   })
 
   it('should render the adjustments rows', () => {

@@ -36,6 +36,9 @@ import { YouTubePlayAlong } from '~/components/player/YouTubePlayAlong'
 import { normalizeStartSeconds, parseYouTubeUrl } from '~/lib/youtube'
 import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
+import { useCountIn } from '~/hooks/useCountIn'
+import { isSongFinished, resolvePlaybackPreferences } from '~/lib/playback'
+import { AutoAdvanceBanner } from '~/components/player/AutoAdvanceBanner'
 
 export interface SetlistContext {
   setlistId: string
@@ -44,8 +47,11 @@ export interface SetlistContext {
   totalSongs: number
   nextSong?: Song
   onPrevious: () => void
-  onNext: () => void
+  /** `autoStart`: the next song starts by itself (with the count-in) once it's loaded. */
+  onNext: (options?: { autoStart?: boolean }) => void
   onExit: () => void
+  /** This song was reached by auto-advance: start it with the count-in on load. */
+  autoStart?: boolean
 }
 
 export interface SongPlayerContentProps {
@@ -300,6 +306,89 @@ export function SongPlayerContent({
     return beats || 4
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
+
+  // ── Transport: restart, count-in, end of song, next song ──────────────────
+  const playbackPrefs = resolvePlaybackPreferences(settings?.player)
+  const countIn = useCountIn()
+  const [isAdvancePending, setIsAdvancePending] = useState(false)
+  const autoScrollPlay = autoScroll.play
+  const autoScrollReset = autoScroll.reset
+  const cancelCountIn = countIn.cancel
+
+  const handlePlayPause = useCallback(() => {
+    cancelCountIn()
+    setIsAdvancePending(false)
+    return playerRef.current.togglePlay()
+  }, [cancelCountIn])
+
+  // Back to the top: transport, lyrics and play-along video. Keeps playing if
+  // it was playing (reset stops the transport, so it's started again).
+  const handleRestart = useCallback(() => {
+    cancelCountIn()
+    setIsAdvancePending(false)
+    autoScrollReset()
+    setVideoRestartKey((k) => k + 1)
+    scrollContainerRef.current?.scrollTo({ top: 0 })
+    window.scrollTo({ top: 0 })
+    const p = playerRef.current
+    if (p.state.isPlaying && p.state.isAutoScrollEnabled) void autoScrollPlay()
+  }, [cancelCountIn, autoScrollReset, autoScrollPlay])
+
+  const countInBpm = midiClock.bpm ?? (song.bpm || 120)
+  const startCountIn = useCallback(() => {
+    if (playerRef.current.state.isPlaying) return
+    setIsAdvancePending(false)
+    void countIn.start({
+      bpm: countInBpm,
+      beatsPerBar,
+      bars: playbackPrefs.countInBars,
+      onDone: () => {
+        if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
+      },
+    })
+  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars])
+
+  const handleCountInPlay = useCallback(() => {
+    if (countIn.isCountingIn) cancelCountIn()
+    else startCountIn()
+  }, [countIn.isCountingIn, cancelCountIn, startCountIn])
+
+  const hasNextSong = !!setlistContext && setlistContext.currentIndex < setlistContext.totalSongs - 1
+  const goToNextSong = useCallback(
+    (autoStart = false) => {
+      if (!setlistContext || setlistContext.currentIndex >= setlistContext.totalSongs - 1) return
+      cancelCountIn()
+      setIsAdvancePending(false)
+      playerRef.current.pause()
+      autoScrollReset()
+      setlistContext.onNext(autoStart ? { autoStart: true } : undefined)
+    },
+    [setlistContext, cancelCountIn, autoScrollReset]
+  )
+
+  // End of the song: stop there (the transport would otherwise keep counting
+  // past the last line). In a setlist with auto-advance on, queue the next one.
+  const hasSongFinished =
+    player.state.isPlaying &&
+    player.state.isAutoScrollEnabled &&
+    autoScroll.isReady &&
+    !autoScroll.hasFallback &&
+    isSongFinished(autoScroll.currentBeat, autoScroll.totalBeats)
+  useEffect(() => {
+    if (!hasSongFinished) return
+    playerRef.current.pause()
+    if (hasNextSong && playbackPrefs.autoAdvance) setIsAdvancePending(true)
+  }, [hasSongFinished, hasNextSong, playbackPrefs.autoAdvance])
+
+  // Reached by auto-advance: start with the count-in once settings and the
+  // timeline are loaded (once per song).
+  const hasAutoStartedRef = useRef(false)
+  useEffect(() => {
+    if (!setlistContext?.autoStart || hasAutoStartedRef.current) return
+    if (!settings || !autoScroll.isReady) return
+    hasAutoStartedRef.current = true
+    startCountIn()
+  }, [setlistContext?.autoStart, settings, autoScroll.isReady, startCountIn])
 
   // Transpose target: which chromatic pitch the song's key lands on, and
   // whether to spell it with sharps or flats. A manual override
@@ -789,9 +878,30 @@ export function SongPlayerContent({
         </div>
       )}
 
+      {/* Count-in: big beat number over the song */}
+      {countIn.count !== null && (
+        <div
+          aria-live="assertive"
+          className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
+        >
+          <span className="text-[10rem] font-black leading-none text-indigo-500/80 tabular-nums drop-shadow-lg">
+            {countIn.count}
+          </span>
+        </div>
+      )}
+
+      {isAdvancePending && setlistContext?.nextSong && (
+        <AutoAdvanceBanner
+          nextTitle={setlistContext.nextSong.title}
+          delaySeconds={playbackPrefs.autoAdvanceDelaySeconds}
+          onAdvance={() => goToNextSong(true)}
+          onCancel={() => setIsAdvancePending(false)}
+        />
+      )}
+
       <PlayerControls
         isPlaying={player.state.isPlaying}
-        onPlayPause={player.togglePlay}
+        onPlayPause={handlePlayPause}
         autoScrollEnabled={player.state.isAutoScrollEnabled}
         onToggleAutoScroll={player.toggleAutoScroll}
         showChords={player.state.showChords}
@@ -804,6 +914,10 @@ export function SongPlayerContent({
         onToggleMetronomeSound={player.toggleMetronomeSound}
         isSettingsOpen={isPanelOpen}
         onToggleSettings={togglePanel}
+        onRestart={handleRestart}
+        onCountInPlay={handleCountInPlay}
+        isCountingIn={countIn.isCountingIn}
+        onNextSong={hasNextSong ? () => goToNextSong() : undefined}
       />
 
       <PlayerSidePanel

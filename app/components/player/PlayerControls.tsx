@@ -6,6 +6,9 @@ import {
   Pencil,
   RotateCcw,
   ScrollText,
+  SkipBack,
+  SkipForward,
+  Timer,
   SlidersHorizontal,
   Volume2,
   VolumeX
@@ -28,6 +31,13 @@ interface PlayerControlsProps {
   /** Whether the side panel (Ajustes / Editar / Config) is open. */
   isSettingsOpen: boolean
   onToggleSettings: () => void
+  /** Back to the top of the song (keeps playing if it was playing). */
+  onRestart: () => void
+  /** Metronome count-in, then play. Pressing it again during the count cancels it. */
+  onCountInPlay: () => void
+  isCountingIn: boolean
+  /** Only in a setlist with a song after this one. */
+  onNextSong?: () => void
 }
 
 export function PlayerControls({
@@ -44,12 +54,16 @@ export function PlayerControls({
   metronomeSoundEnabled,
   onToggleMetronomeSound,
   isSettingsOpen,
-  onToggleSettings
+  onToggleSettings,
+  onRestart,
+  onCountInPlay,
+  isCountingIn,
+  onNextSong
 }: PlayerControlsProps) {
   return (
     <div className="sticky bottom-0 z-20 bg-white dark:bg-[#1a1f36] border-t border-slate-200 dark:border-slate-800 safe-area-pb">
       {/* Main Controls */}
-      <div className="mx-auto flex items-center justify-between px-6 md:px-8 py-3">
+      <div className="mx-auto flex flex-wrap items-center justify-between gap-y-2 px-6 md:px-8 py-3">
         {/* Left Controls */}
         <div className="flex items-center gap-2">
           <button
@@ -117,25 +131,64 @@ export function PlayerControls({
           )}
         </div>
 
-        {/* Center - Play/Pause */}
-        <button
-          onClick={async () => {
-            await onPlayPause()
-          }}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-          className={cn(
-            'p-4 rounded-full transition-colors',
-            isPlaying
-              ? 'bg-indigo-500 text-white'
-              : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+        {/* Center - transport: restart, count-in, play/pause, next song.
+            Its own full-width row on phones, inline from sm: up. */}
+        <div className="order-first flex basis-full items-center justify-center gap-2 sm:order-none sm:basis-auto">
+          <button
+            onClick={onRestart}
+            aria-label="Desde el inicio"
+            title="Volver al inicio de la canción"
+            className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            <SkipBack className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={onCountInPlay}
+            disabled={isPlaying}
+            aria-label={isCountingIn ? 'Cancelar precuenta' : 'Play con precuenta'}
+            aria-pressed={isCountingIn}
+            title={isCountingIn ? 'Cancelar precuenta' : 'Play con precuenta del metrónomo'}
+            className={cn(
+              'p-2.5 rounded-full transition-colors disabled:opacity-40',
+              isCountingIn
+                ? 'bg-indigo-500 text-white animate-pulse'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            <Timer className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={async () => {
+              await onPlayPause()
+            }}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            className={cn(
+              'p-4 rounded-full transition-colors',
+              isPlaying
+                ? 'bg-indigo-500 text-white'
+                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+            )}
+          >
+            {isPlaying ? (
+              <Pause className="w-6 h-6" />
+            ) : (
+              <Play className="w-6 h-6 ml-0.5" />
+            )}
+          </button>
+
+          {onNextSong && (
+            <button
+              onClick={onNextSong}
+              aria-label="Siguiente canción"
+              title="Pasar a la siguiente canción del setlist"
+              className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              <SkipForward className="w-5 h-5" />
+            </button>
           )}
-        >
-          {isPlaying ? (
-            <Pause className="w-6 h-6" />
-          ) : (
-            <Play className="w-6 h-6 ml-0.5" />
-          )}
-        </button>
+        </div>
 
         {/* Right Controls */}
         <div className="flex items-center gap-2">

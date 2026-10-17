@@ -30,6 +30,8 @@ function SetlistPlayPage() {
       : 0
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  /** Index reached by auto-advance — that song starts by itself. */
+  const [autoStartIndex, setAutoStartIndex] = useState<number | null>(null)
 
   // Sync currentIndex when search param changes (e.g. direct navigation)
   useEffect(() => {
@@ -42,12 +44,21 @@ function SetlistPlayPage() {
   const nextSong = songs[currentIndex + 1]
 
   const handlePrevious = useCallback(() => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1)
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1)
+      setAutoStartIndex(null)
+    }
   }, [currentIndex])
 
-  const handleNext = useCallback(() => {
-    if (currentIndex < songs.length - 1) setCurrentIndex(currentIndex + 1)
-  }, [currentIndex, songs.length])
+  const handleNext = useCallback(
+    (options?: { autoStart?: boolean }) => {
+      if (currentIndex < songs.length - 1) {
+        setCurrentIndex(currentIndex + 1)
+        setAutoStartIndex(options?.autoStart ? currentIndex + 1 : null)
+      }
+    },
+    [currentIndex, songs.length]
+  )
 
   const handleExit = useCallback(() => {
     navigate(routeHelpers.setlist(setlistId))
@@ -97,7 +108,8 @@ function SetlistPlayPage() {
               nextSong,
               onPrevious: handlePrevious,
               onNext: handleNext,
-              onExit: handleExit
+              onExit: handleExit,
+              autoStart: autoStartIndex === currentIndex
             }}
           />
         </motion.div>

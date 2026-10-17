@@ -60,6 +60,17 @@ export interface PlayerPreferences extends PlayerOverrides {
    * 1.0 = quarter note, 0.5 = eighth note, 0.25 = sixteenth note (default).
    */
   gridResolution: number
+  /**
+   * In a setlist, when a song reaches its end, move on to the next one by
+   * itself after `autoAdvanceDelaySeconds` (it starts with the count-in).
+   * Optional: settings saved before it existed don't have it — read through
+   * resolvePlaybackPreferences (default off).
+   */
+  autoAdvance?: boolean
+  /** Pause before auto-advancing, in seconds. Default 15. */
+  autoAdvanceDelaySeconds?: number
+  /** Bars of clicks for "Play con precuenta". Default 1. */
+  countInBars?: number
   // Global defaults for the per-session player controls (Scroll Speed, Font
   // Size, Versos por línea, Márgenes, Transpose, chord font size, beat
   // highlight, colors) — inherited from PlayerOverrides so both share one
