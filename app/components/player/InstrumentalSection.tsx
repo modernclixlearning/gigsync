@@ -6,14 +6,18 @@
  *  - Right-click or keyboard (Enter/Space) on a cell to open bubble menu (Edit / Insert bar / Delete).
  *  - Chord cells move by dragging (dnd-kit); the drop target is highlighted.
  *  - Clicking a cell selects it and shows "+" to insert a bar right after it.
- *    Shift/Ctrl/Cmd+click selects a run; "Fusionar" merges it into one cell.
+ *    Shift/Ctrl/Cmd+click selects a run; "Fusionar" merges it into one cell
+ *    and "Duplicar" copies it right after itself.
+ *  - With one cell selected, typing a note letter (A–G) starts writing its
+ *    chord in place ("c", then "maj7" → Cmaj7); Enter or clicking away saves,
+ *    Escape cancels.
  *  - Cells sit on a fixed bar/beat grid (BeatGrid): a chord's width is its
  *    duration, and bar lines align with the lyric lines above and below.
  *  - Each chord's right edge is a resize handle: drag to extend/shrink beats.
  *  - Double-click a cell to subdivide it into two halves.
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -23,7 +27,7 @@ import {
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
-import { transposeChord } from '~/lib/chordpro'
+import { normalizeTypedChord, transposeChord } from '~/lib/chordpro'
 import type { BeatGridSegment } from '~/lib/timeline/beatGrid'
 import { useChordResize } from './useChordResize'
 import {
@@ -157,6 +161,73 @@ function SortableChordCell({
   )
 }
 
+// ── Chord typed in place ──────────────────────────────────────────────────────
+
+/** Note letter that starts typing a chord into the selected cell. */
+const CHORD_ROOT_KEY = /^[a-g]$/i
+
+function TypedChordInput({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string
+  onCommit: (chord: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(initial)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const doneRef = useRef(false)
+  const normalized = normalizeTypedChord(value)
+
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [])
+
+  const finish = (save: boolean) => {
+    if (doneRef.current) return
+    doneRef.current = true
+    if (save && normalized) onCommit(normalized)
+    else onCancel()
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        // Keys typed here are the chord, never cell shortcuts or drag keys.
+        e.stopPropagation()
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault()
+          if (normalized) finish(true)
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          finish(false)
+        }
+      }}
+      onBlur={() => finish(true)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      aria-label="Escribir acorde"
+      aria-invalid={!normalized}
+      spellCheck={false}
+      autoComplete="off"
+      autoCapitalize="off"
+      className={cn(
+        'absolute inset-0 z-10 w-full rounded-lg border-2 bg-white px-1 text-center font-mono font-bold',
+        'text-slate-900 outline-none dark:bg-slate-800 dark:text-white',
+        normalized ? 'border-indigo-500' : 'border-rose-500'
+      )}
+    />
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 function rowGridTemplate(row: ChordBar[], beatsPerBar = 4): string {
@@ -183,6 +254,8 @@ export function InstrumentalSection({
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingChordIndex, setEditingChordIndex] = useState<number | null>(null)
+  /** Cell whose chord is being typed in place, and the letter that started it. */
+  const [typingChord, setTypingChord] = useState<{ index: number; initial: string } | null>(null)
   /** Selected run of cells: one → "+" insert button; 2+ → "Fusionar" bar. */
   const selection = useCellSelection()
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -256,6 +329,18 @@ export function InstrumentalSection({
     selection.select(a)
   }
 
+  // ── Duplicate the selected cells right after themselves ─────────────────────
+  const handleDuplicateSelection = () => {
+    if (!selection.range) return
+    const [a, b] = selection.range
+    const bars = section.chordBars
+    const copy = bars.slice(a, b + 1).map((bar) => ({ ...bar }))
+    onChordsChange?.([...bars.slice(0, b + 1), ...copy, ...bars.slice(b + 1)])
+    // Select the copy, so another click duplicates it again.
+    selection.select(b + 1)
+    selection.select(2 * b - a + 1, true)
+  }
+
   // ── Delete the selected cells at once ───────────────────────────────────────
   const canDeleteSelection =
     selection.range != null &&
@@ -281,6 +366,17 @@ export function InstrumentalSection({
     },
     [section.chordBars, transpose, onChordsChange]
   )
+
+  // ── Type a chord into the selected cell ─────────────────────────────────────
+  const handleGridKeyDown = (e: React.KeyboardEvent) => {
+    if (!isEditable || selection.single == null || typingChord || editingChordIndex != null) return
+    if (e.ctrlKey || e.metaKey || e.altKey || !CHORD_ROOT_KEY.test(e.key)) return
+    const t = e.target
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return
+    e.preventDefault()
+    e.stopPropagation()
+    setTypingChord({ index: selection.single, initial: e.key.toUpperCase() })
+  }
 
   const handleAddChord = useCallback(() => {
     const newBar: ChordBar = { chord: 'C', beats: beatsPerBar }
@@ -394,7 +490,8 @@ export function InstrumentalSection({
     return (
       <>
         <div
-          className="m-0.5 flex min-w-0 flex-1"
+          tabIndex={-1}
+          className="m-0.5 flex min-w-0 flex-1 outline-none"
           onClick={(e) => selection.select(index, isExtendClick(e))}
           onDoubleClick={() => handleDoubleClick(index)}
           {...bubbleMenu.getHandlers(index)}
@@ -416,6 +513,16 @@ export function InstrumentalSection({
               <span className="pointer-events-none absolute right-1 top-1 font-mono text-[10px] leading-none text-slate-400 dark:text-slate-500 tabular-nums">
                 {displayBeats[index]}
               </span>
+              {typingChord?.index === index && (
+                <TypedChordInput
+                  initial={typingChord.initial}
+                  onCommit={(chord) => {
+                    setTypingChord(null)
+                    handleChordNameChange(index, chord)
+                  }}
+                  onCancel={() => setTypingChord(null)}
+                />
+              )}
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
@@ -446,7 +553,7 @@ export function InstrumentalSection({
   }
 
   const editGrid = (
-    <div className={cn(compact ? 'p-1' : 'p-2', 'flex flex-col gap-2')}>
+    <div className={cn(compact ? 'p-1' : 'p-2', 'flex flex-col gap-2')} onKeyDown={handleGridKeyDown}>
       <BeatGrid
         beats={displayBeats}
         beatsPerBar={beatsPerBar}
@@ -458,6 +565,7 @@ export function InstrumentalSection({
         <SelectionActionsBar
           count={selection.range[1] - selection.range[0] + 1}
           onMerge={handleMergeSelection}
+          onDuplicate={handleDuplicateSelection}
           onDelete={handleDeleteSelection}
           canDelete={canDeleteSelection}
           onCancel={selection.clear}

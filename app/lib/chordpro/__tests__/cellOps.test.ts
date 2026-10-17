@@ -5,6 +5,7 @@ import {
   mergeLyricCells,
   deleteLyricCells,
   replaceLyricCellText,
+  duplicateLyricCells,
 } from '../cellOps'
 import { parseChordPro } from '../parser'
 import { serializeParsedSong } from '../serializer'
@@ -124,5 +125,19 @@ describe('insertBlankLyricCell', () => {
       ['G', 10, 3],
     ])
     expect(r.text).toBe('Hola mundo')
+  })
+})
+
+describe('duplicateLyricCells', () => {
+  it('inserts an exact copy of the run right after it', () => {
+    const l = line('[D:2]Oh [A:2]oh [G:4]dreams')
+    const r = duplicateLyricCells(l.text, l.chords, 0, 1)
+    expect(toChordPro(r.text, r.chords)).toBe('[D:2]Oh [A:2]oh [D:2]Oh [A:2]oh [G:4]dreams')
+  })
+
+  it('duplicates the last cell without gluing the copy onto it', () => {
+    const l = line('[D:4]Hola [G:4]mundo')
+    const r = duplicateLyricCells(l.text, l.chords, 1, 1)
+    expect(toChordPro(r.text, r.chords)).toBe('[D:4]Hola [G:4]mundo [G:4]mundo')
   })
 })
