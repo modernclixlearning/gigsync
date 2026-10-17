@@ -1,8 +1,8 @@
 // Song Types - Extended types for song player functionality
 
-import type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode } from './setlist'
+import type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign } from './setlist'
 
-export type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode }
+export type { Song, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign }
 
 export interface CreateSongInput {
   title: string
@@ -69,6 +69,8 @@ export interface SongPlayerState {
   backgroundColor: string | null
   /** Lyrics text color override. null = theme default (light/dark). */
   lyricsTextColor: string | null
+  /** Alignment of the whole song (lyrics, instrumentals, chords-only lines). */
+  textAlign: SongTextAlign
 }
 
 export interface LyricLine {

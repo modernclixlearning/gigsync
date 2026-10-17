@@ -66,6 +66,8 @@ describe('PlayerControls', () => {
     onBackgroundColorChange: vi.fn(),
     lyricsTextColor: null,
     onLyricsTextColorChange: vi.fn(),
+    textAlign: 'left' as const,
+    onTextAlignChange: vi.fn(),
     isSettingsOpen: false,
     onToggleSettings: vi.fn(),
     onRestart: vi.fn(),
@@ -299,6 +301,27 @@ describe('PlayerControls', () => {
 
     await user.click(within(row).getByTitle('Guardar como default de toda la librería'))
     expect(onSaveControlsAsDefault).toHaveBeenCalledWith({ chordTextColor: '#ffffff', chordBgColor: undefined })
+  })
+
+  it('sets the song alignment and saves it for the song', async () => {
+    const user = userEvent.setup()
+    const onTextAlignChange = vi.fn()
+    const onSaveControlForSong = vi.fn()
+    render(
+      <PlayerAdjustments
+        {...defaultProps}
+        textAlign="center"
+        onTextAlignChange={onTextAlignChange}
+        onSaveControlForSong={onSaveControlForSong}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Centrar' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Alinear a la derecha' }))
+    expect(onTextAlignChange).toHaveBeenCalledWith('right')
+
+    const row = screen.getByText('Alineación', { selector: 'p' }).closest('[data-testid="settings-row"]') as HTMLElement
+    await user.click(within(row).getByTitle('Guardar solo para esta canción'))
+    expect(onSaveControlForSong).toHaveBeenCalledWith('textAlign', 'center')
   })
 
   it('should render the adjustments rows', () => {

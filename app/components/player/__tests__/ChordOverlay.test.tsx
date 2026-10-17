@@ -175,3 +175,30 @@ describe('ChordOverlay — editor stays in sync with the ChordPro text', () => {
     expect(onLyricsChange).toHaveBeenLastCalledWith('[E:4]Hola [C7:4]amigos')
   })
 })
+
+describe('ChordOverlay — homogeneous chords and song alignment', () => {
+  const SONG = '[Intro | 2 bars]\nF#m | E6 |\n\n[F#m]I give her [C#m]all my love\n\nA | D |'
+
+  it('instrumental and chords-only chords use the same color as the lyric chords', () => {
+    const { container } = render(<ChordOverlay lyrics={SONG} />)
+    const labels = Array.from(container.querySelectorAll<HTMLElement>('.gs-chord'))
+    expect(labels.length).toBeGreaterThanOrEqual(6)
+    for (const label of labels) {
+      expect(label.className).toContain('text-sky-400/70')
+      expect(label.className).not.toMatch(/emerald|amber|indigo/)
+    }
+  })
+
+  it('aligns instrumental bars and chords-only lines with the song', () => {
+    const { container, rerender } = render(<ChordOverlay lyrics={SONG} textAlign="left" />)
+    const bar = () => container.querySelector<HTMLElement>('[data-chord-index="0"]')!
+    expect(bar().className).toContain('items-start')
+
+    rerender(<ChordOverlay lyrics={SONG} textAlign="right" />)
+    expect(bar().className).toContain('items-end')
+    const chordsOnlyRow = Array.from(container.querySelectorAll<HTMLElement>('.flex-wrap')).find((el) =>
+      el.querySelector('.gs-chord')
+    )
+    expect(chordsOnlyRow?.className).toContain('justify-end')
+  })
+})
