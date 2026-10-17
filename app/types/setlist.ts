@@ -10,6 +10,9 @@ export type BeatHighlightMode = 'text' | 'background'
  * setlist) → global default in PlayerPreferences → hardcoded fallback.
  * Undefined per-field falls through to the next tier.
  */
+/** Horizontal alignment of the song (lyrics, instrumentals, chords-only lines). */
+export type SongTextAlign = 'left' | 'center' | 'right'
+
 export interface PlayerOverrides {
   autoScrollSpeed?: number
   fontSize?: number
@@ -35,6 +38,8 @@ export interface PlayerOverrides {
   backgroundColor?: string
   /** Lyrics text color. Unset = theme default (light/dark). */
   lyricsTextColor?: string
+  /** Alignment of the whole song. Unset = left. */
+  textAlign?: SongTextAlign
 }
 
 export type PlayerOverrideKey = keyof PlayerOverrides

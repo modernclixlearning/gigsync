@@ -10,6 +10,8 @@ import {
 } from '~/lib/chordpro'
 import { getSectionType } from '~/lib/chordpro'
 import { serializeParsedSong } from '~/lib/chordpro/serializer'
+import type { SongTextAlign } from '~/types'
+import { ALIGN_JUSTIFY, CHORD_LABEL_COLOR } from './chordStyle'
 import { parseTimeSignature } from '~/lib/timeline/utils'
 import { InstrumentalSection } from './InstrumentalSection'
 import { LyricBarGrid } from './LyricBarGrid'
@@ -70,6 +72,8 @@ interface ChordOverlayProps {
   chordFontSize?: number
   /** Overrides the theme's lyric text color in read mode. */
   lyricsTextColor?: string | null
+  /** Song alignment, applied in read mode to instrumentals and chords-only lines too (lyrics inherit it). */
+  textAlign?: SongTextAlign
 }
 
 export function ChordOverlay({
@@ -90,6 +94,7 @@ export function ChordOverlay({
   timeSignature = '4/4',
   chordFontSize = 26,
   lyricsTextColor,
+  textAlign = 'left',
 }: ChordOverlayProps) {
   const parsed = useMemo(
     () => parseChordPro(lyrics, transpose, preferFlats),
@@ -374,6 +379,7 @@ export function ChordOverlay({
               lineCount={displayLines.length}
               chordFontSize={chordFontSize}
               lyricsTextColor={lyricsTextColor}
+              textAlign={textAlign}
             />
 
             {/* Between-line insert controls (when editable) */}
@@ -469,6 +475,7 @@ function ChordOverlayLine({
   timeSignature = '4/4',
   chordFontSize = 26,
   lyricsTextColor,
+  textAlign = 'left',
 }: {
   line: AnyParsedLine
   transpose: number
@@ -486,6 +493,7 @@ function ChordOverlayLine({
   timeSignature?: string
   chordFontSize?: number
   lyricsTextColor?: string | null
+  textAlign?: SongTextAlign
 }) {
   // ── Line-level bubble menu (for deleting lines) ──────────────────────────────
   const canDeleteLine = isEditable && lineCount > 1 && line.type !== 'directive'
@@ -573,6 +581,7 @@ function ChordOverlayLine({
           gridResolution={gridResolution}
           beatsPerBar={parseTimeSignature(timeSignature).beats}
           chordFontSize={chordFontSize}
+          textAlign={textAlign}
         />
         {lineBubbleMenuPortal}
       </div>
@@ -590,6 +599,7 @@ function ChordOverlayLine({
             onLineChange({ ...line, chordBars: newBars } as ChordsOnlyLine)
           }
           chordFontSize={chordFontSize}
+          textAlign={textAlign}
         />
         {lineBubbleMenuPortal}
       </div>
@@ -741,6 +751,7 @@ function EditableChordsOnlyBadges({
   isEditable,
   onChordsChange,
   chordFontSize,
+  textAlign = 'left',
 }: {
   line: ChordsOnlyLine
   elementId: string
@@ -748,6 +759,7 @@ function EditableChordsOnlyBadges({
   onChordsChange: (bars: ChordBar[]) => void
   /** Same "Tamaño de acordes" as the lyric lines (read mode). */
   chordFontSize?: number
+  textAlign?: SongTextAlign
 }) {
   const [activeId, setActiveId] = useLocalState<string | null>(null)
   const [editingIndex, setEditingIndex] = useLocalState<number | null>(null)
@@ -812,11 +824,11 @@ function EditableChordsOnlyBadges({
   if (!isEditable) {
     return (
       <div className="py-2" data-element-id={elementId}>
-        <div className="flex flex-wrap gap-3 font-bold text-indigo-500 dark:text-indigo-400">
+        <div className={cn('flex flex-wrap gap-6 font-bold', ALIGN_JUSTIFY[textAlign])}>
           {line.chordBars.map((bar, i) => (
             <span
               key={i}
-              className="gs-chord px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded font-mono"
+              className={cn('gs-chord font-mono', CHORD_LABEL_COLOR)}
               style={chordFontSize ? { fontSize: chordFontSize } : undefined}
             >
               {bar.chord}

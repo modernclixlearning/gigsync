@@ -29,6 +29,8 @@ import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { normalizeTypedChord, transposeChord } from '~/lib/chordpro'
 import type { BeatGridSegment } from '~/lib/timeline/beatGrid'
+import type { SongTextAlign } from '~/types'
+import { ALIGN_ITEMS, CHORD_LABEL_COLOR } from './chordStyle'
 import { useChordResize } from './useChordResize'
 import {
   BeatGrid,
@@ -64,6 +66,8 @@ interface InstrumentalSectionProps {
   beatsPerBar?: number
   /** Font size (px) of the chord names — the same "Tamaño de acordes" the lyric lines use. */
   chordFontSize?: number
+  /** Song alignment of each chord inside its bar (read mode), like the lyric lines. */
+  textAlign?: SongTextAlign
 }
 
 /** Get icon for section type */
@@ -255,6 +259,7 @@ export function InstrumentalSection({
   gridResolution = 0.25,
   beatsPerBar = 4,
   chordFontSize,
+  textAlign = 'left',
 }: InstrumentalSectionProps) {
   const chordFontStyle = chordFontSize ? { fontSize: chordFontSize } : undefined
   const colors = getSectionColors(section.type)
@@ -596,7 +601,8 @@ export function InstrumentalSection({
   // ── Chord grid ───────────────────────────────────────────────────────────────
 
   const chordGrid = isEditable && chords.length > 0 ? editGrid : rows.length > 0 ? (
-    <div className={cn(compact ? 'p-1' : 'p-3', 'flex flex-col gap-1')}>
+    // No side padding: the chords line up with the lyric chords at the song's alignment.
+    <div className={cn(compact ? 'py-1' : 'py-3', 'flex flex-col gap-1')}>
       {rows.map((row, rowIndex) => {
         const rowStartIdx = rowIndex * columns
         const rowTemplate = rowGridTemplate(row)
@@ -616,15 +622,17 @@ export function InstrumentalSection({
                   tabIndex={0}
                   onClick={() => handleCellClick(index)}
                   className={cn(
-                    'flex flex-col items-center justify-center',
+                    'flex flex-col justify-center',
+                    ALIGN_ITEMS[textAlign],
                     'rounded-md',
-                    compact ? 'py-2 px-1' : 'py-2 px-2',
+                    'py-2',
+                    textAlign === 'left' ? 'pr-2' : textAlign === 'right' ? 'pl-2' : 'px-2',
                     'transition-colors',
                     isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
                   )}
                 >
                   <span
-                    className={cn('gs-chord font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}
+                    className={cn('gs-chord font-mono font-bold', CHORD_LABEL_COLOR, compact ? 'text-sm' : 'text-base')}
                     style={chordFontStyle}
                   >
                     {bar.chord}

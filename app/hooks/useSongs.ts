@@ -8,7 +8,8 @@ import type {
   UpdateSongInput,
   SongPlayerState,
   SongFilterOptions,
-  BeatHighlightMode
+  BeatHighlightMode,
+  SongTextAlign
 } from '~/types'
 
 // ============================================================================
@@ -282,6 +283,7 @@ export interface UseSongPlayerReturn {
   setChordBgColor: (color: string | null) => void
   setBackgroundColor: (color: string | null) => void
   setLyricsTextColor: (color: string | null) => void
+  setTextAlign: (align: SongTextAlign) => void
 }
 
 export function useSongPlayer(): UseSongPlayerReturn {
@@ -308,7 +310,8 @@ export function useSongPlayer(): UseSongPlayerReturn {
     chordTextColor: null,
     chordBgColor: null,
     backgroundColor: null,
-    lyricsTextColor: null
+    lyricsTextColor: null,
+    textAlign: 'left'
   })
 
   const play = useCallback(async () => {
@@ -451,6 +454,10 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, lyricsTextColor: color }))
   }, [])
 
+  const setTextAlign = useCallback((align: SongTextAlign) => {
+    setState((prev) => ({ ...prev, textAlign: align }))
+  }, [])
+
   return {
     state,
     play,
@@ -479,6 +486,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setChordTextColor,
     setChordBgColor,
     setBackgroundColor,
-    setLyricsTextColor
+    setLyricsTextColor,
+    setTextAlign
   }
 }

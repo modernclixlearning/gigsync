@@ -142,6 +142,8 @@ export function SongPlayerContent({
     if (chordTextColor !== undefined) player.setChordTextColor(chordTextColor)
     const chordBgColor = resolve('chordBgColor')
     if (chordBgColor !== undefined) player.setChordBgColor(chordBgColor)
+    const textAlign = resolve('textAlign')
+    if (textAlign !== undefined) player.setTextAlign(textAlign)
     const backgroundColor = resolve('backgroundColor')
     if (backgroundColor !== undefined) player.setBackgroundColor(backgroundColor)
     const lyricsTextColor = resolve('lyricsTextColor')
@@ -876,7 +878,7 @@ export function SongPlayerContent({
           ...(player.state.lyricsTextColor ? { color: player.state.lyricsTextColor } : {})
         }}
       >
-        <div className="mx-auto" style={{ maxWidth: `${player.state.contentWidth}px` }}>
+        <div className="mx-auto" style={{ maxWidth: `${player.state.contentWidth}px`, textAlign: player.state.textAlign }}>
           {player.state.showChords ? (
             <ChordOverlay
               lyrics={song.lyrics}
@@ -895,6 +897,7 @@ export function SongPlayerContent({
               timeSignature={song.timeSignature}
               chordFontSize={player.state.chordFontSize}
               lyricsTextColor={player.state.lyricsTextColor}
+              textAlign={player.state.textAlign}
             />
           ) : (
             <LyricsDisplay lyrics={song.lyrics} />
@@ -1012,6 +1015,8 @@ export function SongPlayerContent({
               onBackgroundColorChange={player.setBackgroundColor}
               lyricsTextColor={player.state.lyricsTextColor}
               onLyricsTextColorChange={player.setLyricsTextColor}
+              textAlign={player.state.textAlign}
+              onTextAlignChange={player.setTextAlign}
             />
           ),
           edit: (

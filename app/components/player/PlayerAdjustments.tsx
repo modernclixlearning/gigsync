@@ -1,6 +1,6 @@
-import { Minus, Plus } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Minus, Plus } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import type { PlayerOverrideKey, PlayerOverrides, BeatHighlightMode } from '~/types/song'
+import type { PlayerOverrideKey, PlayerOverrides, BeatHighlightMode, SongTextAlign } from '~/types/song'
 import {
   SettingsRow,
   SettingsStepper,
@@ -23,6 +23,12 @@ function contentWidthToMargin(contentWidth: number): number {
 function marginToContentWidth(margin: number): number {
   return CONTENT_WIDTH_MIN + CONTENT_WIDTH_MAX - margin
 }
+
+const TEXT_ALIGNS: { value: SongTextAlign; label: string; Icon: typeof AlignLeft }[] = [
+  { value: 'left', label: 'Alinear a la izquierda', Icon: AlignLeft },
+  { value: 'center', label: 'Centrar', Icon: AlignCenter },
+  { value: 'right', label: 'Alinear a la derecha', Icon: AlignRight },
+]
 
 const HIGHLIGHT_MODES: { value: BeatHighlightMode; label: string }[] = [
   { value: 'text', label: 'Color' },
@@ -125,6 +131,8 @@ export interface PlayerAdjustmentsProps {
   /** null = theme default (light/dark), not yet overridden. */
   lyricsTextColor: string | null
   onLyricsTextColorChange: (color: string | null) => void
+  textAlign: SongTextAlign
+  onTextAlignChange: (align: SongTextAlign) => void
 }
 
 /**
@@ -182,7 +190,9 @@ export function PlayerAdjustments({
   backgroundColor,
   onBackgroundColorChange,
   lyricsTextColor,
-  onLyricsTextColorChange
+  onLyricsTextColorChange,
+  textAlign,
+  onTextAlignChange
 }: PlayerAdjustmentsProps) {
   const saveHandlerFor = (key: PlayerOverrideKey, value: number | string) => (tier: SaveTier) => {
     if (tier === 'song') onSaveControlForSong(key, value)
@@ -262,6 +272,38 @@ export function PlayerAdjustments({
           />
           <SaveTierButtons
             onSave={saveHandlerFor('contentWidth', contentWidth)}
+            canSaveForSetlist={canSaveForSetlist}
+          />
+        </div>
+      </SettingsRow>
+
+      <SettingsRow
+        label="Alineación"
+        description="De toda la canción: letra, instrumentales y líneas de acordes."
+      >
+        <div className="flex flex-col items-start gap-1 @md:items-end">
+          <div role="group" aria-label="Alineación" className="flex items-center gap-1">
+            {TEXT_ALIGNS.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                aria-label={label}
+                aria-pressed={textAlign === value}
+                title={label}
+                onClick={() => onTextAlignChange(value)}
+                className={cn(
+                  'p-1.5 rounded-lg transition-colors',
+                  textAlign === value
+                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            ))}
+          </div>
+          <SaveTierButtons
+            onSave={saveHandlerFor('textAlign', textAlign)}
             canSaveForSetlist={canSaveForSetlist}
           />
         </div>
