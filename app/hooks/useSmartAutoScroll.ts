@@ -85,6 +85,23 @@ export interface UseSmartAutoScrollOptions extends UseSongTimelineOptions {
 /**
  * Return value from useSmartAutoScroll hook
  */
+/**
+ * Scroll offset that places the active line inside the visible area:
+ * ratio 0 puts its top at the top, 0.5 centers it, 1 puts its bottom at the
+ * bottom. A line taller than the viewport is aligned to the top, so its start
+ * is always readable.
+ */
+export function scrollTargetForLine(
+  lineTop: number,
+  lineHeight: number,
+  containerHeight: number,
+  ratio: number
+): number {
+  const r = Math.min(1, Math.max(0, ratio))
+  const freeSpace = Math.max(0, containerHeight - lineHeight)
+  return Math.max(0, lineTop - freeSpace * r)
+}
+
 export interface UseSmartAutoScrollReturn {
   /** Current absolute beat number from BPM sync */
   currentBeat: number
@@ -159,7 +176,7 @@ export function useSmartAutoScroll({
   isPlaying,
   isEnabled,
   containerRef,
-  contextWindowRatio = 0.33,
+  contextWindowRatio = 0.5,
   smoothScrollDuration = DEFAULT_SMOOTH_SCROLL_DURATION,
   transportBpm
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
@@ -272,17 +289,21 @@ export function useSmartAutoScroll({
 
     currentBeatsPerChordRef.current = beatsPerChord
     
-    // Get raw scroll position for this beat
-    const rawPosition = tl.getScrollPositionForBeat(beat)
-    
-    if (rawPosition >= 0) {
-      // Context window: position current line at configurable ratio of viewport height
-      // so musician can see more "ahead" (like reading a book)
-      const containerHeight = container.clientHeight
-      const contextOffset = containerHeight * contextWindowRatio
-      const targetPosition = Math.max(0, rawPosition - contextOffset)
-      
-      smoothScrollTo(targetPosition)
+    // Measure the active line now, in the container's own scroll coordinates:
+    // positions measured once at load go stale when the font size, the
+    // lines-per-block grouping or the side panel change the layout.
+    const lineEl = container.querySelector<HTMLElement>(`[data-element-id="${element.id}"]`)
+    if (lineEl) {
+      const lineTop =
+        lineEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop
+      smoothScrollTo(
+        scrollTargetForLine(lineTop, lineEl.offsetHeight, container.clientHeight, contextWindowRatio)
+      )
+    } else {
+      const rawPosition = tl.getScrollPositionForBeat(beat)
+      if (rawPosition >= 0) {
+        smoothScrollTo(scrollTargetForLine(rawPosition, 0, container.clientHeight, contextWindowRatio))
+      }
     }
   }, [containerRefStable, smoothScrollTo, contextWindowRatio])
   

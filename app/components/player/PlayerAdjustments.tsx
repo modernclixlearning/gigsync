@@ -467,7 +467,7 @@ export function PlayerAdjustments({
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              33% recomendado (línea actual en el tercio superior).
+              Dónde queda la línea que suena: 0% arriba, 50% centrada (recomendado), 100% abajo.
             </p>
           </div>
           <input

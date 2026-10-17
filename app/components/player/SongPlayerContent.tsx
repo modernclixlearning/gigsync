@@ -90,7 +90,7 @@ export function SongPlayerContent({
   const togglePanel = useCallback(() => setIsPanelOpen((open) => !open), [])
 
   const smartScrollContextWindowPercent =
-    settings?.player.smartScrollContextWindow ?? 33
+    settings?.player.smartScrollContextWindow ?? 50
   const smartScrollSmoothness =
     settings?.player.smartScrollSmoothness ?? 70
   const showBeatIndicatorDebug =
@@ -551,7 +551,9 @@ export function SongPlayerContent({
   return (
     <div
       className={cn(
-        'min-h-screen flex flex-col',
+        // Fixed to the viewport so the lyrics container below is what scrolls
+        // (autoscroll moves that container, not the window).
+        'h-dvh overflow-hidden flex flex-col',
         isSetlistMode ? 'dark bg-[#05060b]' : 'bg-slate-50 dark:bg-[#101322]',
         isPanelOpen && [PLAYER_SIDE_PANEL_OFFSET_CLASS, PLAYER_SIDE_PANEL_SHEET_OFFSET_CLASS]
       )}
@@ -849,7 +851,7 @@ export function SongPlayerContent({
       <div
         ref={scrollContainerRef}
         data-gs-lyrics
-        className="flex-1 overflow-y-auto px-6 md:px-8 py-8"
+        className="min-h-0 flex-1 overflow-y-auto px-6 md:px-8 py-8"
         style={{
           fontSize: `${player.state.fontSize}px`,
           ...(player.state.lyricsTextColor ? { color: player.state.lyricsTextColor } : {})
