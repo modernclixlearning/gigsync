@@ -56,3 +56,16 @@ describe('ChordOverlay — delete-line icon button (gs#18)', () => {
     expect(screen.queryByRole('button', { name: 'Eliminar línea' })).not.toBeInTheDocument()
   })
 })
+
+describe('ChordOverlay — chord font size', () => {
+  it('applies "Tamaño de acordes" to instrumental sections like it does to lyric lines', () => {
+    render(<ChordOverlay lyrics={'[Intro | 2 bars]\nF#m | E6 |\n\n[F#m]I give her all my love'} chordFontSize={40} />)
+    expect(screen.getByText('E6')).toHaveStyle({ fontSize: '40px' })
+    expect(screen.getAllByText('F#m').every((el) => el.style.fontSize === '40px')).toBe(true)
+  })
+
+  it('applies it in the chord editor of an instrumental section too', () => {
+    render(<ChordOverlay lyrics={'[Intro | 2 bars]\nF#m | E6 |'} chordFontSize={40} isEditable columns={2} />)
+    expect(screen.getByRole('button', { name: 'Cambiar acorde E6' })).toHaveStyle({ fontSize: '40px' })
+  })
+})

@@ -58,6 +58,8 @@ interface InstrumentalSectionProps {
   gridResolution?: number
   /** Beats per bar from the song's time signature. Default 4. */
   beatsPerBar?: number
+  /** Font size (px) of the chord names — the same "Tamaño de acordes" the lyric lines use. */
+  chordFontSize?: number
 }
 
 /** Get icon for section type */
@@ -100,11 +102,13 @@ function SortableChordCell({
   compact,
   isActive,
   onChordNameClick,
+  chordFontSize,
 }: {
   id: string
   bar: ChordBar
   compact: boolean
   isActive: boolean
+  chordFontSize?: number
   /** Tap on the chord name → open the chord picker. */
   onChordNameClick: (e: React.MouseEvent) => void
 }) {
@@ -145,6 +149,7 @@ function SortableChordCell({
           'hover:bg-indigo-50 hover:ring-2 hover:ring-indigo-300 dark:hover:bg-indigo-900/20 dark:hover:ring-indigo-700',
           compact ? 'text-sm' : 'text-base'
         )}
+        style={chordFontSize ? { fontSize: chordFontSize } : undefined}
       >
         {bar.chord}
       </span>
@@ -178,7 +183,9 @@ export function InstrumentalSection({
   onChordsChange,
   gridResolution = 0.25,
   beatsPerBar = 4,
+  chordFontSize,
 }: InstrumentalSectionProps) {
+  const chordFontStyle = chordFontSize ? { fontSize: chordFontSize } : undefined
   const colors = getSectionColors(section.type)
   const icon = getSectionIcon(section.type)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -406,6 +413,7 @@ export function InstrumentalSection({
                 bar={bar}
                 compact={compact}
                 isActive={activeId === id || selection.isSelected(index)}
+                chordFontSize={chordFontSize}
                 onChordNameClick={(e) => {
                   if (isExtendClick(e)) return
                   e.stopPropagation()
@@ -419,7 +427,9 @@ export function InstrumentalSection({
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
-              <span className={cn('font-mono text-sm font-bold opacity-60', colors.text)}>↳ {bar.chord}</span>
+              <span className={cn('font-mono text-sm font-bold opacity-60', colors.text)} style={chordFontStyle}>
+                ↳ {bar.chord}
+              </span>
             </div>
           )}
         </div>
@@ -505,7 +515,10 @@ export function InstrumentalSection({
                     isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
                   )}
                 >
-                  <span className={cn('font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}>
+                  <span
+                    className={cn('font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}
+                    style={chordFontStyle}
+                  >
                     {bar.chord}
                   </span>
                   {bar.label && (
@@ -589,7 +602,7 @@ export function InstrumentalSection({
           <DragOverlay>
             {activeChord && (
               <div className={cn('flex items-center justify-center rounded-lg border bg-indigo-600 border-indigo-600 shadow-xl', compact ? 'py-2 px-2' : 'py-3 px-3')}>
-                <span className={cn('font-mono font-bold text-white', compact ? 'text-sm' : 'text-base')}>
+                <span className={cn('font-mono font-bold text-white', compact ? 'text-sm' : 'text-base')} style={chordFontStyle}>
                   {activeChord}
                 </span>
               </div>

@@ -539,6 +539,7 @@ function ChordOverlayLine({
           }
           gridResolution={gridResolution}
           beatsPerBar={parseTimeSignature(timeSignature).beats}
+          chordFontSize={chordFontSize}
         />
         {lineBubbleMenuPortal}
       </div>
@@ -555,6 +556,7 @@ function ChordOverlayLine({
           onChordsChange={(newBars) =>
             onLineChange({ ...line, chordBars: newBars } as ChordsOnlyLine)
           }
+          chordFontSize={chordFontSize}
         />
         {lineBubbleMenuPortal}
       </div>
@@ -702,11 +704,14 @@ function EditableChordsOnlyBadges({
   elementId,
   isEditable,
   onChordsChange,
+  chordFontSize,
 }: {
   line: ChordsOnlyLine
   elementId: string
   isEditable: boolean
   onChordsChange: (bars: ChordBar[]) => void
+  /** Same "Tamaño de acordes" as the lyric lines (read mode). */
+  chordFontSize?: number
 }) {
   const [activeId, setActiveId] = useLocalState<string | null>(null)
   const [editingIndex, setEditingIndex] = useLocalState<number | null>(null)
@@ -773,7 +778,11 @@ function EditableChordsOnlyBadges({
       <div className="py-2" data-element-id={elementId}>
         <div className="flex flex-wrap gap-3 font-bold text-indigo-500 dark:text-indigo-400">
           {line.chordBars.map((bar, i) => (
-            <span key={i} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded">
+            <span
+              key={i}
+              className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded font-mono"
+              style={chordFontSize ? { fontSize: chordFontSize } : undefined}
+            >
               {bar.chord}
             </span>
           ))}
