@@ -5,6 +5,7 @@ import {
   SettingsRow,
   SettingsStepper,
   SettingsColorField,
+  SettingsSlider,
   SaveTierButtons,
   type SaveTier,
 } from '~/components/profile/SettingsSection'
@@ -65,6 +66,12 @@ export interface PlayerAdjustmentsProps {
   onBeatHighlightTextColorChange: (color: string) => void
   beatHighlightBgColor: string
   onBeatHighlightBgColorChange: (color: string) => void
+  /** 0–100, 100 = original glow. */
+  beatHighlightGlowIntensity: number
+  onBeatHighlightGlowIntensityChange: (intensity: number) => void
+  /** null = same as the highlight text color. */
+  beatHighlightGlowColor: string | null
+  onBeatHighlightGlowColorChange: (color: string | null) => void
   /** null = theme default (light/dark), not yet overridden. */
   backgroundColor: string | null
   onBackgroundColorChange: (color: string | null) => void
@@ -115,6 +122,10 @@ export function PlayerAdjustments({
   onBeatHighlightTextColorChange,
   beatHighlightBgColor,
   onBeatHighlightBgColorChange,
+  beatHighlightGlowIntensity,
+  onBeatHighlightGlowIntensityChange,
+  beatHighlightGlowColor,
+  onBeatHighlightGlowColorChange,
   backgroundColor,
   onBackgroundColorChange,
   lyricsTextColor,
@@ -269,7 +280,7 @@ export function PlayerAdjustments({
 
       <SettingsRow
         label="Resaltado del beat"
-        description="Cómo se destaca la palabra que suena: cambiando el color de letra o el de fondo."
+        description="Cómo se destaca la palabra que suena: cambiando el color de letra o el de fondo. En modo Letra, la sombra se puede suavizar y cambiar de color para ganar contraste."
       >
         <div className="flex flex-col items-start gap-2 @md:items-end">
           <div className="flex items-center gap-1">
@@ -307,12 +318,35 @@ export function PlayerAdjustments({
               <SettingsColorField value={beatHighlightBgColor} onChange={onBeatHighlightBgColorChange} />
               <span className="text-[10px] text-slate-400 dark:text-slate-500">Fondo</span>
             </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <SettingsColorField
+                value={beatHighlightGlowColor ?? beatHighlightTextColor}
+                onChange={onBeatHighlightGlowColorChange}
+                onReset={beatHighlightGlowColor !== null ? () => onBeatHighlightGlowColorChange(null) : undefined}
+              />
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">Sombra</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-0.5 @md:items-end">
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              Intensidad de la sombra (modo Letra)
+            </span>
+            <SettingsSlider
+              value={beatHighlightGlowIntensity}
+              min={0}
+              max={100}
+              step={5}
+              onChange={onBeatHighlightGlowIntensityChange}
+              suffix="%"
+            />
           </div>
           <SaveTierButtons
             onSave={saveHandlerForMultiple({
               beatHighlightMode,
               beatHighlightTextColor,
               beatHighlightBgColor,
+              beatHighlightGlowIntensity,
+              beatHighlightGlowColor: beatHighlightGlowColor ?? beatHighlightTextColor,
             })}
             canSaveForSetlist={canSaveForSetlist}
           />

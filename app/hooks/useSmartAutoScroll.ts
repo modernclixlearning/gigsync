@@ -103,6 +103,8 @@ export interface UseSmartAutoScrollReturn {
   currentBeatsPerChord: number
   /** True when timeline is calculated and ready */
   isReady: boolean
+  /** Length of the song's timeline in beats (0 until it's computed) */
+  totalBeats: number
   /** True when fallback to simple autoscroll is active */
   hasFallback: boolean
   /** Function to retry smart autoscroll after fallback */
@@ -415,6 +417,8 @@ export function useSmartAutoScroll({
     currentElementStartBeat: currentElementStartBeatRef.current,
     currentBeatsPerChord: currentBeatsPerChordRef.current,
     isReady: timeline.isReady,
+    /** Length of the song's timeline in beats (0 until it's computed). */
+    totalBeats: timelineTotalBeats,
     hasFallback,
     retrySmartAutoscroll,
     play: bpmSync.play,

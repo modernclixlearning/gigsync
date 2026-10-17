@@ -36,6 +36,9 @@ import { YouTubePlayAlong } from '~/components/player/YouTubePlayAlong'
 import { normalizeStartSeconds, parseYouTubeUrl } from '~/lib/youtube'
 import type { Song, PlayerOverrideKey, PlayerOverrideValue, PlayerOverrides } from '~/types'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
+import { useCountIn } from '~/hooks/useCountIn'
+import { isSongFinished, resolvePlaybackPreferences } from '~/lib/playback'
+import { AutoAdvanceBanner } from '~/components/player/AutoAdvanceBanner'
 
 export interface SetlistContext {
   setlistId: string
@@ -44,8 +47,11 @@ export interface SetlistContext {
   totalSongs: number
   nextSong?: Song
   onPrevious: () => void
-  onNext: () => void
+  /** `autoStart`: the next song starts by itself (with the count-in) once it's loaded. */
+  onNext: (options?: { autoStart?: boolean }) => void
   onExit: () => void
+  /** This song was reached by auto-advance: start it with the count-in on load. */
+  autoStart?: boolean
 }
 
 export interface SongPlayerContentProps {
@@ -56,6 +62,17 @@ export interface SongPlayerContentProps {
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
+
+/**
+ * Glow behind the highlighted word. Intensity scales the glow color's
+ * opacity: 100 is the original full-strength glow, 0 turns it off.
+ */
+export function glowTextShadow(color: string, intensity: number): string {
+  const pct = clamp(Math.round(intensity), 0, 100)
+  if (pct === 0) return 'none'
+  const glow = pct === 100 ? color : `color-mix(in srgb, ${color} ${pct}%, transparent)`
+  return `0 0 0.4em ${glow}`
+}
 
 export function SongPlayerContent({
   song,
@@ -122,6 +139,10 @@ export function SongPlayerContent({
     if (beatHighlightTextColor !== undefined) player.setBeatHighlightTextColor(beatHighlightTextColor)
     const beatHighlightBgColor = resolve('beatHighlightBgColor')
     if (beatHighlightBgColor !== undefined) player.setBeatHighlightBgColor(beatHighlightBgColor)
+    const beatHighlightGlowIntensity = resolve('beatHighlightGlowIntensity')
+    if (beatHighlightGlowIntensity !== undefined) player.setBeatHighlightGlowIntensity(beatHighlightGlowIntensity)
+    const beatHighlightGlowColor = resolve('beatHighlightGlowColor')
+    if (beatHighlightGlowColor !== undefined) player.setBeatHighlightGlowColor(beatHighlightGlowColor)
     const backgroundColor = resolve('backgroundColor')
     if (backgroundColor !== undefined) player.setBackgroundColor(backgroundColor)
     const lyricsTextColor = resolve('lyricsTextColor')
@@ -300,6 +321,102 @@ export function SongPlayerContent({
     return beats || 4
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
+
+  // ── Transport: restart, count-in, end of song, next song ──────────────────
+  const playbackPrefs = resolvePlaybackPreferences(settings?.player)
+  const countIn = useCountIn()
+  const [isAdvancePending, setIsAdvancePending] = useState(false)
+  const autoScrollPlay = autoScroll.play
+  const autoScrollReset = autoScroll.reset
+  const cancelCountIn = countIn.cancel
+
+  // After a song ends the transport sits on its last beat: playing again
+  // (or counting in) starts over from the top instead of stopping at once.
+  const isAtEndRef = useRef(false)
+  isAtEndRef.current = isSongFinished(autoScroll.currentBeat, autoScroll.totalBeats)
+  const rewindIfFinished = useCallback(() => {
+    if (!playerRef.current.state.isPlaying && isAtEndRef.current) {
+      autoScrollReset()
+      setVideoRestartKey((k) => k + 1)
+    }
+  }, [autoScrollReset])
+
+  const handlePlayPause = useCallback(() => {
+    cancelCountIn()
+    setIsAdvancePending(false)
+    rewindIfFinished()
+    return playerRef.current.togglePlay()
+  }, [cancelCountIn, rewindIfFinished])
+
+  // Back to the top: transport, lyrics and play-along video. Keeps playing if
+  // it was playing (reset stops the transport, so it's started again).
+  const handleRestart = useCallback(() => {
+    cancelCountIn()
+    setIsAdvancePending(false)
+    autoScrollReset()
+    setVideoRestartKey((k) => k + 1)
+    scrollContainerRef.current?.scrollTo({ top: 0 })
+    window.scrollTo({ top: 0 })
+    const p = playerRef.current
+    if (p.state.isPlaying && p.state.isAutoScrollEnabled) void autoScrollPlay()
+  }, [cancelCountIn, autoScrollReset, autoScrollPlay])
+
+  const countInBpm = midiClock.bpm ?? (song.bpm || 120)
+  const startCountIn = useCallback(() => {
+    if (playerRef.current.state.isPlaying) return
+    setIsAdvancePending(false)
+    rewindIfFinished()
+    void countIn.start({
+      bpm: countInBpm,
+      beatsPerBar,
+      bars: playbackPrefs.countInBars,
+      onDone: () => {
+        if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
+      },
+    })
+  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, rewindIfFinished])
+
+  const handleCountInPlay = useCallback(() => {
+    if (countIn.isCountingIn) cancelCountIn()
+    else startCountIn()
+  }, [countIn.isCountingIn, cancelCountIn, startCountIn])
+
+  const hasNextSong = !!setlistContext && setlistContext.currentIndex < setlistContext.totalSongs - 1
+  const goToNextSong = useCallback(
+    (autoStart = false) => {
+      if (!setlistContext || setlistContext.currentIndex >= setlistContext.totalSongs - 1) return
+      cancelCountIn()
+      setIsAdvancePending(false)
+      playerRef.current.pause()
+      autoScrollReset()
+      setlistContext.onNext(autoStart ? { autoStart: true } : undefined)
+    },
+    [setlistContext, cancelCountIn, autoScrollReset]
+  )
+
+  // End of the song: stop there (the transport would otherwise keep counting
+  // past the last line). In a setlist with auto-advance on, queue the next one.
+  const hasSongFinished =
+    player.state.isPlaying &&
+    player.state.isAutoScrollEnabled &&
+    autoScroll.isReady &&
+    !autoScroll.hasFallback &&
+    isSongFinished(autoScroll.currentBeat, autoScroll.totalBeats)
+  useEffect(() => {
+    if (!hasSongFinished) return
+    playerRef.current.pause()
+    if (hasNextSong && playbackPrefs.autoAdvance) setIsAdvancePending(true)
+  }, [hasSongFinished, hasNextSong, playbackPrefs.autoAdvance])
+
+  // Reached by auto-advance: start with the count-in once settings and the
+  // timeline are loaded (once per song).
+  const hasAutoStartedRef = useRef(false)
+  useEffect(() => {
+    if (!setlistContext?.autoStart || hasAutoStartedRef.current) return
+    if (!settings || !autoScroll.isReady) return
+    hasAutoStartedRef.current = true
+    startCountIn()
+  }, [setlistContext?.autoStart, settings, autoScroll.isReady, startCountIn])
 
   // Transpose target: which chromatic pitch the song's key lands on, and
   // whether to spell it with sharps or flats. A manual override
@@ -733,7 +850,10 @@ export function SongPlayerContent({
               /* Beat follows the lyric as light, not a container highlight: */
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
                 color: ${player.state.beatHighlightTextColor};
-                text-shadow: 0 0 0.4em ${player.state.beatHighlightTextColor};
+                text-shadow: ${glowTextShadow(
+                  player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
+                  player.state.beatHighlightGlowIntensity
+                )};
                 transition: text-shadow 0.15s ease;
               }
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
@@ -789,9 +909,30 @@ export function SongPlayerContent({
         </div>
       )}
 
+      {/* Count-in: big beat number over the song */}
+      {countIn.count !== null && (
+        <div
+          aria-live="assertive"
+          className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
+        >
+          <span className="text-[10rem] font-black leading-none text-indigo-500/80 tabular-nums drop-shadow-lg">
+            {countIn.count}
+          </span>
+        </div>
+      )}
+
+      {isAdvancePending && setlistContext?.nextSong && (
+        <AutoAdvanceBanner
+          nextTitle={setlistContext.nextSong.title}
+          delaySeconds={playbackPrefs.autoAdvanceDelaySeconds}
+          onAdvance={() => goToNextSong(true)}
+          onCancel={() => setIsAdvancePending(false)}
+        />
+      )}
+
       <PlayerControls
         isPlaying={player.state.isPlaying}
-        onPlayPause={player.togglePlay}
+        onPlayPause={handlePlayPause}
         autoScrollEnabled={player.state.isAutoScrollEnabled}
         onToggleAutoScroll={player.toggleAutoScroll}
         showChords={player.state.showChords}
@@ -804,6 +945,10 @@ export function SongPlayerContent({
         onToggleMetronomeSound={player.toggleMetronomeSound}
         isSettingsOpen={isPanelOpen}
         onToggleSettings={togglePanel}
+        onRestart={handleRestart}
+        onCountInPlay={handleCountInPlay}
+        isCountingIn={countIn.isCountingIn}
+        onNextSong={hasNextSong ? () => goToNextSong() : undefined}
       />
 
       <PlayerSidePanel
@@ -850,6 +995,10 @@ export function SongPlayerContent({
               onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
               beatHighlightBgColor={player.state.beatHighlightBgColor}
               onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
+              beatHighlightGlowIntensity={player.state.beatHighlightGlowIntensity}
+              onBeatHighlightGlowIntensityChange={player.setBeatHighlightGlowIntensity}
+              beatHighlightGlowColor={player.state.beatHighlightGlowColor}
+              onBeatHighlightGlowColorChange={player.setBeatHighlightGlowColor}
               backgroundColor={player.state.backgroundColor}
               onBackgroundColorChange={player.setBackgroundColor}
               lyricsTextColor={player.state.lyricsTextColor}

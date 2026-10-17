@@ -3,8 +3,17 @@ import {
   SettingsSection,
   SettingsRow,
   SettingsSlider,
+  SettingsStepper,
+  SettingsToggle,
 } from './SettingsSection'
 import { cn } from '~/lib/utils'
+import {
+  AUTO_ADVANCE_DELAY_MAX,
+  AUTO_ADVANCE_DELAY_MIN,
+  COUNT_IN_BARS_MAX,
+  COUNT_IN_BARS_MIN,
+  resolvePlaybackPreferences,
+} from '~/lib/playback'
 
 export interface PlayerSettingsProps {
   settings: AppSettings['player']
@@ -20,6 +29,7 @@ const GRID_RESOLUTION_OPTIONS: { value: number; label: string }[] = [
 ]
 
 export function PlayerSettings({ settings, onUpdate }: PlayerSettingsProps) {
+  const playback = resolvePlaybackPreferences(settings)
   return (
     <SettingsSection
       title="Player"
@@ -84,6 +94,41 @@ export function PlayerSettings({ settings, onUpdate }: PlayerSettingsProps) {
             </button>
           ))}
         </div>
+      </SettingsRow>
+
+      <SettingsRow
+        label="Precuenta"
+        description="Compases de metrónomo antes de arrancar con Play con precuenta"
+      >
+        <SettingsStepper
+          value={playback.countInBars}
+          min={COUNT_IN_BARS_MIN}
+          max={COUNT_IN_BARS_MAX}
+          onChange={(value) => onUpdate({ countInBars: value })}
+          format={(value) => `${value} ${value === 1 ? 'compás' : 'compases'}`}
+        />
+      </SettingsRow>
+
+      <SettingsRow
+        label="Avanzar solo en el setlist"
+        description="Al terminar una canción pasa a la siguiente, que arranca con precuenta"
+      >
+        <SettingsToggle
+          checked={playback.autoAdvance}
+          onChange={(checked) => onUpdate({ autoAdvance: checked })}
+        />
+      </SettingsRow>
+
+      <SettingsRow label="Pausa entre canciones" description="Espera antes de avanzar solo">
+        <SettingsStepper
+          value={playback.autoAdvanceDelaySeconds}
+          min={AUTO_ADVANCE_DELAY_MIN}
+          max={AUTO_ADVANCE_DELAY_MAX}
+          step={5}
+          onChange={(value) => onUpdate({ autoAdvanceDelaySeconds: value })}
+          format={(value) => `${value} s`}
+          disabled={!playback.autoAdvance}
+        />
       </SettingsRow>
     </SettingsSection>
   )

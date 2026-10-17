@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlayerControls } from '../PlayerControls'
 import { PlayerAdjustments } from '../PlayerAdjustments'
@@ -52,12 +52,19 @@ describe('PlayerControls', () => {
     onBeatHighlightTextColorChange: vi.fn(),
     beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
     onBeatHighlightBgColorChange: vi.fn(),
+    beatHighlightGlowIntensity: 100,
+    onBeatHighlightGlowIntensityChange: vi.fn(),
+    beatHighlightGlowColor: null,
+    onBeatHighlightGlowColorChange: vi.fn(),
     backgroundColor: null,
     onBackgroundColorChange: vi.fn(),
     lyricsTextColor: null,
     onLyricsTextColorChange: vi.fn(),
     isSettingsOpen: false,
     onToggleSettings: vi.fn(),
+    onRestart: vi.fn(),
+    onCountInPlay: vi.fn(),
+    isCountingIn: false,
   }
 
   beforeEach(() => {
@@ -69,7 +76,7 @@ describe('PlayerControls', () => {
 
     expect(screen.getByTitle('Hide chords')).toBeInTheDocument()
     expect(screen.getByTitle('Start auto-scroll')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /play|pause/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument()
   })
 
   it('should toggle play/pause when play button is clicked', async () => {
@@ -77,7 +84,7 @@ describe('PlayerControls', () => {
     const onPlayPause = vi.fn()
     render(<PlayerControls {...defaultProps} onPlayPause={onPlayPause} />)
 
-    const playButton = screen.getByRole('button', { name: /play|pause/i })
+    const playButton = screen.getByRole('button', { name: /^(play|pause)$/i })
     await user.click(playButton)
 
     expect(onPlayPause).toHaveBeenCalledTimes(1)
@@ -86,14 +93,14 @@ describe('PlayerControls', () => {
   it('should show pause icon when playing', () => {
     render(<PlayerControls {...defaultProps} isPlaying={true} />)
 
-    const pauseIcon = screen.getByRole('button', { name: /play|pause/i })
+    const pauseIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
     expect(pauseIcon).toBeInTheDocument()
   })
 
   it('should show play icon when paused', () => {
     render(<PlayerControls {...defaultProps} isPlaying={false} />)
 
-    const playIcon = screen.getByRole('button', { name: /play|pause/i })
+    const playIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
     expect(playIcon).toBeInTheDocument()
   })
 
@@ -157,6 +164,81 @@ describe('PlayerControls', () => {
 
     rerender(<PlayerControls {...defaultProps} isSettingsOpen onToggleSettings={onToggleSettings} />)
     expect(screen.getByRole('button', { name: /hide settings/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('restarts the song from the top', async () => {
+    const user = userEvent.setup()
+    const onRestart = vi.fn()
+    render(<PlayerControls {...defaultProps} onRestart={onRestart} />)
+    await user.click(screen.getByRole('button', { name: 'Desde el inicio' }))
+    expect(onRestart).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts the count-in, and offers to cancel it while counting', async () => {
+    const user = userEvent.setup()
+    const onCountInPlay = vi.fn()
+    const { rerender } = render(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} />)
+    await user.click(screen.getByRole('button', { name: 'Play con precuenta' }))
+    expect(onCountInPlay).toHaveBeenCalledTimes(1)
+
+    rerender(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} isCountingIn />)
+    expect(screen.getByRole('button', { name: 'Cancelar precuenta' })).toHaveAttribute('aria-pressed', 'true')
+
+    rerender(<PlayerControls {...defaultProps} isPlaying />)
+    expect(screen.getByRole('button', { name: 'Play con precuenta' })).toBeDisabled()
+  })
+
+  it('shows "next song" only when there is one', async () => {
+    const user = userEvent.setup()
+    const onNextSong = vi.fn()
+    const { rerender } = render(<PlayerControls {...defaultProps} />)
+    expect(screen.queryByRole('button', { name: 'Siguiente canción' })).toBeNull()
+
+    rerender(<PlayerControls {...defaultProps} onNextSong={onNextSong} />)
+    await user.click(screen.getByRole('button', { name: 'Siguiente canción' }))
+    expect(onNextSong).toHaveBeenCalledTimes(1)
+  })
+
+  it('softens the highlight glow and saves it with the rest of the highlight', async () => {
+    const user = userEvent.setup()
+    const onBeatHighlightGlowIntensityChange = vi.fn()
+    const onSaveControlsForSong = vi.fn()
+    render(
+      <PlayerAdjustments
+        {...defaultProps}
+        beatHighlightGlowIntensity={60}
+        onBeatHighlightGlowIntensityChange={onBeatHighlightGlowIntensityChange}
+        onSaveControlsForSong={onSaveControlsForSong}
+      />
+    )
+    const row = screen.getByText('Resaltado del beat').closest('[data-testid="settings-row"]') as HTMLElement
+    const slider = row.querySelector<HTMLInputElement>('input[type="range"]')!
+    expect(slider.value).toBe('60')
+    fireEvent.change(slider, { target: { value: '30' } })
+    expect(onBeatHighlightGlowIntensityChange).toHaveBeenCalledWith(30)
+
+    await user.click(within(row).getByTitle('Guardar solo para esta canción'))
+    expect(onSaveControlsForSong).toHaveBeenCalledWith(
+      expect.objectContaining({ beatHighlightGlowIntensity: 60, beatHighlightGlowColor: '#38bdf8' })
+    )
+  })
+
+  it('offers to reset a custom glow color back to the text color', async () => {
+    const user = userEvent.setup()
+    const onBeatHighlightGlowColorChange = vi.fn()
+    const { rerender } = render(<PlayerAdjustments {...defaultProps} />)
+    const row = () => screen.getByText('Resaltado del beat').closest('[data-testid="settings-row"]') as HTMLElement
+    expect(within(row()).queryByTitle('Restaurar color por defecto')).toBeNull()
+
+    rerender(
+      <PlayerAdjustments
+        {...defaultProps}
+        beatHighlightGlowColor="#000000"
+        onBeatHighlightGlowColorChange={onBeatHighlightGlowColorChange}
+      />
+    )
+    await user.click(within(row()).getByTitle('Restaurar color por defecto'))
+    expect(onBeatHighlightGlowColorChange).toHaveBeenCalledWith(null)
   })
 
   it('should render the adjustments rows', () => {

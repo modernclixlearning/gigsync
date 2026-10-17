@@ -55,6 +55,10 @@ export interface SongPlayerState {
   beatHighlightMode: BeatHighlightMode
   beatHighlightTextColor: string
   beatHighlightBgColor: string
+  /** Glow strength around the highlighted word, 0–100 (100 = original). */
+  beatHighlightGlowIntensity: number
+  /** Glow color override. null = same as beatHighlightTextColor. */
+  beatHighlightGlowColor: string | null
   /** Player screen background color override. null = theme default (light/dark). */
   backgroundColor: string | null
   /** Lyrics text color override. null = theme default (light/dark). */
