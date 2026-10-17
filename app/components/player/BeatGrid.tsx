@@ -127,18 +127,20 @@ export function isExtendClick(e: React.MouseEvent) {
 }
 
 /**
- * Action bar shown while 2+ cells are selected: merge them into one cell, or
- * delete them all at once.
+ * Action bar shown while 2+ cells are selected: merge them into one cell,
+ * duplicate the run right after itself, or delete them all at once.
  */
 export function SelectionActionsBar({
   count,
   onMerge,
+  onDuplicate,
   onDelete,
   canDelete,
   onCancel,
 }: {
   count: number
   onMerge: () => void
+  onDuplicate: () => void
   onDelete: () => void
   /** False when the selection is every cell of the line (one must remain). */
   canDelete: boolean
@@ -156,6 +158,17 @@ export function SelectionActionsBar({
         )}
       >
         Fusionar {count} celdas
+      </button>
+      <button
+        type="button"
+        onClick={onDuplicate}
+        className={cn(
+          'rounded-full px-3 py-1 text-xs font-semibold',
+          'bg-slate-700 text-white hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60'
+        )}
+      >
+        Duplicar {count} celdas
       </button>
       <button
         type="button"

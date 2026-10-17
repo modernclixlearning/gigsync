@@ -113,6 +113,19 @@ export function isValidChord(text: string): boolean {
 }
 
 /**
+ * Chord typed straight into a cell ("cmaj7", "dmin7", "bb", "f#m7/c#"):
+ * the root and a slash bass get their capital letter, the quality is kept
+ * as typed ("m" and "M" mean different things). Returns null if the result
+ * isn't a chord the instrumental grid can parse back.
+ */
+export function normalizeTypedChord(text: string): string | null {
+  const t = text.trim()
+  if (!t) return null
+  const chord = (t[0].toUpperCase() + t.slice(1)).replace(/\/([a-g])/, (_, n: string) => `/${n.toUpperCase()}`)
+  return isValidChord(chord) ? chord : null
+}
+
+/**
  * Parse a single chord-bar segment, supporting optional beat count and pickup label.
  *
  * Accepted formats:

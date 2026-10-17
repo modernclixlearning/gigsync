@@ -144,3 +144,27 @@ export function insertBlankLyricCell(
   })
   return joinCells(prefix, cells)
 }
+
+/**
+ * Duplicate cells `from`..`to` (inclusive): an exact copy of the run (chords,
+ * lyric and beats) is inserted right after it.
+ */
+export function duplicateLyricCells(
+  text: string,
+  chords: ChordPosition[],
+  from: number,
+  to: number
+): { text: string; chords: ChordPosition[] } {
+  const a = Math.max(0, Math.min(from, to))
+  const b = Math.min(chords.length - 1, Math.max(from, to))
+  const { prefix, texts } = splitCells(text, chords)
+  const last = chords.length - 1
+  const cells = chords.map((chord, i) => {
+    // As in moveLyricCell: the line's last cell has no trailing space, and its
+    // copy must not glue onto it.
+    const t = texts[i]
+    return { chord, text: i === last && t && !/\s$/.test(t) ? `${t} ` : t }
+  })
+  cells.splice(b + 1, 0, ...cells.slice(a, b + 1).map((c) => ({ ...c, chord: { ...c.chord } })))
+  return joinCells(prefix, cells)
+}
