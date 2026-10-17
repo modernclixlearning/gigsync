@@ -92,3 +92,25 @@ export function chordColorsCss(scope: string, textColor: string | null, bgColor:
                 ${bgColor ? `background-color: ${bgColor}; border-radius: 0.25em; padding: 0 0.15em;` : ''}
               }`
 }
+
+/**
+ * A levare being sung (the words before a line's first chord, timed by
+ * `[^N]`): its line lights up and those words get the lyric highlight,
+ * while the previous line's last chord is still playing.
+ */
+export function pickupHighlightCss(elementId: string, style: BeatHighlightStyle): string {
+  const line = `[data-element-id="${elementId}"]`
+  const words = `${line} [data-pickup]`
+  const lit =
+    style.lyricMode === 'background'
+      ? `background-color: ${style.bgColor}; color: #fff; border-radius: 0.25em; padding: 0 0.15em;`
+      : `color: ${style.textColor}; text-shadow: ${glowTextShadow(style.glowColor, style.glowIntensity)};`
+  return `
+              /* Levare: the next line's words before its first chord */
+              ${line} {
+                opacity: 1;
+              }
+              ${words} {
+                ${lit}
+              }`
+}

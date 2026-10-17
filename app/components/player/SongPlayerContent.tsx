@@ -39,7 +39,7 @@ import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 import { useCountIn } from '~/hooks/useCountIn'
 import { isSongFinished, resolvePlaybackPreferences } from '~/lib/playback'
 import { AutoAdvanceBanner } from '~/components/player/AutoAdvanceBanner'
-import { beatHighlightCss, chordColorsCss } from '~/components/player/beatHighlightCss'
+import { beatHighlightCss, chordColorsCss, pickupHighlightCss } from '~/components/player/beatHighlightCss'
 
 export interface SetlistContext {
   setlistId: string
@@ -805,6 +805,14 @@ export function SongPlayerContent({
           // everything outside the row stays fully dimmed.
           const groupMateIds = (groupMembersByElementId.get(eid) ?? [eid]).filter((id) => id !== eid)
           const groupMateSelector = groupMateIds.map((id) => `[data-element-id="${id}"]`).join(', ')
+          const highlightStyle = {
+            lyricMode: player.state.beatHighlightMode,
+            chordMode: player.state.chordHighlightMode ?? player.state.beatHighlightMode,
+            textColor: player.state.beatHighlightTextColor,
+            bgColor: player.state.beatHighlightBgColor,
+            glowColor: player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
+            glowIntensity: player.state.beatHighlightGlowIntensity,
+          }
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
@@ -828,16 +836,8 @@ export function SongPlayerContent({
               [data-element-id="${eid}"] {
                 opacity: 1;
               }
-              ${chordIdx !== null
-                ? beatHighlightCss(eid, chordIdx, {
-                    lyricMode: player.state.beatHighlightMode,
-                    chordMode: player.state.chordHighlightMode ?? player.state.beatHighlightMode,
-                    textColor: player.state.beatHighlightTextColor,
-                    bgColor: player.state.beatHighlightBgColor,
-                    glowColor: player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
-                    glowIntensity: player.state.beatHighlightGlowIntensity,
-                  })
-                : ''}
+              ${chordIdx !== null ? beatHighlightCss(eid, chordIdx, highlightStyle) : ''}
+              ${autoScroll.pickupElementId ? pickupHighlightCss(autoScroll.pickupElementId, highlightStyle) : ''}
             `}</style>
           )
         })()}

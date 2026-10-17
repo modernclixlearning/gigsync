@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
+import { findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
 import mockTone from '@tests/mocks/tone'
 
 // Mock Tone.js
@@ -1036,5 +1036,35 @@ describe('scrollTargetForLine', () => {
 
   it('aligns a line taller than the viewport to its top so it starts visible', () => {
     expect(scrollTargetForLine(1000, 900, 600, 0.5)).toBe(1000)
+  })
+})
+
+describe('findPickupElement', () => {
+  const el = (id: string, startBeat: number, pickupBeats?: number) =>
+    ({
+      id,
+      type: 'lyric',
+      startBeat,
+      endBeat: startBeat + 8,
+      durationBeats: 8,
+      bars: 2,
+      content: { type: 'lyric', raw: '', text: 'I love her', chords: [], ...(pickupBeats ? { pickupBeats } : {}) },
+    }) as never
+
+  // "too" line: beats 0–8 (B on 4–8); "I love her" line starts at 8 with a 1.5-beat levare.
+  const elements = [el('element-0', 0), el('element-1', 8, 1.5)]
+
+  it('is the next line during its levare, over the end of the previous chord', () => {
+    expect(findPickupElement(elements, 6.25)).toBeNull()
+    expect(findPickupElement(elements, 6.5)).toBe('element-1')
+    expect(findPickupElement(elements, 7.75)).toBe('element-1')
+  })
+
+  it('ends when the line\'s first chord starts', () => {
+    expect(findPickupElement(elements, 8)).toBeNull()
+  })
+
+  it('lines without a levare never match', () => {
+    expect(findPickupElement([el('element-0', 0), el('element-1', 8)], 7.5)).toBeNull()
   })
 })

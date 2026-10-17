@@ -338,7 +338,7 @@ describe('Transpose Utilities', () => {
 })
 
 import { parseChordPositions } from '../parser'
-import { serializeLyricLine } from '../serializer'
+import { serializeLyricLine, serializeParsedSong } from '../serializer'
 import type { LyricParsedLine } from '../types'
 
 describe('ChordPosition beats syntax', () => {
@@ -418,5 +418,30 @@ describe('ChordPosition beats syntax', () => {
       const line: LyricParsedLine = { type: 'lyric', raw: input, text, chords }
       expect(serializeLyricLine(line)).toBe(input)
     })
+  })
+})
+
+describe('levare marker [^N]', () => {
+  it('reads the pickup length and keeps the words before the first chord', () => {
+    const line = parseChordPro('[^1.5]I [E6]love her [E6]').lines[0] as LyricParsedLine
+    expect(line.pickupBeats).toBe(1.5)
+    expect(line.text.startsWith('I ')).toBe(true)
+    expect(line.chords.map((c) => c.chord)).toEqual(['E6', 'E6'])
+    expect(line.text).not.toContain('^')
+  })
+
+  it('round-trips through the serializer', () => {
+    const src = '[^1.5]I [E6:4]love her [E6:4]'
+    expect(serializeParsedSong(parseChordPro(src).lines)).toBe(src)
+  })
+
+  it('is only a levare at the start of the line', () => {
+    const line = parseChordPro('I [E6]love [^1]her').lines[0] as LyricParsedLine
+    expect(line.pickupBeats).toBeUndefined()
+  })
+
+  it('lines without it are unchanged', () => {
+    const line = parseChordPro('I [E6]love her').lines[0] as LyricParsedLine
+    expect(line.pickupBeats).toBeUndefined()
   })
 })

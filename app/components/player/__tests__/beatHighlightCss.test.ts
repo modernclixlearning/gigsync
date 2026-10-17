@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { beatHighlightCss, chordColorsCss, glowTextShadow } from '../beatHighlightCss'
+import { beatHighlightCss, chordColorsCss, glowTextShadow, pickupHighlightCss } from '../beatHighlightCss'
 
 describe('glowTextShadow', () => {
   it('100 keeps the original glow', () => {
@@ -52,5 +52,15 @@ describe('chordColorsCss', () => {
     expect(css).toContain('[data-gs-lyrics] .gs-chord {')
     expect(css).toContain('color: #ffffff;')
     expect(css).toContain('background-color: #112233;')
+  })
+})
+
+describe('pickupHighlightCss', () => {
+  it('lights the next line and its levare words with the lyric highlight', () => {
+    const css = pickupHighlightCss('element-1', { ...STYLE, lyricMode: 'text', chordMode: 'background' })
+    expect(css).toContain('[data-element-id="element-1"] {')
+    expect(css).toContain('opacity: 1;')
+    expect(css).toContain('[data-element-id="element-1"] [data-pickup] {')
+    expect(css).toContain('color: #38bdf8;')
   })
 })

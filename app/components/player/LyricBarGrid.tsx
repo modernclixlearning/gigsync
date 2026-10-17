@@ -54,6 +54,7 @@ import {
 } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
+import { SettingsStepper } from '~/components/profile/SettingsSection'
 import { useBubbleMenu } from './useBubbleMenu'
 import { BubbleMenu } from './BubbleMenu'
 import type { BubbleMenuAction } from './BubbleMenu'
@@ -76,6 +77,8 @@ interface LyricBarGridProps {
   onChordsReorder?: (chords: ChordPosition[]) => void
   /** Called when the lyric text of this line changes. */
   onTextChange?: (newText: string, newChords: ChordPosition[]) => void
+  /** Levare length in beats for the words before the first chord (undefined = untimed). */
+  onPickupBeatsChange?: (beats: number | undefined) => void
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
   /** Beats per bar from the song's time signature. Default 4. */
@@ -157,6 +160,7 @@ export function LyricBarGrid({
   isEditable = false,
   onChordsReorder,
   onTextChange,
+  onPickupBeatsChange,
   gridResolution = 0.25,
   beatsPerBar = 4,
   defaultBarsPerLine = 2,
@@ -547,6 +551,20 @@ export function LyricBarGrid({
             Antes del 1.er acorde
           </span>
           <InlineTextEditor value={prefix} onCommit={handlePrefixChange} isEditable placeholder="Letra…" />
+          <div
+            className="ml-auto flex shrink-0 items-center gap-1"
+            title="Levare: cuántos tiempos antes del primer acorde se canta, sobre el final de la línea anterior"
+          >
+            <span className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">Levare</span>
+            <SettingsStepper
+              value={line.pickupBeats ?? 0}
+              min={0}
+              max={beatsPerBar}
+              step={gridResolution}
+              onChange={(beats) => onPickupBeatsChange?.(beats > 0 ? beats : undefined)}
+              format={(beats) => (beats > 0 ? `${String(beats).replace('.', ',')} t` : '—')}
+            />
+          </div>
         </div>
       )}
       <BeatGrid

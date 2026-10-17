@@ -137,7 +137,7 @@ export function LyricVerseRow({
 
         return (
           <span key={entry.elementId} data-element-id={entry.elementId}>
-            {prefix}
+            {prefix && <span data-pickup>{prefix}</span>}
             {segments.map((seg, i) => (
               <span
                 key={i}

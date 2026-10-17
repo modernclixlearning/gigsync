@@ -39,7 +39,7 @@
  * - Context window positions current line at a configurable percentage of viewport height (like reading a book)
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
 import type { TimelineElement } from '~/types/timeline'
@@ -102,6 +102,18 @@ export function scrollTargetForLine(
   return Math.max(0, lineTop - freeSpace * r)
 }
 
+/**
+ * The line whose levare covers `beat`: its `pickupBeats` end exactly where
+ * its first chord starts.
+ */
+export function findPickupElement(elements: TimelineElement[], beat: number): string | null {
+  for (const el of elements) {
+    const pickupBeats = el.content.type === 'lyric' ? el.content.pickupBeats : undefined
+    if (pickupBeats && beat >= el.startBeat - pickupBeats && beat < el.startBeat) return el.id
+  }
+  return null
+}
+
 export interface UseSmartAutoScrollReturn {
   /** Current absolute beat number from BPM sync */
   currentBeat: number
@@ -122,6 +134,13 @@ export interface UseSmartAutoScrollReturn {
   isReady: boolean
   /** Length of the song's timeline in beats (0 until it's computed) */
   totalBeats: number
+  /** Current beat including its 16th-note subdivision */
+  preciseBeat: number
+  /**
+   * Line whose levare (words before its first chord, `[^N]`) is being sung
+   * right now, over the end of the previous line. Null otherwise.
+   */
+  pickupElementId: string | null
   /** True when fallback to simple autoscroll is active */
   hasFallback: boolean
   /** Function to retry smart autoscroll after fallback */
@@ -430,8 +449,16 @@ export function useSmartAutoScroll({
     // The timeline hook will recalculate automatically
   }, [])
   
+  const timelineElements = timeline.timeline?.elements
+  const pickupElementId = useMemo(
+    () => (isEnabled && timelineElements ? findPickupElement(timelineElements, bpmSync.preciseBeat) : null),
+    [isEnabled, timelineElements, bpmSync.preciseBeat]
+  )
+
   return {
     currentBeat: bpmSync.currentBeat,
+    preciseBeat: bpmSync.preciseBeat,
+    pickupElementId,
     currentBar: bpmSync.currentBar,
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,

@@ -99,3 +99,21 @@ describe('ChordOverlay — text before the first chord', () => {
     expect(screen.getByText('solo letra')).toBeInTheDocument()
   })
 })
+
+describe('ChordOverlay — levare', () => {
+  it('marks the words before the first chord so the levare can light them up', () => {
+    const { container } = render(<ChordOverlay lyrics={'[^1.5]I [E6]love her [E6]'} />)
+    expect(container.querySelector('[data-pickup]')?.textContent?.trim()).toBe('I')
+  })
+
+  it('sets the levare length from the chord editor and writes it as [^N]', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(<ChordOverlay lyrics={'I [E6:4]love her [E6:4]'} isEditable columns={2} onLyricsChange={onLyricsChange} />)
+    const levare = screen.getByText('Levare').parentElement as HTMLElement
+    const [, plus] = levare.querySelectorAll('button')
+    await user.click(plus)
+    await user.click(plus)
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[^0.5]I [E6:4]love her [E6:4]')
+  })
+})

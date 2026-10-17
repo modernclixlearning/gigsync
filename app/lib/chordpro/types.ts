@@ -93,6 +93,12 @@ export interface LyricParsedLine extends ParsedLine {
   type: 'lyric'
   text: string
   chords: ChordPosition[]
+  /**
+   * Levare: the words before the first chord are sung over the last
+   * `pickupBeats` beats of the previous line (written `[^1.5]` at the start
+   * of the line). It only times their highlight — no chord changes length.
+   */
+  pickupBeats?: number
 }
 
 /** Line with only chords (instrumental passage) */

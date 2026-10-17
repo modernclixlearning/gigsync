@@ -589,6 +589,9 @@ function ChordOverlayLine({
             onTextChange={(newText, newChords) =>
               onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
             }
+            onPickupBeatsChange={(pickupBeats) =>
+              onLineChange({ ...lyricLine, pickupBeats } as LyricParsedLine)
+            }
             gridResolution={gridResolution}
             beatsPerBar={parseTimeSignature(timeSignature).beats}
             chordFontSize={chordFontSize}
