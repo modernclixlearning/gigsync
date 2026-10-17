@@ -168,3 +168,30 @@ export function duplicateLyricCells(
   cells.splice(b + 1, 0, ...cells.slice(a, b + 1).map((c) => ({ ...c, chord: { ...c.chord } })))
   return joinCells(prefix, cells)
 }
+
+/** Text sung before the first chord of a line ("I" in "I [E6]love her"). */
+export function lyricPrefix(text: string, chords: ChordPosition[]): string {
+  return splitCells(text, chords).prefix
+}
+
+/**
+ * Replace the text before the first chord. The chords keep their cells: their
+ * positions shift by the length difference. A non-empty prefix stays
+ * separated from the first cell by a space.
+ */
+export function replaceLyricPrefix(
+  text: string,
+  chords: ChordPosition[],
+  newPrefix: string
+): { text: string; chords: ChordPosition[] } {
+  const core = newPrefix.trim()
+  if (chords.length === 0) return { text: core, chords: [] }
+  const { prefix } = splitCells(text, chords)
+  const next = core ? `${core} ` : ''
+  // Only the prefix changes: the rest of the line is kept byte for byte.
+  const delta = next.length - prefix.length
+  return {
+    text: next + text.slice(prefix.length),
+    chords: chords.map((c) => ({ ...c, position: c.position + delta })),
+  }
+}

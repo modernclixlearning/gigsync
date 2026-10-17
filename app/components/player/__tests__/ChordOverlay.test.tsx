@@ -80,3 +80,22 @@ describe('ChordOverlay — chord colors', () => {
     expect(labels.filter((l) => l === 'F#m')).toHaveLength(2)
   })
 })
+
+describe('ChordOverlay — text before the first chord', () => {
+  it('shows the words sung before the first chord of a line', () => {
+    const { container } = render(<ChordOverlay lyrics={"[A] You'd love her  [B] too\nI [E6] love her [E6]"} />)
+    const rows = Array.from(container.querySelectorAll('[data-element-id]')).map((el) => el.textContent)
+    expect(rows.some((t) => /^I\s+E6\s*love her/.test(t ?? ''))).toBe(true)
+  })
+
+  it('keeps the beat highlight indices on the chord cells, not on that text', () => {
+    const { container } = render(<ChordOverlay lyrics={'I [E6] love her [E6]'} />)
+    const cells = Array.from(container.querySelectorAll('[data-chord-index]')).map((el) => el.getAttribute('data-chord-index'))
+    expect(cells).toEqual(['0', '1'])
+  })
+
+  it('shows a sung line that has no chords at all', () => {
+    render(<ChordOverlay lyrics={'[A]Hola\nsolo letra'} />)
+    expect(screen.getByText('solo letra')).toBeInTheDocument()
+  })
+})

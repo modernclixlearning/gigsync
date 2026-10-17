@@ -34,6 +34,8 @@ import {
   deleteLyricCells,
   duplicateLyricCells,
   insertBlankLyricCell,
+  lyricPrefix,
+  replaceLyricPrefix,
   mergeLyricCells,
   moveLyricCell,
   replaceLyricCellText,
@@ -312,6 +314,16 @@ export function LyricBarGrid({
     [line.chords, line.text, onTextChange]
   )
 
+  // ── Words before the first chord ("I" in "I [E6]love her") ─────────────────
+  const prefix = lyricPrefix(line.text, line.chords).trim()
+  const handlePrefixChange = useCallback(
+    (newPrefix: string) => {
+      const r = replaceLyricPrefix(line.text, line.chords, newPrefix)
+      onTextChange?.(r.text, r.chords)
+    },
+    [line.chords, line.text, onTextChange]
+  )
+
   // ── Resize (edge-drag) ──────────────────────────────────────────────────────
   const handleResizeComplete = useCallback(
     (newBeats: number[]) => {
@@ -529,6 +541,14 @@ export function LyricBarGrid({
 
   const editGrid = (
     <div className="flex flex-col gap-2">
+      {prefix && (
+        <div className="flex items-baseline gap-2 px-1">
+          <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Antes del 1.er acorde
+          </span>
+          <InlineTextEditor value={prefix} onCommit={handlePrefixChange} isEditable placeholder="Letra…" />
+        </div>
+      )}
       <BeatGrid
         beats={displayBeats}
         beatsPerBar={beatsPerBar}
