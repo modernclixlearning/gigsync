@@ -11,6 +11,12 @@ export default defineConfig({
     port: 3000,
   },
   publicDir: 'public',
+  ssr: {
+    // workbox-window has no `exports` map: left external, Node loads its UMD
+    // `main` and the named `Workbox` import breaks dev SSR (every page 500).
+    // Bundling it lets Vite use the ESM `module` build. The build already did.
+    noExternal: ['workbox-window'],
+  },
   plugins: [
     tailwindcss(),
     tsConfigPaths({
