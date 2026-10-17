@@ -51,6 +51,7 @@ export {
   getTransposedPitchIndex,
   defaultPrefersFlats,
   isAmbiguousPitch,
+  displayChordSpelling,
   parseChordString,
   chordToString,
   getInterval,

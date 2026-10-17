@@ -9,6 +9,7 @@ import {
   getTransposedPitchIndex,
   defaultPrefersFlats,
   isAmbiguousPitch,
+  displayChordSpelling,
 } from '~/lib/chordpro'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSetlist } from '~/hooks/useSetlist'
@@ -862,7 +863,7 @@ export function SongPlayerContent({
             <ChordOverlay
               lyrics={song.lyrics}
               transpose={player.state.transpose}
-              preferFlats={effectiveUseFlats}
+              preferFlats={displayChordSpelling(player.state.transpose, player.state.transposePreferFlats, effectiveUseFlats)}
               columns={2}
               onChordClick={handleChordClick}
               isSeekEnabled={isSeekEnabled}
