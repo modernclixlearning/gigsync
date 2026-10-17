@@ -589,6 +589,9 @@ function ChordOverlayLine({
             onTextChange={(newText, newChords) =>
               onLineChange({ ...lyricLine, text: newText, chords: newChords } as LyricParsedLine)
             }
+            onPickupBeatsChange={(pickupBeats) =>
+              onLineChange({ ...lyricLine, pickupBeats } as LyricParsedLine)
+            }
             gridResolution={gridResolution}
             beatsPerBar={parseTimeSignature(timeSignature).beats}
             chordFontSize={chordFontSize}
@@ -780,7 +783,7 @@ function EditableChordsOnlyBadges({
           {line.chordBars.map((bar, i) => (
             <span
               key={i}
-              className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded font-mono"
+              className="gs-chord px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded font-mono"
               style={chordFontSize ? { fontSize: chordFontSize } : undefined}
             >
               {bar.chord}

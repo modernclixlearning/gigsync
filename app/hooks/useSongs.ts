@@ -277,6 +277,9 @@ export interface UseSongPlayerReturn {
   setBeatHighlightBgColor: (color: string) => void
   setBeatHighlightGlowIntensity: (intensity: number) => void
   setBeatHighlightGlowColor: (color: string | null) => void
+  setChordHighlightMode: (mode: BeatHighlightMode | null) => void
+  setChordTextColor: (color: string | null) => void
+  setChordBgColor: (color: string | null) => void
   setBackgroundColor: (color: string | null) => void
   setLyricsTextColor: (color: string | null) => void
 }
@@ -301,6 +304,9 @@ export function useSongPlayer(): UseSongPlayerReturn {
     beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
     beatHighlightGlowIntensity: 100,
     beatHighlightGlowColor: null,
+    chordHighlightMode: null,
+    chordTextColor: null,
+    chordBgColor: null,
     backgroundColor: null,
     lyricsTextColor: null
   })
@@ -425,6 +431,18 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, beatHighlightGlowColor: color }))
   }, [])
 
+  const setChordHighlightMode = useCallback((mode: BeatHighlightMode | null) => {
+    setState((prev) => ({ ...prev, chordHighlightMode: mode }))
+  }, [])
+
+  const setChordTextColor = useCallback((color: string | null) => {
+    setState((prev) => ({ ...prev, chordTextColor: color }))
+  }, [])
+
+  const setChordBgColor = useCallback((color: string | null) => {
+    setState((prev) => ({ ...prev, chordBgColor: color }))
+  }, [])
+
   const setBackgroundColor = useCallback((color: string | null) => {
     setState((prev) => ({ ...prev, backgroundColor: color }))
   }, [])
@@ -457,6 +475,9 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setBeatHighlightBgColor,
     setBeatHighlightGlowIntensity,
     setBeatHighlightGlowColor,
+    setChordHighlightMode,
+    setChordTextColor,
+    setChordBgColor,
     setBackgroundColor,
     setLyricsTextColor
   }

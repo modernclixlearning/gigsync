@@ -56,6 +56,12 @@ describe('PlayerControls', () => {
     onBeatHighlightGlowIntensityChange: vi.fn(),
     beatHighlightGlowColor: null,
     onBeatHighlightGlowColorChange: vi.fn(),
+    chordHighlightMode: 'text' as const,
+    onChordHighlightModeChange: vi.fn(),
+    chordTextColor: null,
+    onChordTextColorChange: vi.fn(),
+    chordBgColor: null,
+    onChordBgColorChange: vi.fn(),
     backgroundColor: null,
     onBackgroundColorChange: vi.fn(),
     lyricsTextColor: null,
@@ -239,6 +245,59 @@ describe('PlayerControls', () => {
     )
     await user.click(within(row()).getByTitle('Restaurar color por defecto'))
     expect(onBeatHighlightGlowColorChange).toHaveBeenCalledWith(null)
+  })
+
+  it('sets the lyric and the chord highlight modes independently', async () => {
+    const user = userEvent.setup()
+    const onBeatHighlightModeChange = vi.fn()
+    const onChordHighlightModeChange = vi.fn()
+    const onSaveControlsForSong = vi.fn()
+    render(
+      <PlayerAdjustments
+        {...defaultProps}
+        beatHighlightMode="text"
+        chordHighlightMode="background"
+        onBeatHighlightModeChange={onBeatHighlightModeChange}
+        onChordHighlightModeChange={onChordHighlightModeChange}
+        onSaveControlsForSong={onSaveControlsForSong}
+      />
+    )
+    const lyric = screen.getByRole('group', { name: 'Resaltado de letra' })
+    const chords = screen.getByRole('group', { name: 'Resaltado de acordes' })
+    expect(within(lyric).getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(chords).getByRole('button', { name: 'Fondo' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(chords).getByRole('button', { name: 'Color' }))
+    expect(onChordHighlightModeChange).toHaveBeenCalledWith('text')
+    expect(onBeatHighlightModeChange).not.toHaveBeenCalled()
+
+    const row = screen.getByText('Resaltado del beat').closest('[data-testid="settings-row"]') as HTMLElement
+    await user.click(within(row).getByTitle('Guardar solo para esta canción'))
+    expect(onSaveControlsForSong).toHaveBeenCalledWith(
+      expect.objectContaining({ beatHighlightMode: 'text', chordHighlightMode: 'background' })
+    )
+  })
+
+  it('sets the chord colors and saves only the ones that were customized', async () => {
+    const user = userEvent.setup()
+    const onChordBgColorChange = vi.fn()
+    const onSaveControlsAsDefault = vi.fn()
+    render(
+      <PlayerAdjustments
+        {...defaultProps}
+        chordTextColor="#ffffff"
+        onChordBgColorChange={onChordBgColorChange}
+        onSaveControlsAsDefault={onSaveControlsAsDefault}
+      />
+    )
+    const row = screen.getByText('Colores de acordes').closest('[data-testid="settings-row"]') as HTMLElement
+    const [textInput, bgInput] = row.querySelectorAll<HTMLInputElement>('input[type="color"]')
+    expect(textInput.value).toBe('#ffffff')
+    fireEvent.change(bgInput, { target: { value: '#112233' } })
+    expect(onChordBgColorChange).toHaveBeenCalledWith('#112233')
+
+    await user.click(within(row).getByTitle('Guardar como default de toda la librería'))
+    expect(onSaveControlsAsDefault).toHaveBeenCalledWith({ chordTextColor: '#ffffff', chordBgColor: undefined })
   })
 
   it('should render the adjustments rows', () => {

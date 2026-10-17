@@ -127,10 +127,17 @@ export function LyricVerseRow({
     >
       {entries.map((entry, entryIndex) => {
         const segments = splitLineIntoSegments(entry.line)
-        if (segments.length === 0) return null
+        // Text before the first chord ("I [E6]love her") belongs to no chord
+        // cell: render it on its own, without a data-chord-index, so the beat
+        // highlight indices still match the chords. A line with no chords at
+        // all is all prefix.
+        const firstChordPos = segments.length > 0 ? Math.min(...entry.line.chords.map((c) => c.position)) : entry.line.text.length
+        const prefix = entry.line.text.slice(0, firstChordPos)
+        if (segments.length === 0 && !prefix.trim()) return null
 
         return (
           <span key={entry.elementId} data-element-id={entry.elementId}>
+            {prefix && <span data-pickup>{prefix}</span>}
             {segments.map((seg, i) => (
               <span
                 key={i}
@@ -143,7 +150,7 @@ export function LyricVerseRow({
                 {seg.chord && (
                   <span
                     aria-hidden
-                    className="absolute -top-[0.9em] left-0 font-mono font-bold text-sky-400/70 leading-none select-none"
+                    className="gs-chord absolute -top-[0.9em] left-0 font-mono font-bold text-sky-400/70 leading-none select-none"
                     style={{ fontSize: chordFontSize }}
                   >
                     {seg.chord}

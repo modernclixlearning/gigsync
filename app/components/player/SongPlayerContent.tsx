@@ -39,6 +39,7 @@ import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
 import { useCountIn } from '~/hooks/useCountIn'
 import { isSongFinished, resolvePlaybackPreferences } from '~/lib/playback'
 import { AutoAdvanceBanner } from '~/components/player/AutoAdvanceBanner'
+import { beatHighlightCss, chordColorsCss, pickupHighlightCss } from '~/components/player/beatHighlightCss'
 
 export interface SetlistContext {
   setlistId: string
@@ -63,16 +64,6 @@ export interface SongPlayerContentProps {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
 
-/**
- * Glow behind the highlighted word. Intensity scales the glow color's
- * opacity: 100 is the original full-strength glow, 0 turns it off.
- */
-export function glowTextShadow(color: string, intensity: number): string {
-  const pct = clamp(Math.round(intensity), 0, 100)
-  if (pct === 0) return 'none'
-  const glow = pct === 100 ? color : `color-mix(in srgb, ${color} ${pct}%, transparent)`
-  return `0 0 0.4em ${glow}`
-}
 
 export function SongPlayerContent({
   song,
@@ -99,7 +90,7 @@ export function SongPlayerContent({
   const togglePanel = useCallback(() => setIsPanelOpen((open) => !open), [])
 
   const smartScrollContextWindowPercent =
-    settings?.player.smartScrollContextWindow ?? 33
+    settings?.player.smartScrollContextWindow ?? 50
   const smartScrollSmoothness =
     settings?.player.smartScrollSmoothness ?? 70
   const showBeatIndicatorDebug =
@@ -143,6 +134,12 @@ export function SongPlayerContent({
     if (beatHighlightGlowIntensity !== undefined) player.setBeatHighlightGlowIntensity(beatHighlightGlowIntensity)
     const beatHighlightGlowColor = resolve('beatHighlightGlowColor')
     if (beatHighlightGlowColor !== undefined) player.setBeatHighlightGlowColor(beatHighlightGlowColor)
+    const chordHighlightMode = resolve('chordHighlightMode')
+    if (chordHighlightMode !== undefined) player.setChordHighlightMode(chordHighlightMode)
+    const chordTextColor = resolve('chordTextColor')
+    if (chordTextColor !== undefined) player.setChordTextColor(chordTextColor)
+    const chordBgColor = resolve('chordBgColor')
+    if (chordBgColor !== undefined) player.setChordBgColor(chordBgColor)
     const backgroundColor = resolve('backgroundColor')
     if (backgroundColor !== undefined) player.setBackgroundColor(backgroundColor)
     const lyricsTextColor = resolve('lyricsTextColor')
@@ -554,7 +551,9 @@ export function SongPlayerContent({
   return (
     <div
       className={cn(
-        'min-h-screen flex flex-col',
+        // Fixed to the viewport so the lyrics container below is what scrolls
+        // (autoscroll moves that container, not the window).
+        'h-dvh overflow-hidden flex flex-col',
         isSetlistMode ? 'dark bg-[#05060b]' : 'bg-slate-50 dark:bg-[#101322]',
         isPanelOpen && [PLAYER_SIDE_PANEL_OFFSET_CLASS, PLAYER_SIDE_PANEL_SHEET_OFFSET_CLASS]
       )}
@@ -806,6 +805,14 @@ export function SongPlayerContent({
           // everything outside the row stays fully dimmed.
           const groupMateIds = (groupMembersByElementId.get(eid) ?? [eid]).filter((id) => id !== eid)
           const groupMateSelector = groupMateIds.map((id) => `[data-element-id="${id}"]`).join(', ')
+          const highlightStyle = {
+            lyricMode: player.state.beatHighlightMode,
+            chordMode: player.state.chordHighlightMode ?? player.state.beatHighlightMode,
+            textColor: player.state.beatHighlightTextColor,
+            bgColor: player.state.beatHighlightBgColor,
+            glowColor: player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
+            glowIntensity: player.state.beatHighlightGlowIntensity,
+          }
           const chordIdx =
             autoScroll.currentElementStartBeat !== null
               ? Math.floor(
@@ -829,46 +836,22 @@ export function SongPlayerContent({
               [data-element-id="${eid}"] {
                 opacity: 1;
               }
-              ${chordIdx !== null
-                ? player.state.beatHighlightMode === 'background'
-                  ? `
-              /* Beat follows the lyric as a background highlight box: */
-              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
-                background-color: ${player.state.beatHighlightBgColor};
-                color: #fff;
-                border-radius: 0.25em;
-                padding: 0 0.15em;
-                box-decoration-break: clone;
-                -webkit-box-decoration-break: clone;
-                transition: background-color 0.15s ease;
-              }
-              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
-                color: #fff;
-              }
-              `
-                  : `
-              /* Beat follows the lyric as light, not a container highlight: */
-              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
-                color: ${player.state.beatHighlightTextColor};
-                text-shadow: ${glowTextShadow(
-                  player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
-                  player.state.beatHighlightGlowIntensity
-                )};
-                transition: text-shadow 0.15s ease;
-              }
-              [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
-                color: ${player.state.beatHighlightTextColor};
-              }
-              `
-                : ''}
+              ${chordIdx !== null ? beatHighlightCss(eid, chordIdx, highlightStyle) : ''}
+              ${autoScroll.pickupElementId ? pickupHighlightCss(autoScroll.pickupElementId, highlightStyle) : ''}
             `}</style>
           )
         })()}
 
+      {/* Chord label colors (Ajustes → Colores de acordes) */}
+      {(player.state.chordTextColor || player.state.chordBgColor) && (
+        <style>{chordColorsCss('[data-gs-lyrics]', player.state.chordTextColor, player.state.chordBgColor)}</style>
+      )}
+
       {/* Lyrics Container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-6 md:px-8 py-8"
+        data-gs-lyrics
+        className="min-h-0 flex-1 overflow-y-auto px-6 md:px-8 py-8"
         style={{
           fontSize: `${player.state.fontSize}px`,
           ...(player.state.lyricsTextColor ? { color: player.state.lyricsTextColor } : {})
@@ -999,6 +982,12 @@ export function SongPlayerContent({
               onBeatHighlightGlowIntensityChange={player.setBeatHighlightGlowIntensity}
               beatHighlightGlowColor={player.state.beatHighlightGlowColor}
               onBeatHighlightGlowColorChange={player.setBeatHighlightGlowColor}
+              chordHighlightMode={player.state.chordHighlightMode ?? player.state.beatHighlightMode}
+              onChordHighlightModeChange={player.setChordHighlightMode}
+              chordTextColor={player.state.chordTextColor}
+              onChordTextColorChange={player.setChordTextColor}
+              chordBgColor={player.state.chordBgColor}
+              onChordBgColorChange={player.setChordBgColor}
               backgroundColor={player.state.backgroundColor}
               onBackgroundColorChange={player.setBackgroundColor}
               lyricsTextColor={player.state.lyricsTextColor}

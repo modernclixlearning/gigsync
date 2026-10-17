@@ -39,7 +39,7 @@
  * - Context window positions current line at a configurable percentage of viewport height (like reading a book)
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
 import type { TimelineElement } from '~/types/timeline'
@@ -85,6 +85,35 @@ export interface UseSmartAutoScrollOptions extends UseSongTimelineOptions {
 /**
  * Return value from useSmartAutoScroll hook
  */
+/**
+ * Scroll offset that places the active line inside the visible area:
+ * ratio 0 puts its top at the top, 0.5 centers it, 1 puts its bottom at the
+ * bottom. A line taller than the viewport is aligned to the top, so its start
+ * is always readable.
+ */
+export function scrollTargetForLine(
+  lineTop: number,
+  lineHeight: number,
+  containerHeight: number,
+  ratio: number
+): number {
+  const r = Math.min(1, Math.max(0, ratio))
+  const freeSpace = Math.max(0, containerHeight - lineHeight)
+  return Math.max(0, lineTop - freeSpace * r)
+}
+
+/**
+ * The line whose levare covers `beat`: its `pickupBeats` end exactly where
+ * its first chord starts.
+ */
+export function findPickupElement(elements: TimelineElement[], beat: number): string | null {
+  for (const el of elements) {
+    const pickupBeats = el.content.type === 'lyric' ? el.content.pickupBeats : undefined
+    if (pickupBeats && beat >= el.startBeat - pickupBeats && beat < el.startBeat) return el.id
+  }
+  return null
+}
+
 export interface UseSmartAutoScrollReturn {
   /** Current absolute beat number from BPM sync */
   currentBeat: number
@@ -105,6 +134,13 @@ export interface UseSmartAutoScrollReturn {
   isReady: boolean
   /** Length of the song's timeline in beats (0 until it's computed) */
   totalBeats: number
+  /** Current beat including its 16th-note subdivision */
+  preciseBeat: number
+  /**
+   * Line whose levare (words before its first chord, `[^N]`) is being sung
+   * right now, over the end of the previous line. Null otherwise.
+   */
+  pickupElementId: string | null
   /** True when fallback to simple autoscroll is active */
   hasFallback: boolean
   /** Function to retry smart autoscroll after fallback */
@@ -159,7 +195,7 @@ export function useSmartAutoScroll({
   isPlaying,
   isEnabled,
   containerRef,
-  contextWindowRatio = 0.33,
+  contextWindowRatio = 0.5,
   smoothScrollDuration = DEFAULT_SMOOTH_SCROLL_DURATION,
   transportBpm
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
@@ -272,17 +308,21 @@ export function useSmartAutoScroll({
 
     currentBeatsPerChordRef.current = beatsPerChord
     
-    // Get raw scroll position for this beat
-    const rawPosition = tl.getScrollPositionForBeat(beat)
-    
-    if (rawPosition >= 0) {
-      // Context window: position current line at configurable ratio of viewport height
-      // so musician can see more "ahead" (like reading a book)
-      const containerHeight = container.clientHeight
-      const contextOffset = containerHeight * contextWindowRatio
-      const targetPosition = Math.max(0, rawPosition - contextOffset)
-      
-      smoothScrollTo(targetPosition)
+    // Measure the active line now, in the container's own scroll coordinates:
+    // positions measured once at load go stale when the font size, the
+    // lines-per-block grouping or the side panel change the layout.
+    const lineEl = container.querySelector<HTMLElement>(`[data-element-id="${element.id}"]`)
+    if (lineEl) {
+      const lineTop =
+        lineEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop
+      smoothScrollTo(
+        scrollTargetForLine(lineTop, lineEl.offsetHeight, container.clientHeight, contextWindowRatio)
+      )
+    } else {
+      const rawPosition = tl.getScrollPositionForBeat(beat)
+      if (rawPosition >= 0) {
+        smoothScrollTo(scrollTargetForLine(rawPosition, 0, container.clientHeight, contextWindowRatio))
+      }
     }
   }, [containerRefStable, smoothScrollTo, contextWindowRatio])
   
@@ -409,8 +449,16 @@ export function useSmartAutoScroll({
     // The timeline hook will recalculate automatically
   }, [])
   
+  const timelineElements = timeline.timeline?.elements
+  const pickupElementId = useMemo(
+    () => (isEnabled && timelineElements ? findPickupElement(timelineElements, bpmSync.preciseBeat) : null),
+    [isEnabled, timelineElements, bpmSync.preciseBeat]
+  )
+
   return {
     currentBeat: bpmSync.currentBeat,
+    preciseBeat: bpmSync.preciseBeat,
+    pickupElementId,
     currentBar: bpmSync.currentBar,
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,

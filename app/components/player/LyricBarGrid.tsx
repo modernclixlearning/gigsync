@@ -34,6 +34,8 @@ import {
   deleteLyricCells,
   duplicateLyricCells,
   insertBlankLyricCell,
+  lyricPrefix,
+  replaceLyricPrefix,
   mergeLyricCells,
   moveLyricCell,
   replaceLyricCellText,
@@ -52,6 +54,7 @@ import {
 } from './BeatGrid'
 import { ChordPicker } from './ChordPicker'
 import { InlineTextEditor } from './InlineTextEditor'
+import { SettingsStepper } from '~/components/profile/SettingsSection'
 import { useBubbleMenu } from './useBubbleMenu'
 import { BubbleMenu } from './BubbleMenu'
 import type { BubbleMenuAction } from './BubbleMenu'
@@ -74,6 +77,8 @@ interface LyricBarGridProps {
   onChordsReorder?: (chords: ChordPosition[]) => void
   /** Called when the lyric text of this line changes. */
   onTextChange?: (newText: string, newChords: ChordPosition[]) => void
+  /** Levare length in beats for the words before the first chord (undefined = untimed). */
+  onPickupBeatsChange?: (beats: number | undefined) => void
   /** Minimum beat resolution for extend/subdivide operations. Default 0.25. */
   gridResolution?: number
   /** Beats per bar from the song's time signature. Default 4. */
@@ -155,6 +160,7 @@ export function LyricBarGrid({
   isEditable = false,
   onChordsReorder,
   onTextChange,
+  onPickupBeatsChange,
   gridResolution = 0.25,
   beatsPerBar = 4,
   defaultBarsPerLine = 2,
@@ -307,6 +313,16 @@ export function LyricBarGrid({
     (index: number, newText: string) => {
       // Keeps the spacing around the cell (the editor shows it trimmed).
       const r = replaceLyricCellText(line.text, line.chords, index, newText)
+      onTextChange?.(r.text, r.chords)
+    },
+    [line.chords, line.text, onTextChange]
+  )
+
+  // ── Words before the first chord ("I" in "I [E6]love her") ─────────────────
+  const prefix = lyricPrefix(line.text, line.chords).trim()
+  const handlePrefixChange = useCallback(
+    (newPrefix: string) => {
+      const r = replaceLyricPrefix(line.text, line.chords, newPrefix)
       onTextChange?.(r.text, r.chords)
     },
     [line.chords, line.text, onTextChange]
@@ -529,6 +545,28 @@ export function LyricBarGrid({
 
   const editGrid = (
     <div className="flex flex-col gap-2">
+      {prefix && (
+        <div className="flex items-baseline gap-2 px-1">
+          <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Antes del 1.er acorde
+          </span>
+          <InlineTextEditor value={prefix} onCommit={handlePrefixChange} isEditable placeholder="Letra…" />
+          <div
+            className="ml-auto flex shrink-0 items-center gap-1"
+            title="Levare: cuántos tiempos antes del primer acorde se canta, sobre el final de la línea anterior"
+          >
+            <span className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">Levare</span>
+            <SettingsStepper
+              value={line.pickupBeats ?? 0}
+              min={0}
+              max={beatsPerBar}
+              step={gridResolution}
+              onChange={(beats) => onPickupBeatsChange?.(beats > 0 ? beats : undefined)}
+              format={(beats) => (beats > 0 ? `${String(beats).replace('.', ',')} t` : '—')}
+            />
+          </div>
+        </div>
+      )}
       <BeatGrid
         beats={displayBeats}
         beatsPerBar={beatsPerBar}

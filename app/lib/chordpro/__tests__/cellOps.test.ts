@@ -6,6 +6,8 @@ import {
   deleteLyricCells,
   replaceLyricCellText,
   duplicateLyricCells,
+  lyricPrefix,
+  replaceLyricPrefix,
 } from '../cellOps'
 import { parseChordPro } from '../parser'
 import { serializeParsedSong } from '../serializer'
@@ -139,5 +141,24 @@ describe('duplicateLyricCells', () => {
     const l = line('[D:4]Hola [G:4]mundo')
     const r = duplicateLyricCells(l.text, l.chords, 1, 1)
     expect(toChordPro(r.text, r.chords)).toBe('[D:4]Hola [G:4]mundo [G:4]mundo')
+  })
+})
+
+describe('lyricPrefix / replaceLyricPrefix', () => {
+  it('reads the words before the first chord', () => {
+    const l = line('I [E6:4]love her [E6:4]')
+    expect(lyricPrefix(l.text, l.chords).trim()).toBe('I')
+  })
+
+  it('replaces them and keeps every chord on its own words', () => {
+    const l = line('I [E6:4]love her [E6:4]')
+    const r = replaceLyricPrefix(l.text, l.chords, 'And I')
+    expect(toChordPro(r.text, r.chords)).toBe('And I [E6:4]love her [E6:4]')
+  })
+
+  it('clearing it leaves the line starting on the first chord', () => {
+    const l = line('I [E6:4]love her [E6:4]')
+    const r = replaceLyricPrefix(l.text, l.chords, '  ')
+    expect(toChordPro(r.text, r.chords)).toBe('[E6:4]love her [E6:4]')
   })
 })

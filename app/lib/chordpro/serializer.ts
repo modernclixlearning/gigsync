@@ -70,7 +70,9 @@ export function serializeLyricLine(line: LyricParsedLine): string {
   const { text, chords } = line
   if (chords.length === 0) return text
 
-  let result = ''
+  // Levare marker only makes sense with words before the first chord.
+  const hasPrefix = text.slice(0, Math.min(...chords.map((c) => c.position))).trim() !== ''
+  let result = line.pickupBeats && hasPrefix ? `[^${line.pickupBeats}]` : ''
   let lastPos = 0
   for (const cp of chords) {
     result += text.slice(lastPos, cp.position)

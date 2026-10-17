@@ -79,15 +79,28 @@ export function parseDirective(line: string): { key: keyof ChordProDirectives; v
 /**
  * Parse chords from a line, returning chord positions and clean text
  */
-export function parseChordPositions(line: string): { text: string; chords: ChordPosition[] } {
+/** Levare marker at the start of a line: `[^1.5]I [E6]love her` (see LyricParsedLine.pickupBeats). */
+const PICKUP_MARKER = /^\^(\d+(?:\.\d+)?)$/
+
+export function parseChordPositions(line: string): { text: string; chords: ChordPosition[]; pickupBeats?: number } {
   const chordRegex = /\[([^\]]+)\]/g
   const chords: ChordPosition[] = []
   let cleanText = ''
   let lastIndex = 0
   let match
+  let pickupBeats: number | undefined
 
   while ((match = chordRegex.exec(line)) !== null) {
     const bracketContent = match[1]
+
+    // Levare marker: only before any text or chord, and only once.
+    const pickup = bracketContent.match(PICKUP_MARKER)
+    if (pickup && chords.length === 0 && pickupBeats === undefined && !line.slice(0, match.index).trim()) {
+      const value = parseFloat(pickup[1])
+      if (value > 0) pickupBeats = value
+      lastIndex = match.index + match[0].length
+      continue
+    }
 
     // Support optional beats suffix: [Am:2] or [Am:0.25]
     // Split on the first colon to separate chord name from optional beat count
@@ -115,7 +128,7 @@ export function parseChordPositions(line: string): { text: string; chords: Chord
 
   cleanText += line.slice(lastIndex)
 
-  return { text: cleanText, chords }
+  return pickupBeats !== undefined ? { text: cleanText, chords, pickupBeats } : { text: cleanText, chords }
 }
 
 /**
@@ -178,7 +191,7 @@ export function parseLine(line: string, transpose = 0, forceUseFlats?: boolean):
   }
 
   // Regular lyric line with optional chords
-  const { text, chords } = parseChordPositions(line)
+  const { text, chords, pickupBeats } = parseChordPositions(line)
 
   // Apply transpose
   const transposedChords = chords.map(c => ({
@@ -190,7 +203,8 @@ export function parseLine(line: string, transpose = 0, forceUseFlats?: boolean):
     type: 'lyric',
     raw: line,
     text: text || ' ', // Space for chord-only lines
-    chords: transposedChords
+    chords: transposedChords,
+    ...(pickupBeats !== undefined && chords.length > 0 ? { pickupBeats } : {})
   } as LyricParsedLine
 }
 

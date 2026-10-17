@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useSmartAutoScroll } from '../useSmartAutoScroll'
+import { findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
 import mockTone from '@tests/mocks/tone'
 
 // Mock Tone.js
@@ -60,23 +60,30 @@ describe('useSmartAutoScroll', () => {
       scrollTop: 0,
       clientHeight: 600,
       offsetTop: 0,
+      getBoundingClientRect: () => ({ top: 0 }),
       querySelector: vi.fn((selector: string) => {
         // Return mock elements with data-element-id attributes
         if (selector.includes('element-0')) {
           return {
             offsetTop: 0,
+            offsetHeight: 40,
+            getBoundingClientRect: () => ({ top: 0 }),
             getAttribute: () => 'element-0'
           } as any
         }
         if (selector.includes('element-1')) {
           return {
             offsetTop: 100,
+            offsetHeight: 40,
+            getBoundingClientRect: () => ({ top: 100 }),
             getAttribute: () => 'element-1'
           } as any
         }
         if (selector.includes('element-2')) {
           return {
             offsetTop: 200,
+            offsetHeight: 40,
+            getBoundingClientRect: () => ({ top: 200 }),
             getAttribute: () => 'element-2'
           } as any
         }
@@ -407,8 +414,7 @@ describe('useSmartAutoScroll', () => {
       })
     }
 
-    // Context window should be 33% of viewport (600 * 0.33 = 198)
-    // Target position should be rawPosition - contextOffset = 100 - 198 = -98, clamped to 0
+    // Default context window centers the line: 100 - (600 - 40) * 0.5 = -180, clamped to 0
     await waitFor(() => {
       expect(mockRequestAnimationFrame).toHaveBeenCalled()
     }, { timeout: 2000 })
@@ -1010,5 +1016,55 @@ describe('useSmartAutoScroll', () => {
       expect(typeof result.current.retrySmartAutoscroll).toBe('function')
       expect(result.current.hasFallback).toBe(false)
     })
+  })
+})
+
+describe('scrollTargetForLine', () => {
+  it('centers the active line at 50%', () => {
+    // Line 1000–1100 in a 600px viewport: 250px free above and below.
+    expect(scrollTargetForLine(1000, 100, 600, 0.5)).toBe(750)
+  })
+
+  it('puts the line at the top at 0% and at the bottom at 100%', () => {
+    expect(scrollTargetForLine(1000, 100, 600, 0)).toBe(1000)
+    expect(scrollTargetForLine(1000, 100, 600, 1)).toBe(500)
+  })
+
+  it('never scrolls above the top of the song', () => {
+    expect(scrollTargetForLine(50, 100, 600, 0.5)).toBe(0)
+  })
+
+  it('aligns a line taller than the viewport to its top so it starts visible', () => {
+    expect(scrollTargetForLine(1000, 900, 600, 0.5)).toBe(1000)
+  })
+})
+
+describe('findPickupElement', () => {
+  const el = (id: string, startBeat: number, pickupBeats?: number) =>
+    ({
+      id,
+      type: 'lyric',
+      startBeat,
+      endBeat: startBeat + 8,
+      durationBeats: 8,
+      bars: 2,
+      content: { type: 'lyric', raw: '', text: 'I love her', chords: [], ...(pickupBeats ? { pickupBeats } : {}) },
+    }) as never
+
+  // "too" line: beats 0–8 (B on 4–8); "I love her" line starts at 8 with a 1.5-beat levare.
+  const elements = [el('element-0', 0), el('element-1', 8, 1.5)]
+
+  it('is the next line during its levare, over the end of the previous chord', () => {
+    expect(findPickupElement(elements, 6.25)).toBeNull()
+    expect(findPickupElement(elements, 6.5)).toBe('element-1')
+    expect(findPickupElement(elements, 7.75)).toBe('element-1')
+  })
+
+  it('ends when the line\'s first chord starts', () => {
+    expect(findPickupElement(elements, 8)).toBeNull()
+  })
+
+  it('lines without a levare never match', () => {
+    expect(findPickupElement([el('element-0', 0), el('element-1', 8)], 7.5)).toBeNull()
   })
 })

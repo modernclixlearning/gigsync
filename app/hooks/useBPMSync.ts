@@ -58,6 +58,8 @@ export interface UseBPMSyncOptions {
 export interface UseBPMSyncReturn {
   /** Current absolute beat number (0-based, increments continuously) */
   currentBeat: number
+  /** currentBeat plus the 16th-note subdivision (e.g. 7.5 = second half of beat 7) */
+  preciseBeat: number
   /** Current bar number (0-based) */
   currentBar: number
   /** Current beat within the current bar (0-based, 0 to beatsPerBar-1) */
@@ -99,6 +101,7 @@ export function useBPMSync({
   onBarChange
 }: UseBPMSyncOptions): UseBPMSyncReturn {
   const [currentBeat, setCurrentBeat] = useState(0)
+  const [preciseBeat, setPreciseBeat] = useState(0)
   const [currentBar, setCurrentBar] = useState(0)
   const [currentBeatInBar, setCurrentBeatInBar] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
@@ -137,18 +140,19 @@ export function useBPMSync({
     // Create new loop
     const loop = new Tone.Loop((time) => {
       // Get current position from Transport
-      const bars = Tone.Transport.position.toString().split(':')[0]
-      const beats = Tone.Transport.position.toString().split(':')[1]
+      const [bars, beats, sixteenths] = Tone.Transport.position.toString().split(':')
       
       const barNumber = parseInt(bars, 10)
       const beatNumber = parseInt(beats, 10)
       
       // Calculate absolute beat
       const absoluteBeat = barNumber * beatsPerBar + beatNumber
+      const subBeat = Math.floor(parseFloat(sixteenths ?? '0') + 1e-6) / 4
       
       // Schedule UI updates slightly ahead of audio time
       Tone.Draw.schedule(() => {
         setCurrentBeat(absoluteBeat)
+        setPreciseBeat(absoluteBeat + (Number.isFinite(subBeat) ? subBeat : 0))
         setCurrentBar(barNumber)
         setCurrentBeatInBar(beatNumber)
         setTransportTime(Tone.Transport.seconds)
@@ -201,6 +205,7 @@ export function useBPMSync({
     Tone.Transport.stop()
     Tone.Transport.position = 0
     setCurrentBeat(0)
+    setPreciseBeat(0)
     setCurrentBar(0)
     setCurrentBeatInBar(0)
     setIsRunning(false)
@@ -214,6 +219,7 @@ export function useBPMSync({
     
     Tone.Transport.position = `${bar}:${beatInBar}:0`
     setCurrentBeat(beat)
+    setPreciseBeat(beat)
     setCurrentBar(bar)
     setCurrentBeatInBar(beatInBar)
   }, [beatsPerBar])
@@ -230,6 +236,7 @@ export function useBPMSync({
   
   return {
     currentBeat,
+    preciseBeat,
     currentBar,
     currentBeatInBar,
     isRunning,

@@ -69,3 +69,51 @@ describe('ChordOverlay — chord font size', () => {
     expect(screen.getByRole('button', { name: 'Cambiar acorde E6' })).toHaveStyle({ fontSize: '40px' })
   })
 })
+
+describe('ChordOverlay — chord colors', () => {
+  it('marks every chord label in read mode so "Colores de acordes" reaches all of them', () => {
+    const { container } = render(
+      <ChordOverlay lyrics={'[Intro | 2 bars]\nF#m | E6 |\n\n[F#m]I give her all my love'} />
+    )
+    const labels = Array.from(container.querySelectorAll('.gs-chord')).map((el) => el.textContent)
+    expect(labels).toEqual(expect.arrayContaining(['F#m', 'E6']))
+    expect(labels.filter((l) => l === 'F#m')).toHaveLength(2)
+  })
+})
+
+describe('ChordOverlay — text before the first chord', () => {
+  it('shows the words sung before the first chord of a line', () => {
+    const { container } = render(<ChordOverlay lyrics={"[A] You'd love her  [B] too\nI [E6] love her [E6]"} />)
+    const rows = Array.from(container.querySelectorAll('[data-element-id]')).map((el) => el.textContent)
+    expect(rows.some((t) => /^I\s+E6\s*love her/.test(t ?? ''))).toBe(true)
+  })
+
+  it('keeps the beat highlight indices on the chord cells, not on that text', () => {
+    const { container } = render(<ChordOverlay lyrics={'I [E6] love her [E6]'} />)
+    const cells = Array.from(container.querySelectorAll('[data-chord-index]')).map((el) => el.getAttribute('data-chord-index'))
+    expect(cells).toEqual(['0', '1'])
+  })
+
+  it('shows a sung line that has no chords at all', () => {
+    render(<ChordOverlay lyrics={'[A]Hola\nsolo letra'} />)
+    expect(screen.getByText('solo letra')).toBeInTheDocument()
+  })
+})
+
+describe('ChordOverlay — levare', () => {
+  it('marks the words before the first chord so the levare can light them up', () => {
+    const { container } = render(<ChordOverlay lyrics={'[^1.5]I [E6]love her [E6]'} />)
+    expect(container.querySelector('[data-pickup]')?.textContent?.trim()).toBe('I')
+  })
+
+  it('sets the levare length from the chord editor and writes it as [^N]', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(<ChordOverlay lyrics={'I [E6:4]love her [E6:4]'} isEditable columns={2} onLyricsChange={onLyricsChange} />)
+    const levare = screen.getByText('Levare').parentElement as HTMLElement
+    const [, plus] = levare.querySelectorAll('button')
+    await user.click(plus)
+    await user.click(plus)
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[^0.5]I [E6:4]love her [E6:4]')
+  })
+})

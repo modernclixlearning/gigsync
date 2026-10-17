@@ -42,7 +42,7 @@ export interface PlayerPreferences extends PlayerOverrides {
   /**
    * Position of the current line within the viewport for Smart Autoscroll.
    * Expressed as a percentage of the container height (0-100).
-   * Default is 33 (roughly one third from the top, like reading a book).
+   * 0 = top, 50 = centered (default), 100 = bottom.
    */
   smartScrollContextWindow: number
   /**
@@ -71,6 +71,8 @@ export interface PlayerPreferences extends PlayerOverrides {
   autoAdvanceDelaySeconds?: number
   /** Bars of clicks for "Play con precuenta". Default 1. */
   countInBars?: number
+  /** Set once the old 33 % Smart Scroll default was moved to the centered 50 %. */
+  contextWindowCentered?: boolean
   // Global defaults for the per-session player controls (Scroll Speed, Font
   // Size, Versos por línea, Márgenes, Transpose, chord font size, beat
   // highlight, colors) — inherited from PlayerOverrides so both share one
@@ -158,7 +160,8 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
     scrollBehavior: 'auto',
     scrollSensitivity: 5,
     defaultZoom: 100,
-    smartScrollContextWindow: 33,
+    smartScrollContextWindow: 50,
+    contextWindowCentered: true,
     smartScrollSmoothness: 70,
     showBeatIndicatorDebug: false,
     gridResolution: 0.25,

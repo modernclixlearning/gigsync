@@ -55,6 +55,14 @@ export function useSettings(): UseSettingsReturn {
           if (parsed.sync?.lastSyncDate) {
             parsed.sync.lastSyncDate = new Date(parsed.sync.lastSyncDate)
           }
+          // The Smart Scroll default moved from 33 % (upper third) to 50 %
+          // (current line centered). Settings saved with the old default move
+          // once; any value chosen afterwards is kept.
+          if (parsed.player && !parsed.player.contextWindowCentered) {
+            if (parsed.player.smartScrollContextWindow === 33) parsed.player.smartScrollContextWindow = 50
+            parsed.player.contextWindowCentered = true
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+          }
           setSettings(parsed)
         } else {
           // Create default settings

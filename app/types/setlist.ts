@@ -25,6 +25,12 @@ export interface PlayerOverrides {
   beatHighlightGlowIntensity?: number
   /** Glow color ("Letra" mode). Unset = same as the highlight text color. */
   beatHighlightGlowColor?: string
+  /** How the chord of the beat is highlighted. Unset = same as beatHighlightMode (the lyric). */
+  chordHighlightMode?: BeatHighlightMode
+  /** Chord label color. Unset = theme default (sky on lyrics, section color on instrumentals). */
+  chordTextColor?: string
+  /** Chord label background. Unset = none. */
+  chordBgColor?: string
   /** Player screen background color. Unset = theme default (light/dark). */
   backgroundColor?: string
   /** Lyrics text color. Unset = theme default (light/dark). */
