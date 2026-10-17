@@ -340,13 +340,6 @@ export function SongPlayerContent({
     }
   }, [autoScrollReset])
 
-  const handlePlayPause = useCallback(() => {
-    cancelCountIn()
-    setIsAdvancePending(false)
-    rewindIfFinished()
-    return playerRef.current.togglePlay()
-  }, [cancelCountIn, rewindIfFinished])
-
   // Back to the top: transport, lyrics and play-along video. Keeps playing if
   // it was playing (reset stops the transport, so it's started again).
   const handleRestart = useCallback(() => {
@@ -375,10 +368,29 @@ export function SongPlayerContent({
     })
   }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, rewindIfFinished])
 
-  const handleCountInPlay = useCallback(() => {
-    if (countIn.isCountingIn) cancelCountIn()
-    else startCountIn()
-  }, [countIn.isCountingIn, cancelCountIn, startCountIn])
+  // The count-in is a toggle, not a separate play: while it's on, every Play
+  // (button or space bar) starts with it. Saved in the settings, so it stays
+  // on across songs, setlists and reloads.
+  const isCountInOn = playbackPrefs.countInEnabled
+  const handleToggleCountIn = useCallback(() => {
+    if (isCountInOn) cancelCountIn()
+    void updatePlayerSettings({ countInEnabled: !isCountInOn })
+  }, [isCountInOn, cancelCountIn, updatePlayerSettings])
+
+  const handlePlayPause = useCallback(() => {
+    setIsAdvancePending(false)
+    // Play during the count stops it, back to where it was.
+    if (countIn.isCountingIn) {
+      cancelCountIn()
+      return
+    }
+    if (!playerRef.current.state.isPlaying && isCountInOn) {
+      startCountIn()
+      return
+    }
+    rewindIfFinished()
+    return playerRef.current.togglePlay()
+  }, [countIn.isCountingIn, cancelCountIn, isCountInOn, startCountIn, rewindIfFinished])
 
   const hasNextSong = !!setlistContext && setlistContext.currentIndex < setlistContext.totalSongs - 1
   const goToNextSong = useCallback(
@@ -407,15 +419,15 @@ export function SongPlayerContent({
     if (hasNextSong && playbackPrefs.autoAdvance) setIsAdvancePending(true)
   }, [hasSongFinished, hasNextSong, playbackPrefs.autoAdvance])
 
-  // Reached by auto-advance: start with the count-in once settings and the
-  // timeline are loaded (once per song).
+  // Reached by auto-advance: start playing once settings and the timeline are
+  // loaded (once per song) — with the count-in when the toggle is on.
   const hasAutoStartedRef = useRef(false)
   useEffect(() => {
     if (!setlistContext?.autoStart || hasAutoStartedRef.current) return
     if (!settings || !autoScroll.isReady) return
     hasAutoStartedRef.current = true
-    startCountIn()
-  }, [setlistContext?.autoStart, settings, autoScroll.isReady, startCountIn])
+    void handlePlayPause()
+  }, [setlistContext?.autoStart, settings, autoScroll.isReady, handlePlayPause])
 
   // Transpose target: which chromatic pitch the song's key lands on, and
   // whether to spell it with sharps or flats. A manual override
@@ -936,7 +948,8 @@ export function SongPlayerContent({
         isSettingsOpen={isPanelOpen}
         onToggleSettings={togglePanel}
         onRestart={handleRestart}
-        onCountInPlay={handleCountInPlay}
+        isCountInOn={isCountInOn}
+        onToggleCountIn={handleToggleCountIn}
         isCountingIn={countIn.isCountingIn}
         onNextSong={hasNextSong ? () => goToNextSong() : undefined}
       />

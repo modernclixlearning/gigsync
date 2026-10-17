@@ -98,7 +98,7 @@ export function PlayerSettings({ settings, onUpdate }: PlayerSettingsProps) {
 
       <SettingsRow
         label="Precuenta"
-        description="Compases de metrónomo antes de arrancar con Play con precuenta"
+        description="Compases de metrónomo antes de cada Play cuando la precuenta (⏱) está activada"
       >
         <SettingsStepper
           value={playback.countInBars}
@@ -111,7 +111,7 @@ export function PlayerSettings({ settings, onUpdate }: PlayerSettingsProps) {
 
       <SettingsRow
         label="Avanzar solo en el setlist"
-        description="Al terminar una canción pasa a la siguiente, que arranca con precuenta"
+        description="Al terminar una canción pasa a la siguiente y la arranca (con precuenta si está activada)"
       >
         <SettingsToggle
           checked={playback.autoAdvance}

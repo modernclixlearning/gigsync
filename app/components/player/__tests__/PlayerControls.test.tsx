@@ -69,7 +69,8 @@ describe('PlayerControls', () => {
     isSettingsOpen: false,
     onToggleSettings: vi.fn(),
     onRestart: vi.fn(),
-    onCountInPlay: vi.fn(),
+    isCountInOn: false,
+    onToggleCountIn: vi.fn(),
     isCountingIn: false,
   }
 
@@ -180,18 +181,18 @@ describe('PlayerControls', () => {
     expect(onRestart).toHaveBeenCalledTimes(1)
   })
 
-  it('starts the count-in, and offers to cancel it while counting', async () => {
+  it('the count-in is a toggle that stays on, also while playing', async () => {
     const user = userEvent.setup()
-    const onCountInPlay = vi.fn()
-    const { rerender } = render(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} />)
-    await user.click(screen.getByRole('button', { name: 'Play con precuenta' }))
-    expect(onCountInPlay).toHaveBeenCalledTimes(1)
+    const onToggleCountIn = vi.fn()
+    const { rerender } = render(<PlayerControls {...defaultProps} onToggleCountIn={onToggleCountIn} />)
+    const toggle = () => screen.getByRole('button', { name: 'Precuenta' })
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false')
+    await user.click(toggle())
+    expect(onToggleCountIn).toHaveBeenCalledTimes(1)
 
-    rerender(<PlayerControls {...defaultProps} onCountInPlay={onCountInPlay} isCountingIn />)
-    expect(screen.getByRole('button', { name: 'Cancelar precuenta' })).toHaveAttribute('aria-pressed', 'true')
-
-    rerender(<PlayerControls {...defaultProps} isPlaying />)
-    expect(screen.getByRole('button', { name: 'Play con precuenta' })).toBeDisabled()
+    rerender(<PlayerControls {...defaultProps} isCountInOn onToggleCountIn={onToggleCountIn} isPlaying />)
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle()).toBeEnabled()
   })
 
   it('shows "next song" only when there is one', async () => {

@@ -69,8 +69,10 @@ export interface PlayerPreferences extends PlayerOverrides {
   autoAdvance?: boolean
   /** Pause before auto-advancing, in seconds. Default 15. */
   autoAdvanceDelaySeconds?: number
-  /** Bars of clicks for "Play con precuenta". Default 1. */
+  /** Bars of clicks for the count-in. Default 1. */
   countInBars?: number
+  /** Count-in toggle (⏱ in the player): when on, every Play starts with the count-in. Default off. */
+  countInEnabled?: boolean
   /** Set once the old 33 % Smart Scroll default was moved to the centered 50 %. */
   contextWindowCentered?: boolean
   // Global defaults for the per-session player controls (Scroll Speed, Font
