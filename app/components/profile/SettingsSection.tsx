@@ -56,20 +56,25 @@ export interface SettingsRowProps {
 }
 
 export function SettingsRow({ label, description, children }: SettingsRowProps) {
+  // Stacks or sits side by side by the width it's given (container query),
+  // not the viewport — the same row lives in the full Settings page and in
+  // the player's narrow side panel.
   return (
-    <div
-      data-testid="settings-row"
-      className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="sm:flex-1 sm:mr-4">
-        <p className="font-medium text-slate-900 dark:text-white">{label}</p>
-        {description && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {description}
-          </p>
-        )}
+    <div className="@container">
+      <div
+        data-testid="settings-row"
+        className="flex flex-col gap-2 p-4 @md:flex-row @md:items-center @md:justify-between"
+      >
+        <div className="@md:flex-1 @md:mr-4">
+          <p className="font-medium text-slate-900 dark:text-white">{label}</p>
+          {description && (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0">{children}</div>
       </div>
-      <div className="shrink-0">{children}</div>
     </div>
   )
 }

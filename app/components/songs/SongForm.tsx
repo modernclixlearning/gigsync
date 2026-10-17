@@ -6,7 +6,8 @@ import type { CreateSongInput } from '~/types'
 interface SongFormProps {
   data: CreateSongInput
   onChange: (data: CreateSongInput) => void
-  onSubmit: () => void
+  /** Omit for live editing (changes are saved as they happen) — hides the submit button. */
+  onSubmit?: () => void
   submitLabel?: string
 }
 
@@ -295,19 +296,21 @@ export function SongForm({
       />
 
       {/* Submit Button */}
-      <button
-        onClick={onSubmit}
-        disabled={!data.title || !data.artist || !isYouTubeValid}
-        className={cn(
-          'w-full py-4 rounded-xl font-semibold',
-          'bg-indigo-500 text-white',
-          'hover:bg-indigo-600 active:bg-indigo-700',
-          'disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed',
-          'transition-colors'
-        )}
-      >
-        {submitLabel}
-      </button>
+      {onSubmit && (
+        <button
+          onClick={onSubmit}
+          disabled={!data.title || !data.artist || !isYouTubeValid}
+          className={cn(
+            'w-full py-4 rounded-xl font-semibold',
+            'bg-indigo-500 text-white',
+            'hover:bg-indigo-600 active:bg-indigo-700',
+            'disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed',
+            'transition-colors'
+          )}
+        >
+          {submitLabel}
+        </button>
+      )}
     </div>
   )
 }

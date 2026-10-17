@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link } from '@tanstack/react-router'
 import { cn } from '~/lib/utils'
 import {
   parseChordPro,
@@ -20,8 +19,17 @@ import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
 import { PlayerControls } from '~/components/player/PlayerControls'
+import { PlayerAdjustments } from '~/components/player/PlayerAdjustments'
+import {
+  PlayerSidePanel,
+  PLAYER_SIDE_PANEL_OFFSET_CLASS,
+  PLAYER_SIDE_PANEL_SHEET_OFFSET_CLASS,
+  type PlayerPanelTab
+} from '~/components/player/PlayerSidePanel'
+import { SongLiveEditor } from '~/components/player/SongLiveEditor'
+import { PlayerSettings } from '~/components/profile/PlayerSettings'
+import { AppearanceSettings } from '~/components/profile/AppearanceSettings'
 import { VisualBeat } from '~/components/metronome/VisualBeat'
-import { routeHelpers } from '~/lib/routes'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
 import { YouTubePlayAlong } from '~/components/player/YouTubePlayAlong'
@@ -57,8 +65,21 @@ export function SongPlayerContent({
   const player = useSongPlayer()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const { incrementPlayCount, updateSong } = useSong(song.id)
-  const { settings, updatePlayerSettings } = useSettings()
+  const { settings, updateSettings, updatePlayerSettings } = useSettings()
   const { setlist, updateSetlist } = useSetlist(setlistContext?.setlistId ?? '')
+
+  // Side panel (Ajustes / Editar / Config): docked next to the song so every
+  // change is visible on it while being made.
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [panelTab, setPanelTab] = useState<PlayerPanelTab>('adjust')
+  const isPanelOpenRef = useRef(isPanelOpen)
+  isPanelOpenRef.current = isPanelOpen
+  const openPanel = useCallback((tab: PlayerPanelTab) => {
+    setPanelTab(tab)
+    setIsPanelOpen(true)
+  }, [])
+  const closePanel = useCallback(() => setIsPanelOpen(false), [])
+  const togglePanel = useCallback(() => setIsPanelOpen((open) => !open), [])
 
   const smartScrollContextWindowPercent =
     settings?.player.smartScrollContextWindow ?? 33
@@ -380,7 +401,8 @@ export function SongPlayerContent({
           setlistContext.onPrevious()
         }
       }
-      if (e.key === 'Escape') {
+      // With the side panel open, Escape closes the panel (PlayerSidePanel), not the setlist.
+      if (e.key === 'Escape' && !isPanelOpenRef.current) {
         setlistContext.onExit()
       }
     }
@@ -416,7 +438,8 @@ export function SongPlayerContent({
     <div
       className={cn(
         'min-h-screen flex flex-col',
-        isSetlistMode ? 'dark bg-[#05060b]' : 'bg-slate-50 dark:bg-[#101322]'
+        isSetlistMode ? 'dark bg-[#05060b]' : 'bg-slate-50 dark:bg-[#101322]',
+        isPanelOpen && [PLAYER_SIDE_PANEL_OFFSET_CLASS, PLAYER_SIDE_PANEL_SHEET_OFFSET_CLASS]
       )}
       style={player.state.backgroundColor ? { backgroundColor: player.state.backgroundColor } : undefined}
     >
@@ -529,14 +552,22 @@ export function SongPlayerContent({
                 <span className={cn('w-1 h-3 rounded-full animate-pulse delay-150', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
               </div>
             )}
-            {!isSetlistMode && (
-              <Link
-                {...routeHelpers.songEdit(song.id)}
-                className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-            )}
+            <button
+              type="button"
+              onClick={() => (isPanelOpen && panelTab === 'edit' ? closePanel() : openPanel('edit'))}
+              aria-label="Editar canción"
+              title="Editar canción"
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                isPanelOpen && panelTab === 'edit'
+                  ? 'text-indigo-500 dark:text-indigo-400'
+                  : isSetlistMode
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              )}
+            >
+              <Settings className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -763,52 +794,90 @@ export function SongPlayerContent({
         onPlayPause={player.togglePlay}
         autoScrollEnabled={player.state.isAutoScrollEnabled}
         onToggleAutoScroll={player.toggleAutoScroll}
-        autoScrollSpeed={player.state.autoScrollSpeed}
-        onAutoScrollSpeedChange={player.setAutoScrollSpeed}
         showChords={player.state.showChords}
         onToggleChords={player.toggleChords}
         isEditMode={player.state.isEditMode}
         onToggleEditMode={player.toggleEditMode}
-        fontSize={player.state.fontSize}
-        onFontSizeChange={player.setFontSize}
-        linesPerBlock={player.state.linesPerBlock}
-        onLinesPerBlockChange={player.setLinesPerBlock}
-        contentWidth={player.state.contentWidth}
-        onContentWidthChange={player.setContentWidth}
         transpose={player.state.transpose}
-        onTranspose={player.transpose}
         onResetTranspose={player.resetTranspose}
-        transposeDisplay={transposeDisplay}
-        transposePreferFlats={effectiveUseFlats}
-        isTransposeSpellingFlexible={isTransposeSpellingFlexible}
-        onToggleTransposeSpelling={handleToggleTransposeSpelling}
         metronomeSoundEnabled={player.state.metronomeSoundEnabled}
         onToggleMetronomeSound={player.toggleMetronomeSound}
-        smartScrollContextWindow={smartScrollContextWindowPercent}
-        onSmartScrollContextWindowChange={handleContextWindowChange}
-        smartScrollSmoothness={smartScrollSmoothness}
-        onSmartScrollSmoothnessChange={handleSmoothnessChange}
-        showBeatIndicatorDebug={showBeatIndicatorDebug}
-        onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
-        onSaveControlAsDefault={handleSaveControlAsDefault}
-        onSaveControlForSong={handleSaveControlForSong}
-        onSaveControlForSetlist={handleSaveControlForSetlist}
-        onSaveControlsAsDefault={handleSaveControlsAsDefault}
-        onSaveControlsForSong={handleSaveControlsForSong}
-        onSaveControlsForSetlist={handleSaveControlsForSetlist}
-        canSaveForSetlist={canSaveForSetlist}
-        chordFontSize={player.state.chordFontSize}
-        onChordFontSizeChange={player.setChordFontSize}
-        beatHighlightMode={player.state.beatHighlightMode}
-        onBeatHighlightModeChange={player.setBeatHighlightMode}
-        beatHighlightTextColor={player.state.beatHighlightTextColor}
-        onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
-        beatHighlightBgColor={player.state.beatHighlightBgColor}
-        onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
-        backgroundColor={player.state.backgroundColor}
-        onBackgroundColorChange={player.setBackgroundColor}
-        lyricsTextColor={player.state.lyricsTextColor}
-        onLyricsTextColorChange={player.setLyricsTextColor}
+        isSettingsOpen={isPanelOpen}
+        onToggleSettings={togglePanel}
+      />
+
+      <PlayerSidePanel
+        isOpen={isPanelOpen}
+        tab={panelTab}
+        onTabChange={setPanelTab}
+        onClose={closePanel}
+        content={{
+          adjust: (
+            <PlayerAdjustments
+              autoScrollSpeed={player.state.autoScrollSpeed}
+              onAutoScrollSpeedChange={player.setAutoScrollSpeed}
+              fontSize={player.state.fontSize}
+              onFontSizeChange={player.setFontSize}
+              linesPerBlock={player.state.linesPerBlock}
+              onLinesPerBlockChange={player.setLinesPerBlock}
+              contentWidth={player.state.contentWidth}
+              onContentWidthChange={player.setContentWidth}
+              transpose={player.state.transpose}
+              onTranspose={player.transpose}
+              onResetTranspose={player.resetTranspose}
+              transposeDisplay={transposeDisplay}
+              transposePreferFlats={effectiveUseFlats}
+              isTransposeSpellingFlexible={isTransposeSpellingFlexible}
+              onToggleTransposeSpelling={handleToggleTransposeSpelling}
+              smartScrollContextWindow={smartScrollContextWindowPercent}
+              onSmartScrollContextWindowChange={handleContextWindowChange}
+              smartScrollSmoothness={smartScrollSmoothness}
+              onSmartScrollSmoothnessChange={handleSmoothnessChange}
+              showBeatIndicatorDebug={showBeatIndicatorDebug}
+              onToggleBeatIndicatorDebug={handleToggleBeatIndicator}
+              onSaveControlAsDefault={handleSaveControlAsDefault}
+              onSaveControlForSong={handleSaveControlForSong}
+              onSaveControlForSetlist={handleSaveControlForSetlist}
+              onSaveControlsAsDefault={handleSaveControlsAsDefault}
+              onSaveControlsForSong={handleSaveControlsForSong}
+              onSaveControlsForSetlist={handleSaveControlsForSetlist}
+              canSaveForSetlist={canSaveForSetlist}
+              chordFontSize={player.state.chordFontSize}
+              onChordFontSizeChange={player.setChordFontSize}
+              beatHighlightMode={player.state.beatHighlightMode}
+              onBeatHighlightModeChange={player.setBeatHighlightMode}
+              beatHighlightTextColor={player.state.beatHighlightTextColor}
+              onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
+              beatHighlightBgColor={player.state.beatHighlightBgColor}
+              onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
+              backgroundColor={player.state.backgroundColor}
+              onBackgroundColorChange={player.setBackgroundColor}
+              lyricsTextColor={player.state.lyricsTextColor}
+              onLyricsTextColorChange={player.setLyricsTextColor}
+            />
+          ),
+          edit: (
+            <SongLiveEditor
+              key={song.id}
+              song={song}
+              onSave={updateSong}
+              isChordEditMode={player.state.isEditMode}
+              onToggleChordEditMode={
+                player.state.showChords && !player.state.isPlaying ? player.toggleEditMode : undefined
+              }
+            />
+          ),
+          config: settings ? (
+            <div className="space-y-8">
+              <PlayerSettings settings={settings.player} onUpdate={updatePlayerSettings} />
+              <AppearanceSettings
+                settings={settings}
+                onThemeChange={(theme) => updateSettings({ theme })}
+                onLanguageChange={(language) => updateSettings({ language })}
+              />
+            </div>
+          ) : null
+        }}
       />
     </div>
   )
