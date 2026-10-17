@@ -330,11 +330,23 @@ export function SongPlayerContent({
   const autoScrollReset = autoScroll.reset
   const cancelCountIn = countIn.cancel
 
+  // After a song ends the transport sits on its last beat: playing again
+  // (or counting in) starts over from the top instead of stopping at once.
+  const isAtEndRef = useRef(false)
+  isAtEndRef.current = isSongFinished(autoScroll.currentBeat, autoScroll.totalBeats)
+  const rewindIfFinished = useCallback(() => {
+    if (!playerRef.current.state.isPlaying && isAtEndRef.current) {
+      autoScrollReset()
+      setVideoRestartKey((k) => k + 1)
+    }
+  }, [autoScrollReset])
+
   const handlePlayPause = useCallback(() => {
     cancelCountIn()
     setIsAdvancePending(false)
+    rewindIfFinished()
     return playerRef.current.togglePlay()
-  }, [cancelCountIn])
+  }, [cancelCountIn, rewindIfFinished])
 
   // Back to the top: transport, lyrics and play-along video. Keeps playing if
   // it was playing (reset stops the transport, so it's started again).
@@ -353,6 +365,7 @@ export function SongPlayerContent({
   const startCountIn = useCallback(() => {
     if (playerRef.current.state.isPlaying) return
     setIsAdvancePending(false)
+    rewindIfFinished()
     void countIn.start({
       bpm: countInBpm,
       beatsPerBar,
@@ -361,7 +374,7 @@ export function SongPlayerContent({
         if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
       },
     })
-  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars])
+  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, rewindIfFinished])
 
   const handleCountInPlay = useCallback(() => {
     if (countIn.isCountingIn) cancelCountIn()
