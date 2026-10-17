@@ -33,8 +33,10 @@ interface PlayerControlsProps {
   onToggleSettings: () => void
   /** Back to the top of the song (keeps playing if it was playing). */
   onRestart: () => void
-  /** Metronome count-in, then play. Pressing it again during the count cancels it. */
-  onCountInPlay: () => void
+  /** Count-in toggle: while on, every Play starts with the metronome count-in. */
+  isCountInOn: boolean
+  onToggleCountIn: () => void
+  /** The count is running right now. */
   isCountingIn: boolean
   /** Only in a setlist with a song after this one. */
   onNextSong?: () => void
@@ -56,7 +58,8 @@ export function PlayerControls({
   isSettingsOpen,
   onToggleSettings,
   onRestart,
-  onCountInPlay,
+  isCountInOn,
+  onToggleCountIn,
   isCountingIn,
   onNextSong
 }: PlayerControlsProps) {
@@ -144,16 +147,16 @@ export function PlayerControls({
           </button>
 
           <button
-            onClick={onCountInPlay}
-            disabled={isPlaying}
-            aria-label={isCountingIn ? 'Cancelar precuenta' : 'Play con precuenta'}
-            aria-pressed={isCountingIn}
-            title={isCountingIn ? 'Cancelar precuenta' : 'Play con precuenta del metrónomo'}
+            onClick={onToggleCountIn}
+            aria-label="Precuenta"
+            aria-pressed={isCountInOn}
+            title={isCountInOn ? 'Precuenta activada: cada Play arranca con precuenta' : 'Activar precuenta en cada Play'}
             className={cn(
-              'p-2.5 rounded-full transition-colors disabled:opacity-40',
-              isCountingIn
-                ? 'bg-indigo-500 text-white animate-pulse'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              'p-2.5 rounded-full transition-colors',
+              isCountInOn
+                ? 'bg-indigo-500 text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white',
+              isCountingIn && 'animate-pulse'
             )}
           >
             <Timer className="w-5 h-5" />

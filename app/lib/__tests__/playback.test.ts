@@ -4,11 +4,13 @@ import { countInBeats, isSongFinished, resolvePlaybackPreferences } from '../pla
 describe('resolvePlaybackPreferences', () => {
   it('defaults settings saved before these options existed', () => {
     expect(resolvePlaybackPreferences(undefined)).toEqual({
+      countInEnabled: false,
       autoAdvance: false,
       autoAdvanceDelaySeconds: 15,
       countInBars: 1,
     })
     expect(resolvePlaybackPreferences({ gridResolution: 0.25 })).toEqual({
+      countInEnabled: false,
       autoAdvance: false,
       autoAdvanceDelaySeconds: 15,
       countInBars: 1,
@@ -17,6 +19,7 @@ describe('resolvePlaybackPreferences', () => {
 
   it('keeps saved values and clamps them to the allowed range', () => {
     expect(resolvePlaybackPreferences({ autoAdvance: true, autoAdvanceDelaySeconds: 0, countInBars: 2 })).toEqual({
+      countInEnabled: false,
       autoAdvance: true,
       autoAdvanceDelaySeconds: 0,
       countInBars: 2,

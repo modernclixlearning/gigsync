@@ -11,6 +11,7 @@ export const COUNT_IN_BARS_MIN = 1
 export const COUNT_IN_BARS_MAX = 4
 
 export interface PlaybackPreferences {
+  countInEnabled: boolean
   autoAdvance: boolean
   autoAdvanceDelaySeconds: number
   countInBars: number
@@ -26,6 +27,7 @@ export function resolvePlaybackPreferences(
   player: Partial<PlayerPreferences> | undefined
 ): PlaybackPreferences {
   return {
+    countInEnabled: player?.countInEnabled ?? false,
     autoAdvance: player?.autoAdvance ?? false,
     autoAdvanceDelaySeconds: clamp(
       player?.autoAdvanceDelaySeconds ?? DEFAULT_AUTO_ADVANCE_DELAY_SECONDS,
