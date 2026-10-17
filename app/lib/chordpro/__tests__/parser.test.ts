@@ -7,7 +7,7 @@ import {
   extractChords,
 } from '../parser'
 import { parseSectionHeader, parseChordBars, parseInstrumentalSection } from '../instrumental'
-import { transposeChord, parseChordString, getInterval } from '../transpose'
+import { transposeChord, parseChordString, getInterval, displayChordSpelling } from '../transpose'
 
 describe('ChordPro Parser', () => {
   describe('parseLine', () => {
@@ -443,5 +443,29 @@ describe('levare marker [^N]', () => {
   it('lines without it are unchanged', () => {
     const line = parseChordPro('I [E6]love her').lines[0] as LyricParsedLine
     expect(line.pickupBeats).toBeUndefined()
+  })
+})
+
+describe('displayChordSpelling — keep chords as written', () => {
+  const SOLO = '[Guitar Solo | 8 bars]\nGm | Dm | Gm | Dm |\nGm | Dm | Bb | C7 |\nF6 | F6 |'
+  const chordsOf = (forceUseFlats: boolean | undefined) =>
+    parseChordPro(SOLO, 0, forceUseFlats).lines.flatMap((l) =>
+      l.type === 'instrumental' ? l.section.chordBars.map((b) => b.chord) : []
+    )
+
+  it('untransposed, a Bb stays Bb even when the key spells with sharps', () => {
+    expect(displayChordSpelling(0, null, false)).toBeUndefined()
+    expect(chordsOf(displayChordSpelling(0, null, false))).toContain('Bb')
+    expect(chordsOf(displayChordSpelling(0, null, false))).not.toContain('A#')
+  })
+
+  it('transposed, the target key spelling applies', () => {
+    expect(displayChordSpelling(2, null, false)).toBe(false)
+    expect(displayChordSpelling(-3, null, true)).toBe(true)
+  })
+
+  it('an explicit ♯/♭ choice applies even untransposed', () => {
+    expect(displayChordSpelling(0, false, false)).toBe(false)
+    expect(chordsOf(displayChordSpelling(0, false, false))).toContain('A#')
   })
 })

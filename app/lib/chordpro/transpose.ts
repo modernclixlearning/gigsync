@@ -230,3 +230,17 @@ export function transposeLine(line: string, semitones: number, forceUseFlats?: b
     return `[${transposeChord(chord, semitones, forceUseFlats)}]`
   })
 }
+
+/**
+ * Spelling to force on the displayed chords, or undefined to keep each chord
+ * exactly as written. Untransposed, a "Bb" stays "Bb" even in a sharp key;
+ * the key's spelling only applies once the song is transposed, or when the
+ * player's ♯/♭ toggle was set on purpose.
+ */
+export function displayChordSpelling(
+  transpose: number,
+  explicitPreferFlats: boolean | null,
+  effectiveUseFlats: boolean
+): boolean | undefined {
+  return transpose !== 0 || explicitPreferFlats !== null ? effectiveUseFlats : undefined
+}
