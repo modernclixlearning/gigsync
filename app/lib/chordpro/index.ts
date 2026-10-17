@@ -68,6 +68,7 @@ export {
   getSectionType,
   formatChordBars,
   isChordsOnlyLine,
+  normalizeTypedChord,
 } from './instrumental'
 
 // "Chords over lyrics" → ChordPro conversion

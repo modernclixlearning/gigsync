@@ -32,6 +32,7 @@ import type { ChordPosition, LyricParsedLine } from '~/lib/chordpro'
 import { transposeChord } from '~/lib/chordpro'
 import {
   deleteLyricCells,
+  duplicateLyricCells,
   insertBlankLyricCell,
   mergeLyricCells,
   moveLyricCell,
@@ -264,6 +265,17 @@ export function LyricBarGrid({
     const [a, b] = selection.range
     onChordsReorder?.(mergeLyricCells(withBeats(line.chords), a, b))
     selection.select(a)
+  }
+
+  // ── Duplicate the selected cells right after themselves ─────────────────────
+  const handleDuplicateSelection = () => {
+    if (!selection.range) return
+    const [a, b] = selection.range
+    const r = duplicateLyricCells(line.text, withBeats(line.chords), a, b)
+    onTextChange?.(r.text, r.chords)
+    // Select the copy, so another click duplicates it again.
+    selection.select(b + 1)
+    selection.select(2 * b - a + 1, true)
   }
 
   // ── Delete the selected cells as whole blocks (chord + lyric + beats) ───────
@@ -529,6 +541,7 @@ export function LyricBarGrid({
         <SelectionActionsBar
           count={selection.range[1] - selection.range[0] + 1}
           onMerge={handleMergeSelection}
+          onDuplicate={handleDuplicateSelection}
           onDelete={handleDeleteSelection}
           canDelete={canDeleteSelection}
           onCancel={selection.clear}

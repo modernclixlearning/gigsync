@@ -63,13 +63,12 @@ export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProp
     }
   }, [onClose])
 
-  const handleRootSelect = useCallback(
-    (r: string) => {
-      setRoot(r)
-      onSelect(r + suffix)
-    },
-    [suffix, onSelect]
-  )
+  // Picking the root only updates the preview: the callers close the picker
+  // on onSelect, so applying here would close it before the quality is chosen.
+  // The quality applies the chord; "Aplicar" keeps the current quality.
+  const handleRootSelect = useCallback((r: string) => {
+    setRoot(r)
+  }, [])
 
   const handleSuffixSelect = useCallback(
     (s: string) => {
@@ -101,6 +100,12 @@ export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProp
             className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
           >
             {useFlats ? '♭→♯' : '♯→♭'}
+          </button>
+          <button
+            onClick={() => onSelect(currentChordPreview)}
+            className="text-xs px-2 py-1 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-500"
+          >
+            Aplicar
           </button>
           <button
             onClick={onClose}

@@ -33,7 +33,19 @@ describe('Chord editor — change a chord', () => {
     // The blank bar inserted after "Hola" repeats D: change it to A.
     await user.click(screen.getAllByRole('button', { name: 'Cambiar acorde D' })[1])
     await user.click(screen.getByRole('button', { name: 'A' }))
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
     expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Hola [A:4][G:4]mundo')
+  })
+
+  it('keeps the picker open after the root note so the quality can be chosen', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(<ChordOverlay lyrics={'[D:4]Hola [G:4]mundo'} isEditable columns={2} onLyricsChange={onLyricsChange} />)
+    await user.click(screen.getByRole('button', { name: 'Cambiar acorde D' }))
+    await user.click(screen.getByRole('button', { name: 'F' }))
+    expect(onLyricsChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'maj7' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[Fmaj7:4]Hola [G:4]mundo')
   })
 })
 
@@ -136,5 +148,76 @@ describe('Chord editor beat grid', () => {
       { row: '0', gridColumn: '1 / span 3' },
       { row: '0', gridColumn: '4 / span 3' },
     ])
+  })
+})
+
+describe('Chord editor — duplicate selected cells', () => {
+  it('copies a selected run of lyric cells right after itself', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay lyrics={'[D:2]Oh [A:2]oh [G:4]dreams'} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    const cell = (i: number) => container.querySelector<HTMLElement>(`[data-chord-index="${i}"]`)!
+    await user.click(cell(0))
+    await user.keyboard('{Shift>}')
+    await user.click(cell(1))
+    await user.keyboard('{/Shift}')
+    await user.click(screen.getByRole('button', { name: 'Duplicar 2 celdas' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:2]Oh [A:2]oh [D:2]Oh [A:2]oh [G:4]dreams')
+  })
+})
+
+const INSTRUMENTAL = '[Intro | 2 bars]\nAm | G |'
+
+/** The clickable area of the n-th instrumental cell (not the chord name, which opens the picker). */
+function instrumentalCell(container: HTMLElement, n: number) {
+  return container.querySelectorAll<HTMLElement>('[data-beat-grid-row] div[tabindex="-1"]')[n]
+}
+
+describe('Instrumental editor — type a chord into a cell', () => {
+  it('a note letter starts the chord and the rest is typed in one go', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay lyrics={INSTRUMENTAL} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    await user.click(instrumentalCell(container, 1))
+    await user.keyboard('cmaj7{Enter}')
+    expect(onLyricsChange.mock.lastCall?.[0]).toMatch(/Am \| Cmaj7 \|/)
+
+    await user.click(instrumentalCell(container, 0))
+    await user.keyboard('dmin7{Enter}')
+    expect(onLyricsChange.mock.lastCall?.[0]).toMatch(/Dmin7 \| Cmaj7 \|/)
+  })
+
+  it('Escape cancels, and an invalid chord is not saved', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay lyrics={INSTRUMENTAL} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    await user.click(instrumentalCell(container, 0))
+    await user.keyboard('f{Escape}')
+    await user.click(instrumentalCell(container, 0))
+    await user.keyboard('cxyz{Enter}')
+    expect(screen.getByRole('textbox', { name: 'Escribir acorde' })).toHaveAttribute('aria-invalid', 'true')
+    expect(onLyricsChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('Instrumental editor — duplicate selected cells', () => {
+  it('copies the selected bars right after themselves', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { container } = render(
+      <ChordOverlay lyrics={INSTRUMENTAL} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    await user.click(instrumentalCell(container, 0))
+    await user.keyboard('{Shift>}')
+    await user.click(instrumentalCell(container, 1))
+    await user.keyboard('{/Shift}')
+    await user.click(screen.getByRole('button', { name: 'Duplicar 2 celdas' }))
+    expect(onLyricsChange.mock.lastCall?.[0]).toMatch(/Am \| G \|\s*Am \| G \|/)
   })
 })

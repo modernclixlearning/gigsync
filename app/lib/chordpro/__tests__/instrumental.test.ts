@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getSectionType } from '../instrumental'
+import { getSectionType, normalizeTypedChord } from '../instrumental'
 
 describe('getSectionType (gs#20)', () => {
   it('recognizes "estrofa" as a synonym for the "verse" section type', () => {
@@ -14,5 +14,19 @@ describe('getSectionType (gs#20)', () => {
 
   it('falls back to "other" for unrecognized section names', () => {
     expect(getSectionType('Coda final')).toBe('other')
+  })
+})
+
+describe('normalizeTypedChord', () => {
+  it('capitalizes the root and keeps the quality as typed', () => {
+    expect(normalizeTypedChord('cmaj7')).toBe('Cmaj7')
+    expect(normalizeTypedChord('dmin7')).toBe('Dmin7')
+    expect(normalizeTypedChord('bb')).toBe('Bb')
+    expect(normalizeTypedChord('f#m7/c#')).toBe('F#m7/C#')
+  })
+
+  it('rejects text that is not a chord', () => {
+    expect(normalizeTypedChord('cxyz')).toBeNull()
+    expect(normalizeTypedChord('  ')).toBeNull()
   })
 })
