@@ -143,7 +143,7 @@ export function LyricVerseRow({
                 {seg.chord && (
                   <span
                     aria-hidden
-                    className="absolute -top-[0.9em] left-0 font-mono font-bold text-sky-400/70 leading-none select-none"
+                    className="gs-chord absolute -top-[0.9em] left-0 font-mono font-bold text-sky-400/70 leading-none select-none"
                     style={{ fontSize: chordFontSize }}
                   >
                     {seg.chord}

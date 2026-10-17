@@ -24,6 +24,44 @@ function marginToContentWidth(margin: number): number {
   return CONTENT_WIDTH_MIN + CONTENT_WIDTH_MAX - margin
 }
 
+const HIGHLIGHT_MODES: { value: BeatHighlightMode; label: string }[] = [
+  { value: 'text', label: 'Color' },
+  { value: 'background', label: 'Fondo' },
+]
+
+/** One "Letra: [Color] [Fondo]" line of the beat highlight row. */
+function HighlightModeToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: BeatHighlightMode
+  onChange: (mode: BeatHighlightMode) => void
+}) {
+  return (
+    <div role="group" aria-label={`Resaltado de ${label.toLowerCase()}`} className="flex items-center gap-1">
+      <span className="w-14 text-[10px] text-slate-400 dark:text-slate-500">{label}</span>
+      {HIGHLIGHT_MODES.map((mode) => (
+        <button
+          key={mode.value}
+          type="button"
+          aria-pressed={value === mode.value}
+          onClick={() => onChange(mode.value)}
+          className={cn(
+            'px-2 py-1 rounded-lg text-xs font-medium',
+            value === mode.value
+              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+          )}
+        >
+          {mode.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export interface PlayerAdjustmentsProps {
   autoScrollSpeed: number
   onAutoScrollSpeedChange: (speed: number) => void
@@ -72,6 +110,15 @@ export interface PlayerAdjustmentsProps {
   /** null = same as the highlight text color. */
   beatHighlightGlowColor: string | null
   onBeatHighlightGlowColorChange: (color: string | null) => void
+  /** Already resolved: falls back to beatHighlightMode when not set. */
+  chordHighlightMode: BeatHighlightMode
+  onChordHighlightModeChange: (mode: BeatHighlightMode) => void
+  /** null = theme default. */
+  chordTextColor: string | null
+  onChordTextColorChange: (color: string | null) => void
+  /** null = no background. */
+  chordBgColor: string | null
+  onChordBgColorChange: (color: string | null) => void
   /** null = theme default (light/dark), not yet overridden. */
   backgroundColor: string | null
   onBackgroundColorChange: (color: string | null) => void
@@ -126,6 +173,12 @@ export function PlayerAdjustments({
   onBeatHighlightGlowIntensityChange,
   beatHighlightGlowColor,
   onBeatHighlightGlowColorChange,
+  chordHighlightMode,
+  onChordHighlightModeChange,
+  chordTextColor,
+  onChordTextColorChange,
+  chordBgColor,
+  onChordBgColorChange,
   backgroundColor,
   onBackgroundColorChange,
   lyricsTextColor,
@@ -280,35 +333,11 @@ export function PlayerAdjustments({
 
       <SettingsRow
         label="Resaltado del beat"
-        description="Cómo se destaca la palabra que suena: cambiando el color de letra o el de fondo. En modo Letra, la sombra se puede suavizar y cambiar de color para ganar contraste."
+        description="Cómo se destaca lo que suena, por separado para la letra y para los acordes: con color (y sombra, que se puede suavizar o cambiar de color para ganar contraste) o con un fondo."
       >
         <div className="flex flex-col items-start gap-2 @md:items-end">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onBeatHighlightModeChange('text')}
-              className={cn(
-                'px-2 py-1 rounded-lg text-xs font-medium',
-                beatHighlightMode === 'text'
-                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-              )}
-            >
-              Letra
-            </button>
-            <button
-              type="button"
-              onClick={() => onBeatHighlightModeChange('background')}
-              className={cn(
-                'px-2 py-1 rounded-lg text-xs font-medium',
-                beatHighlightMode === 'background'
-                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-              )}
-            >
-              Fondo
-            </button>
-          </div>
+          <HighlightModeToggle label="Letra" value={beatHighlightMode} onChange={onBeatHighlightModeChange} />
+          <HighlightModeToggle label="Acordes" value={chordHighlightMode} onChange={onChordHighlightModeChange} />
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center gap-0.5">
               <SettingsColorField value={beatHighlightTextColor} onChange={onBeatHighlightTextColorChange} />
@@ -329,7 +358,7 @@ export function PlayerAdjustments({
           </div>
           <div className="flex flex-col items-start gap-0.5 @md:items-end">
             <span className="text-[10px] text-slate-400 dark:text-slate-500">
-              Intensidad de la sombra (modo Letra)
+              Intensidad de la sombra (modo Color)
             </span>
             <SettingsSlider
               value={beatHighlightGlowIntensity}
@@ -347,6 +376,40 @@ export function PlayerAdjustments({
               beatHighlightBgColor,
               beatHighlightGlowIntensity,
               beatHighlightGlowColor: beatHighlightGlowColor ?? beatHighlightTextColor,
+              chordHighlightMode,
+            })}
+            canSaveForSetlist={canSaveForSetlist}
+          />
+        </div>
+      </SettingsRow>
+
+      <SettingsRow
+        label="Colores de acordes"
+        description="Color y fondo de los acordes. Por defecto: celeste sobre la letra y el color de cada sección en los instrumentales, sin fondo."
+      >
+        <div className="flex flex-col items-start gap-2 @md:items-end">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-0.5">
+              <SettingsColorField
+                value={chordTextColor ?? '#38bdf8'}
+                onChange={onChordTextColorChange}
+                onReset={chordTextColor !== null ? () => onChordTextColorChange(null) : undefined}
+              />
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">Letra</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <SettingsColorField
+                value={chordBgColor ?? '#1e293b'}
+                onChange={onChordBgColorChange}
+                onReset={chordBgColor !== null ? () => onChordBgColorChange(null) : undefined}
+              />
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">Fondo</span>
+            </div>
+          </div>
+          <SaveTierButtons
+            onSave={saveHandlerForMultiple({
+              chordTextColor: chordTextColor ?? undefined,
+              chordBgColor: chordBgColor ?? undefined,
             })}
             canSaveForSetlist={canSaveForSetlist}
           />

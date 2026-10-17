@@ -624,7 +624,7 @@ export function InstrumentalSection({
                   )}
                 >
                   <span
-                    className={cn('font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}
+                    className={cn('gs-chord font-mono font-bold', colors.text, compact ? 'text-sm' : 'text-base')}
                     style={chordFontStyle}
                   >
                     {bar.chord}

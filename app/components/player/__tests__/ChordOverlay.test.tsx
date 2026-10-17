@@ -69,3 +69,14 @@ describe('ChordOverlay — chord font size', () => {
     expect(screen.getByRole('button', { name: 'Cambiar acorde E6' })).toHaveStyle({ fontSize: '40px' })
   })
 })
+
+describe('ChordOverlay — chord colors', () => {
+  it('marks every chord label in read mode so "Colores de acordes" reaches all of them', () => {
+    const { container } = render(
+      <ChordOverlay lyrics={'[Intro | 2 bars]\nF#m | E6 |\n\n[F#m]I give her all my love'} />
+    )
+    const labels = Array.from(container.querySelectorAll('.gs-chord')).map((el) => el.textContent)
+    expect(labels).toEqual(expect.arrayContaining(['F#m', 'E6']))
+    expect(labels.filter((l) => l === 'F#m')).toHaveLength(2)
+  })
+})
