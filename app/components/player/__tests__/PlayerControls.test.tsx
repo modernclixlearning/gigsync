@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlayerControls } from '../PlayerControls'
 import { PlayerAdjustments } from '../PlayerAdjustments'
@@ -52,6 +52,10 @@ describe('PlayerControls', () => {
     onBeatHighlightTextColorChange: vi.fn(),
     beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
     onBeatHighlightBgColorChange: vi.fn(),
+    beatHighlightGlowIntensity: 100,
+    onBeatHighlightGlowIntensityChange: vi.fn(),
+    beatHighlightGlowColor: null,
+    onBeatHighlightGlowColorChange: vi.fn(),
     backgroundColor: null,
     onBackgroundColorChange: vi.fn(),
     lyricsTextColor: null,
@@ -193,6 +197,48 @@ describe('PlayerControls', () => {
     rerender(<PlayerControls {...defaultProps} onNextSong={onNextSong} />)
     await user.click(screen.getByRole('button', { name: 'Siguiente canción' }))
     expect(onNextSong).toHaveBeenCalledTimes(1)
+  })
+
+  it('softens the highlight glow and saves it with the rest of the highlight', async () => {
+    const user = userEvent.setup()
+    const onBeatHighlightGlowIntensityChange = vi.fn()
+    const onSaveControlsForSong = vi.fn()
+    render(
+      <PlayerAdjustments
+        {...defaultProps}
+        beatHighlightGlowIntensity={60}
+        onBeatHighlightGlowIntensityChange={onBeatHighlightGlowIntensityChange}
+        onSaveControlsForSong={onSaveControlsForSong}
+      />
+    )
+    const row = screen.getByText('Resaltado del beat').closest('[data-testid="settings-row"]') as HTMLElement
+    const slider = row.querySelector<HTMLInputElement>('input[type="range"]')!
+    expect(slider.value).toBe('60')
+    fireEvent.change(slider, { target: { value: '30' } })
+    expect(onBeatHighlightGlowIntensityChange).toHaveBeenCalledWith(30)
+
+    await user.click(within(row).getByTitle('Guardar solo para esta canción'))
+    expect(onSaveControlsForSong).toHaveBeenCalledWith(
+      expect.objectContaining({ beatHighlightGlowIntensity: 60, beatHighlightGlowColor: '#38bdf8' })
+    )
+  })
+
+  it('offers to reset a custom glow color back to the text color', async () => {
+    const user = userEvent.setup()
+    const onBeatHighlightGlowColorChange = vi.fn()
+    const { rerender } = render(<PlayerAdjustments {...defaultProps} />)
+    const row = () => screen.getByText('Resaltado del beat').closest('[data-testid="settings-row"]') as HTMLElement
+    expect(within(row()).queryByTitle('Restaurar color por defecto')).toBeNull()
+
+    rerender(
+      <PlayerAdjustments
+        {...defaultProps}
+        beatHighlightGlowColor="#000000"
+        onBeatHighlightGlowColorChange={onBeatHighlightGlowColorChange}
+      />
+    )
+    await user.click(within(row()).getByTitle('Restaurar color por defecto'))
+    expect(onBeatHighlightGlowColorChange).toHaveBeenCalledWith(null)
   })
 
   it('should render the adjustments rows', () => {

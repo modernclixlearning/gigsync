@@ -21,6 +21,10 @@ export interface PlayerOverrides {
   beatHighlightMode?: BeatHighlightMode
   beatHighlightTextColor?: string
   beatHighlightBgColor?: string
+  /** Strength of the glow around the highlighted word ("Letra" mode), 0–100. 100 = the original glow. */
+  beatHighlightGlowIntensity?: number
+  /** Glow color ("Letra" mode). Unset = same as the highlight text color. */
+  beatHighlightGlowColor?: string
   /** Player screen background color. Unset = theme default (light/dark). */
   backgroundColor?: string
   /** Lyrics text color. Unset = theme default (light/dark). */

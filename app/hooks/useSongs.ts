@@ -275,6 +275,8 @@ export interface UseSongPlayerReturn {
   setBeatHighlightMode: (mode: BeatHighlightMode) => void
   setBeatHighlightTextColor: (color: string) => void
   setBeatHighlightBgColor: (color: string) => void
+  setBeatHighlightGlowIntensity: (intensity: number) => void
+  setBeatHighlightGlowColor: (color: string | null) => void
   setBackgroundColor: (color: string | null) => void
   setLyricsTextColor: (color: string | null) => void
 }
@@ -297,6 +299,8 @@ export function useSongPlayer(): UseSongPlayerReturn {
     beatHighlightMode: 'text',
     beatHighlightTextColor: '#38bdf8',
     beatHighlightBgColor: 'rgba(56, 189, 248, 0.35)',
+    beatHighlightGlowIntensity: 100,
+    beatHighlightGlowColor: null,
     backgroundColor: null,
     lyricsTextColor: null
   })
@@ -413,6 +417,14 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, beatHighlightBgColor: color }))
   }, [])
 
+  const setBeatHighlightGlowIntensity = useCallback((intensity: number) => {
+    setState((prev) => ({ ...prev, beatHighlightGlowIntensity: Math.min(100, Math.max(0, intensity)) }))
+  }, [])
+
+  const setBeatHighlightGlowColor = useCallback((color: string | null) => {
+    setState((prev) => ({ ...prev, beatHighlightGlowColor: color }))
+  }, [])
+
   const setBackgroundColor = useCallback((color: string | null) => {
     setState((prev) => ({ ...prev, backgroundColor: color }))
   }, [])
@@ -443,6 +455,8 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setBeatHighlightMode,
     setBeatHighlightTextColor,
     setBeatHighlightBgColor,
+    setBeatHighlightGlowIntensity,
+    setBeatHighlightGlowColor,
     setBackgroundColor,
     setLyricsTextColor
   }

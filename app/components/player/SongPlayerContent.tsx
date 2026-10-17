@@ -63,6 +63,17 @@ export interface SongPlayerContentProps {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
 
+/**
+ * Glow behind the highlighted word. Intensity scales the glow color's
+ * opacity: 100 is the original full-strength glow, 0 turns it off.
+ */
+export function glowTextShadow(color: string, intensity: number): string {
+  const pct = clamp(Math.round(intensity), 0, 100)
+  if (pct === 0) return 'none'
+  const glow = pct === 100 ? color : `color-mix(in srgb, ${color} ${pct}%, transparent)`
+  return `0 0 0.4em ${glow}`
+}
+
 export function SongPlayerContent({
   song,
   onBack,
@@ -128,6 +139,10 @@ export function SongPlayerContent({
     if (beatHighlightTextColor !== undefined) player.setBeatHighlightTextColor(beatHighlightTextColor)
     const beatHighlightBgColor = resolve('beatHighlightBgColor')
     if (beatHighlightBgColor !== undefined) player.setBeatHighlightBgColor(beatHighlightBgColor)
+    const beatHighlightGlowIntensity = resolve('beatHighlightGlowIntensity')
+    if (beatHighlightGlowIntensity !== undefined) player.setBeatHighlightGlowIntensity(beatHighlightGlowIntensity)
+    const beatHighlightGlowColor = resolve('beatHighlightGlowColor')
+    if (beatHighlightGlowColor !== undefined) player.setBeatHighlightGlowColor(beatHighlightGlowColor)
     const backgroundColor = resolve('backgroundColor')
     if (backgroundColor !== undefined) player.setBackgroundColor(backgroundColor)
     const lyricsTextColor = resolve('lyricsTextColor')
@@ -822,7 +837,10 @@ export function SongPlayerContent({
               /* Beat follows the lyric as light, not a container highlight: */
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] {
                 color: ${player.state.beatHighlightTextColor};
-                text-shadow: 0 0 0.4em ${player.state.beatHighlightTextColor};
+                text-shadow: ${glowTextShadow(
+                  player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
+                  player.state.beatHighlightGlowIntensity
+                )};
                 transition: text-shadow 0.15s ease;
               }
               [data-element-id="${eid}"] [data-chord-index="${chordIdx}"] > span:first-child {
@@ -964,6 +982,10 @@ export function SongPlayerContent({
               onBeatHighlightTextColorChange={player.setBeatHighlightTextColor}
               beatHighlightBgColor={player.state.beatHighlightBgColor}
               onBeatHighlightBgColorChange={player.setBeatHighlightBgColor}
+              beatHighlightGlowIntensity={player.state.beatHighlightGlowIntensity}
+              onBeatHighlightGlowIntensityChange={player.setBeatHighlightGlowIntensity}
+              beatHighlightGlowColor={player.state.beatHighlightGlowColor}
+              onBeatHighlightGlowColorChange={player.setBeatHighlightGlowColor}
               backgroundColor={player.state.backgroundColor}
               onBackgroundColorChange={player.setBackgroundColor}
               lyricsTextColor={player.state.lyricsTextColor}
