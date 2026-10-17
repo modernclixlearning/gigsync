@@ -117,3 +117,61 @@ describe('ChordOverlay — levare', () => {
     expect(onLyricsChange).toHaveBeenLastCalledWith('[^0.5]I [E6:4]love her [E6:4]')
   })
 })
+
+describe('ChordOverlay — editor stays in sync with the ChordPro text', () => {
+  it('editing one chord never re-spells the others (Bb stays Bb in a sharp key)', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(
+      <ChordOverlay
+        lyrics={'[Bb:4]Hola [G:4]mundo'}
+        preferFlats={false}
+        isEditable
+        columns={2}
+        onLyricsChange={onLyricsChange}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Cambiar acorde G' }))
+    await user.click(screen.getByRole('button', { name: 'A' }))
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[Bb:4]Hola [A:4]mundo')
+  })
+
+  it('editing while transposed saves the song as written, not transposed', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    render(
+      <ChordOverlay
+        lyrics={'[D:4]Hola [G:4]mundo'}
+        transpose={2}
+        isEditable
+        columns={2}
+        onLyricsChange={onLyricsChange}
+      />
+    )
+    // The editor shows the written chords…
+    await user.click(screen.getByRole('button', { name: 'Cambiar acorde G' }))
+    await user.click(screen.getByRole('button', { name: 'A' }))
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+    // …and the untouched D is not saved as the transposed E.
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[D:4]Hola [A:4]mundo')
+  })
+
+  it('picks up text typed in the ChordPro field, so the next grid edit keeps it', async () => {
+    const user = userEvent.setup()
+    const onLyricsChange = vi.fn()
+    const { rerender } = render(
+      <ChordOverlay lyrics={'[D:4]Hola [G:4]mundo'} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    // Typed in the text field: G → C7 and new words.
+    rerender(
+      <ChordOverlay lyrics={'[D:4]Hola [C7:4]amigos'} isEditable columns={2} onLyricsChange={onLyricsChange} />
+    )
+    expect(screen.getByRole('button', { name: 'Cambiar acorde C7' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cambiar acorde D' }))
+    await user.click(screen.getByRole('button', { name: 'E' }))
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+    expect(onLyricsChange).toHaveBeenLastCalledWith('[E:4]Hola [C7:4]amigos')
+  })
+})
