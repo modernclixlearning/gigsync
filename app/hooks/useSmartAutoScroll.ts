@@ -44,14 +44,42 @@ import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
 import type { TimelineElement } from '~/types/timeline'
 
-/** Returns the number of chord cells in a timeline element (lyric, chords-only, or instrumental). */
-function getChordCount(element: TimelineElement): number {
+/**
+ * Beats of each chord cell of a timeline element, in the order they are drawn
+ * (an instrumental's ×N repeats included). Lyric lines use their explicit
+ * beats when every chord has them, otherwise the line is split evenly.
+ */
+export function chordCellBeats(element: TimelineElement, beatsPerBar: number): number[] {
   const content = element.content
-  if (!content || !('type' in content)) return 0
-  if (content.type === 'lyric') return (content as { chords: unknown[] }).chords?.length ?? 0
-  if (content.type === 'chords-only') return (content as { chordBars: unknown[] }).chordBars?.length ?? 0
-  if (content.type === 'instrumental') return (content as { section: { chordBars: unknown[] } }).section?.chordBars?.length ?? 0
-  return 0
+  if (!content || !('type' in content)) return []
+  if (content.type === 'instrumental') {
+    const { chordBars, repeatCount } = content.section
+    const base = chordBars.map((b) => b.beats ?? beatsPerBar)
+    return Array.from({ length: repeatCount ?? 1 }, () => base).flat()
+  }
+  if (content.type === 'chords-only') return content.chordBars.map((b) => b.beats ?? beatsPerBar)
+  if (content.type === 'lyric') {
+    const { chords } = content
+    if (chords.length === 0) return []
+    if (chords.every((c) => c.beats !== undefined)) return chords.map((c) => c.beats!)
+    return chords.map(() => element.durationBeats / chords.length)
+  }
+  return []
+}
+
+/**
+ * Chord cell playing `elapsed` beats into its element, by each chord's own
+ * length — so a chord of 2.5 hands over to the next one at the "and" of 3.
+ * Past the end it stays on the last cell; null when there are no chords.
+ */
+export function chordIndexAt(cellBeats: number[], elapsed: number): number | null {
+  if (cellBeats.length === 0) return null
+  let end = 0
+  for (let i = 0; i < cellBeats.length; i++) {
+    end += cellBeats[i]
+    if (elapsed < end) return i
+  }
+  return cellBeats.length - 1
 }
 
 /**
@@ -126,10 +154,10 @@ export interface UseSmartAutoScrollReturn {
   /** Start beat of the currently active timeline element */
   currentElementStartBeat: number | null
   /**
-   * Beats per chord cell for the currently active element.
-   * Use this to compute which chord cell is active: Math.floor(elapsed / currentBeatsPerChord).
+   * Chord cell of the active element playing right now (its `data-chord-index`),
+   * timed by each chord's own length and the 16th-note beat. null = none.
    */
-  currentBeatsPerChord: number
+  currentChordIndex: number | null
   /** True when timeline is calculated and ready */
   isReady: boolean
   /** Length of the song's timeline in beats (0 until it's computed) */
@@ -201,7 +229,6 @@ export function useSmartAutoScroll({
 }: UseSmartAutoScrollOptions): UseSmartAutoScrollReturn {
   const currentElementIdRef = useRef<string | null>(null)
   const currentElementStartBeatRef = useRef<number | null>(null)
-  const currentBeatsPerChordRef = useRef<number>(4)
   const animationFrameRef = useRef<number | null>(null)
   const smoothScrollDurationRef = useRef(smoothScrollDuration)
   smoothScrollDurationRef.current = smoothScrollDuration
@@ -276,37 +303,6 @@ export function useSmartAutoScroll({
     // Track current element
     currentElementIdRef.current = element.id
     currentElementStartBeatRef.current = element.startBeat
-    const chordCount = getChordCount(element)
-    const elDuration = element.durationBeats ?? (tl.timeline?.beatsPerBar ?? 4)
-
-    // Check for explicit beats in lyric elements
-    const content = element.content
-    let beatsPerChord = chordCount > 0
-      ? elDuration / chordCount
-      : (tl.timeline?.beatsPerBar ?? 4)
-
-    if (content && 'type' in content && content.type === 'lyric') {
-      const lyricChords = (content as { chords: { beats?: number }[] }).chords
-      if (lyricChords.length > 0 && lyricChords.every(c => c.beats !== undefined)) {
-        // Find which chord is currently active and return its beats
-        const elapsedBeats = beat - element.startBeat
-        let accumulated = 0
-        for (const chord of lyricChords) {
-          const chordBeats = chord.beats!
-          if (elapsedBeats < accumulated + chordBeats) {
-            beatsPerChord = chordBeats
-            break
-          }
-          accumulated += chordBeats
-        }
-        // If beat is past all chords, use last chord's beats
-        if (accumulated <= elapsedBeats && lyricChords.length > 0) {
-          beatsPerChord = lyricChords[lyricChords.length - 1].beats!
-        }
-      }
-    }
-
-    currentBeatsPerChordRef.current = beatsPerChord
     
     // Measure the active line now, in the container's own scroll coordinates:
     // positions measured once at load go stale when the font size, the
@@ -411,32 +407,10 @@ export function useSmartAutoScroll({
       return
     }
 
-    const beatsPerBar = timeline.timeline?.beatsPerBar ?? 4
-    const content = element.content
-
-    // For bar-based elements (instrumental, chords-only), sum beats up to chordIndex
-    // so that partial bars (anacrusis) are seeked correctly.
-    let barBeats: number[] | null = null
-    if (content && 'type' in content) {
-      if (content.type === 'instrumental') {
-        barBeats = (content as { section: { chordBars: { beats?: number }[] } })
-          .section.chordBars.map(b => b.beats ?? beatsPerBar)
-      } else if (content.type === 'chords-only') {
-        barBeats = (content as { chordBars: { beats?: number }[] })
-          .chordBars.map(b => b.beats ?? beatsPerBar)
-      } else if (content.type === 'lyric') {
-        const lyricChords = (content as { chords: { beats?: number }[] }).chords
-        // Use explicit beats if all chords have them
-        const allHaveBeats = lyricChords.length > 0 && lyricChords.every(c => c.beats !== undefined)
-        if (allHaveBeats) {
-          barBeats = lyricChords.map(c => c.beats!)
-        }
-      }
-    }
-
-    const targetBeat = barBeats
-      ? element.startBeat + barBeats.slice(0, chordIndex).reduce((s, b) => s + b, 0)
-      : element.startBeat + chordIndex * (element.durationBeats / getChordCount(element))
+    // Sum each chord's own beats up to chordIndex, so partial bars (anacrusis),
+    // syncopated chords and an instrumental's repeats are seeked correctly.
+    const cellBeats = chordCellBeats(element, timeline.timeline?.beatsPerBar ?? 4)
+    const targetBeat = element.startBeat + cellBeats.slice(0, chordIndex).reduce((s, b) => s + b, 0)
 
     bpmSync.seekToBeat(targetBeat)
   }, [timeline.isReady, timeline.timeline, hasFallback, bpmSync.seekToBeat])
@@ -455,6 +429,17 @@ export function useSmartAutoScroll({
     [isEnabled, timelineElements, bpmSync.preciseBeat]
   )
 
+  // Timed on the 16th-note beat, so a chord that starts on an "and" lights up there.
+  const activeElement = currentElementIdRef.current
+    ? timelineElements?.find((e) => e.id === currentElementIdRef.current)
+    : undefined
+  const currentChordIndex = activeElement
+    ? chordIndexAt(
+        chordCellBeats(activeElement, timeline.timeline?.beatsPerBar ?? 4),
+        bpmSync.preciseBeat - activeElement.startBeat
+      )
+    : null
+
   return {
     currentBeat: bpmSync.currentBeat,
     preciseBeat: bpmSync.preciseBeat,
@@ -463,7 +448,7 @@ export function useSmartAutoScroll({
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,
     currentElementStartBeat: currentElementStartBeatRef.current,
-    currentBeatsPerChord: currentBeatsPerChordRef.current,
+    currentChordIndex,
     isReady: timeline.isReady,
     /** Length of the song's timeline in beats (0 until it's computed). */
     totalBeats: timelineTotalBeats,

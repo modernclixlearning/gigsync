@@ -176,6 +176,38 @@ describe('ChordOverlay — editor stays in sync with the ChordPro text', () => {
   })
 })
 
+describe('ChordOverlay — syncopated instrumental chords', () => {
+  // E until the "and" of 3, E/F# until the "and" of 4, E/G# pushed onto the
+  // "and" of 4 and tied over bar 2; then A, A/B, A/C# across bars 3–4.
+  const INTRO = '[Intro]\nE 2.5 | E/F# 1 | E/G# 4.5 |\nA 3.5 | A/B 2.5 | A/C# 2 |'
+
+  it('places each chord at the beat it starts on, two bars per row', () => {
+    const { container } = render(<ChordOverlay lyrics={INTRO} columns={2} />)
+    const columnOf = (i: number) =>
+      container.querySelector<HTMLElement>(`[data-chord-index="${i}"]`)!.style.gridColumn
+    // 16th-note units: a row of 2 bars is 32 units.
+    expect([0, 1, 2, 3, 4, 5].map(columnOf)).toEqual([
+      '1 / span 10',
+      '11 / span 4',
+      '15 / span 18',
+      '1 / span 14',
+      '15 / span 10',
+      '25 / span 8',
+    ])
+  })
+
+  it('counts the bars the chords fill, not the number of chords', () => {
+    render(<ChordOverlay lyrics={INTRO} columns={2} />)
+    expect(screen.getByText(/4\s+compases/)).toBeInTheDocument()
+  })
+
+  it('shows a chord tied across a row break as a continuation', () => {
+    const { container } = render(<ChordOverlay lyrics={INTRO} columns={1} />)
+    const pieces = container.querySelectorAll('[data-chord-index="2"]')
+    expect(Array.from(pieces).map((el) => el.textContent)).toEqual(['E/G#', '↳'])
+  })
+})
+
 describe('ChordOverlay — homogeneous chords and song alignment', () => {
   const SONG = '[Intro | 2 bars]\nF#m | E6 |\n\n[F#m]I give her [C#m]all my love\n\nA | D |'
 

@@ -28,7 +28,7 @@ import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable'
 import { cn } from '~/lib/utils'
 import type { ChordBar, InstrumentalSection as InstrumentalSectionType } from '~/lib/chordpro'
 import { normalizeTypedChord, transposeChord } from '~/lib/chordpro'
-import type { BeatGridSegment } from '~/lib/timeline/beatGrid'
+import { layoutBeatGrid, type BeatGridSegment } from '~/lib/timeline/beatGrid'
 import type { SongTextAlign } from '~/types'
 import { ALIGN_ITEMS, CHORD_LABEL_COLOR } from './chordStyle'
 import { useChordResize } from './useChordResize'
@@ -238,12 +238,6 @@ function TypedChordInput({
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-
-function rowGridTemplate(row: ChordBar[], beatsPerBar = 4): string {
-  const hasPartial = row.some(b => b.beats !== undefined)
-  if (!hasPartial) return `repeat(${row.length}, minmax(0, 1fr))`
-  return row.map(b => `${b.beats ?? beatsPerBar}fr`).join(' ')
-}
 
 export function InstrumentalSection({
   section,
@@ -473,11 +467,21 @@ export function InstrumentalSection({
     ? chords[sortableIds.indexOf(activeId)]?.chord
     : null
 
-  // Group chords into rows
-  const rows: ChordBar[][] = []
-  for (let i = 0; i < chords.length; i += columns) {
-    rows.push(chords.slice(i, i + columns))
-  }
+  // Read grid: rows of `columns` bars, each chord placed at the beat it starts
+  // on — so a chord pushed onto an "and" and tied over the bar line reads
+  // where it is played, and every row is the same length in time.
+  const readLayout = layoutBeatGrid(chords.map(b => b.beats ?? beatsPerBar), {
+    beatsPerBar,
+    barsPerRow: columns,
+    gridResolution,
+  })
+  // Bar ticks only when a chord starts or ends inside a bar (syncopation,
+  // partial bars); one-chord-per-bar sections keep their clean look.
+  const showBarTicks = chords.some(b => b.beats !== undefined && b.beats % beatsPerBar !== 0)
+  // Bars the chords actually fill, which is what playback times.
+  const barCount = section.chordBars.length > 0
+    ? Math.ceil(section.chordBars.reduce((sum, b) => sum + (b.beats ?? beatsPerBar), 0) / beatsPerBar)
+    : section.bars
 
   const showPlaceholder = chords.length === 0 && section.bars > 0
 
@@ -600,30 +604,42 @@ export function InstrumentalSection({
 
   // ── Chord grid ───────────────────────────────────────────────────────────────
 
-  const chordGrid = isEditable && chords.length > 0 ? editGrid : rows.length > 0 ? (
+  const chordGrid = isEditable && chords.length > 0 ? editGrid : chords.length > 0 ? (
     // No side padding: the chords line up with the lyric chords at the song's alignment.
     <div className={cn(compact ? 'py-1' : 'py-3', 'flex flex-col gap-1')}>
-      {rows.map((row, rowIndex) => {
-        const rowStartIdx = rowIndex * columns
-        const rowTemplate = rowGridTemplate(row)
-        return (
-          <div
-            key={rowIndex}
-            className="grid gap-0"
-            style={{ gridTemplateColumns: rowTemplate }}
-          >
-            {row.map((bar, colIndex) => {
-              const index = rowStartIdx + colIndex
+      {Array.from({ length: readLayout.rows }, (_, row) => (
+        <div
+          key={row}
+          className="relative grid gap-0"
+          style={{ gridTemplateColumns: `repeat(${readLayout.unitsPerRow}, minmax(0, 1fr))` }}
+        >
+          {showBarTicks && (
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              {Array.from({ length: columns - 1 }, (_, k) => (
+                <div
+                  key={k}
+                  className="absolute top-1/4 bottom-1/4 w-px bg-slate-400/30 dark:bg-white/15"
+                  style={{ left: `${((k + 1) / columns) * 100}%` }}
+                />
+              ))}
+            </div>
+          )}
+          {readLayout.segments
+            .filter(seg => seg.row === row)
+            .map(seg => {
+              const bar = chords[seg.index]
               return (
                 <div
-                  key={index}
-                  data-chord-index={index}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleCellClick(index)}
+                  key={`${seg.index}-${seg.row}`}
+                  data-chord-index={seg.index}
+                  role={seg.isHead ? 'button' : undefined}
+                  tabIndex={seg.isHead ? 0 : -1}
+                  onClick={() => handleCellClick(seg.index)}
+                  style={{ gridColumn: `${seg.start + 1} / span ${seg.span}`, gridRow: 1 }}
                   className={cn(
-                    'flex flex-col justify-center',
-                    ALIGN_ITEMS[textAlign],
+                    // relative: the label draws over a bar tick it crosses
+                    'relative flex min-w-0 flex-col justify-center',
+                    seg.isHead ? ALIGN_ITEMS[textAlign] : 'items-start',
                     'rounded-md',
                     'py-2',
                     textAlign === 'left' ? 'pr-2' : textAlign === 'right' ? 'pl-2' : 'px-2',
@@ -631,37 +647,34 @@ export function InstrumentalSection({
                     isSeekEnabled && !isEditable && 'cursor-pointer hover:bg-white/5',
                   )}
                 >
-                  <span
-                    className={cn('gs-chord font-mono font-bold', CHORD_LABEL_COLOR, compact ? 'text-sm' : 'text-base')}
-                    style={chordFontStyle}
-                  >
-                    {bar.chord}
-                  </span>
-                  {bar.label && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
-                      {bar.label}
+                  {seg.isHead ? (
+                    <>
+                      <span
+                        className={cn('gs-chord font-mono font-bold', CHORD_LABEL_COLOR, compact ? 'text-sm' : 'text-base')}
+                        style={chordFontStyle}
+                      >
+                        {bar.chord}
+                      </span>
+                      {bar.label && (
+                        <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 leading-none">
+                          {bar.label}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    // The chord carries on from the previous row.
+                    <span
+                      className={cn('font-mono font-bold opacity-40', CHORD_LABEL_COLOR, compact ? 'text-sm' : 'text-base')}
+                      style={chordFontStyle}
+                    >
+                      ↳
                     </span>
                   )}
                 </div>
               )
             })}
-
-            {/* Pad last row (read-only only) */}
-            {!isEditable && rowIndex === rows.length - 1 && row.length < columns && !row.some(b => b.beats !== undefined) && (
-              Array(columns - row.length).fill(0).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className={cn(
-                    'flex items-center justify-center rounded-md',
-                    compact ? 'py-2 px-1' : 'py-2 px-2',
-                    'opacity-0'
-                  )}
-                />
-              ))
-            )}
-          </div>
-        )
-      })}
+        </div>
+      ))}
     </div>
   ) : showPlaceholder ? (
     <div className={cn('p-4 text-center', colors.text, 'opacity-60')}>
@@ -697,7 +710,7 @@ export function InstrumentalSection({
           </span>
         </div>
         <div className={cn('text-xs font-medium', colors.text, 'opacity-75')}>
-          {section.bars} {section.bars === 1 ? 'compás' : 'compases'}
+          {barCount} {barCount === 1 ? 'compás' : 'compases'}
           {section.repeatCount && section.repeatCount > 1 && (
             <span className="ml-2">×{section.repeatCount}</span>
           )}

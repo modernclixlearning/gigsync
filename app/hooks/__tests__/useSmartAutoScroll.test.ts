@@ -4,7 +4,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
+import { chordCellBeats, chordIndexAt, findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
+import { parseChordPro } from '~/lib/chordpro/parser'
 import mockTone from '@tests/mocks/tone'
 
 // Mock Tone.js
@@ -1066,5 +1067,73 @@ describe('findPickupElement', () => {
 
   it('lines without a levare never match', () => {
     expect(findPickupElement([el('element-0', 0), el('element-1', 8)], 7.5)).toBeNull()
+  })
+})
+
+describe('chord timing with uneven and syncopated chords', () => {
+  // "Cuánto tiempo más llevará" intro in 4/4: E until the "and" of 3, E/F# until
+  // the "and" of 4, then E/G# pushed onto the "and" of 4 and tied over bar 2.
+  const INTRO = '[Intro]\nE 2.5 | E/F# 1 | E/G# 4.5 |\nA 3.5 | A/B 2.5 | A/C# 2 |'
+  const element = (src: string, startBeat = 0) => {
+    const content = parseChordPro(src).lines.find((l) => l.type === 'instrumental' || l.type === 'lyric')!
+    return { id: 'element-1', type: content.type, startBeat, endBeat: startBeat + 16, durationBeats: 16, bars: 4, content } as never
+  }
+
+  it('gives every chord cell its own length', () => {
+    expect(chordCellBeats(element(INTRO), 4)).toEqual([2.5, 1, 4.5, 3.5, 2.5, 2])
+  })
+
+  it('hands over on the off-beat, not on an even split of the line', () => {
+    const cells = [2.5, 1, 4.5, 3.5, 2.5, 2]
+    expect(chordIndexAt(cells, 2.25)).toBe(0)
+    expect(chordIndexAt(cells, 2.5)).toBe(1) // E/F# on the "and" of 3
+    expect(chordIndexAt(cells, 3.25)).toBe(1)
+    expect(chordIndexAt(cells, 3.5)).toBe(2) // E/G# on the "and" of 4…
+    expect(chordIndexAt(cells, 7.75)).toBe(2) // …held through all of bar 2
+    expect(chordIndexAt(cells, 8)).toBe(3)
+    expect(chordIndexAt(cells, 15.75)).toBe(5)
+    expect(chordIndexAt(cells, 20)).toBe(5)
+    expect(chordIndexAt([], 1)).toBeNull()
+  })
+
+  it('times lyric chords by their beats too', () => {
+    const cells = chordCellBeats(element('[E:2.5]Cuánto tiempo [E/F#:1]más lle[E/G#:4.5]vará'), 4)
+    expect(cells).toEqual([2.5, 1, 4.5])
+    expect(chordIndexAt(cells, 3)).toBe(1)
+    expect(chordIndexAt(cells, 4)).toBe(2)
+  })
+
+  it('splits a lyric line evenly when its chords have no beats', () => {
+    expect(chordCellBeats(element('[Am]Hello [G]world'), 4)).toEqual([8, 8])
+  })
+
+  it('repeats an instrumental pattern ×N in the order it is drawn', () => {
+    expect(chordCellBeats(element('[Intro]\nE 2 | A 2 | x2'), 4)).toEqual([2, 2, 2, 2])
+  })
+
+  it('the player lights the chord at the 16th-note beat', () => {
+    const intro = element(INTRO)
+    let onBeat: ((beat: number) => void) | undefined
+    vi.mocked(useSongTimeline).mockReturnValue({
+      timeline: { elements: [intro], totalBeats: 16, totalBars: 4, totalDurationSeconds: 8, beatsPerBar: 4, bpm: 120 },
+      isReady: true,
+      error: null,
+      getElementAtBeat: () => intro,
+      getScrollPositionForBeat: () => 0,
+      updateElementPosition: vi.fn(),
+    } as any)
+    const sync = { currentBeat: 3, preciseBeat: 3.5, currentBar: 0, currentBeatInBar: 3, play: vi.fn(), pause: vi.fn(), reset: vi.fn(), seekToBeat: vi.fn() }
+    vi.mocked(useBPMSync).mockImplementation((options) => {
+      onBeat = options.onBeatChange
+      return sync as any
+    })
+    const containerRef = { current: { scrollTop: 0, clientHeight: 600, getBoundingClientRect: () => ({ top: 0 }), querySelector: () => null } } as any
+    const { result, rerender } = renderHook(() =>
+      useSmartAutoScroll({ lyrics: INTRO, bpm: 120, timeSignature: '4/4', isPlaying: true, isEnabled: true, containerRef })
+    )
+    act(() => onBeat!(3))
+    rerender()
+    // Beat 3.5 = the "and" of 4: already E/G# (an even split would still show E/F#).
+    expect(result.current.currentChordIndex).toBe(2)
   })
 })
