@@ -56,6 +56,21 @@ const TIMELINE_OPTIONS: TimelineCalculationOptions = {
   intelligentEstimation: false,
 }
 
+/**
+ * Cell texts with runs of spaces collapsed the way running text collapses
+ * them. Each cell keeps its own spaces (white-space: pre, see below) so a
+ * space at a cell's edge isn't dropped — this keeps that from doubling them.
+ */
+function collapseCellSpaces(prefix: string, texts: string[]): string[] {
+  let prevEndsInSpace = /\s$/.test(prefix)
+  return texts.map((t) => {
+    let out = t.replace(/\s+/g, ' ')
+    if (prevEndsInSpace && out.startsWith(' ')) out = out.slice(1)
+    if (out) prevEndsInSpace = out.endsWith(' ')
+    return out
+  })
+}
+
 function totalBeats(entries: VerseEntry[], timeSignature: string): number {
   return entries.reduce(
     (sum, entry) => sum + calculateElementDuration(entry.line, TIMELINE_OPTIONS, timeSignature),
@@ -134,6 +149,7 @@ export function LyricVerseRow({
         const firstChordPos = segments.length > 0 ? Math.min(...entry.line.chords.map((c) => c.position)) : entry.line.text.length
         const prefix = entry.line.text.slice(0, firstChordPos)
         if (segments.length === 0 && !prefix.trim()) return null
+        const texts = collapseCellSpaces(prefix, segments.map((seg) => seg.text))
 
         return (
           <span key={entry.elementId} data-element-id={entry.elementId}>
@@ -145,7 +161,18 @@ export function LyricVerseRow({
                 role={isSeekEnabled ? 'button' : undefined}
                 tabIndex={isSeekEnabled ? 0 : undefined}
                 onClick={isSeekEnabled ? () => onChordClick?.(entry.elementId, i) : undefined}
-                className={cn('relative', isSeekEnabled && 'cursor-pointer')}
+                data-chord={seg.chord || undefined}
+                // A cell is never narrower than its chord label plus a gap: an
+                // invisible, zero-height copy of the chord (::before) sets its
+                // minimum width, so a chord with no syllable under it (or a
+                // short one) doesn't overlap the next chord.
+                className={cn(
+                  'relative inline-block whitespace-pre',
+                  seg.chord &&
+                    'before:invisible before:block before:h-0 before:overflow-hidden before:pr-[0.5em] before:font-mono before:font-bold before:leading-none before:content-[attr(data-chord)] before:text-[length:var(--gs-chord-size)]',
+                  isSeekEnabled && 'cursor-pointer'
+                )}
+                style={{ '--gs-chord-size': `${chordFontSize}px` } as React.CSSProperties}
               >
                 {seg.chord && (
                   <span
@@ -156,7 +183,8 @@ export function LyricVerseRow({
                     {seg.chord}
                   </span>
                 )}
-                {seg.text}
+                {/* Zero-width space keeps a text line (and the baseline) in an empty cell */}
+                {texts[i] || '\u200B'}
               </span>
             ))}
             {/* Several original verses sharing this row — a faint divider, not a border/box */}

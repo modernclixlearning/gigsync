@@ -100,6 +100,31 @@ describe('ChordOverlay — text before the first chord', () => {
   })
 })
 
+describe('ChordOverlay — chords with little or no lyric under them', () => {
+  const LINE = '[E:2.5]  [E/F#:1]Con el [E/G#:4.5]tiempo vas cam[A:3.5]biando[A/B:2]    [A/C#:2.5]'
+
+  it('makes every chord cell at least as wide as its label, so labels never overlap', () => {
+    const { container } = render(<ChordOverlay lyrics={LINE} chordFontSize={30} />)
+    const cells = Array.from(container.querySelectorAll<HTMLElement>('[data-chord-index]'))
+    expect(cells.map((c) => c.dataset.chord)).toEqual(['E', 'E/F#', 'E/G#', 'A', 'A/B', 'A/C#'])
+    for (const cell of cells) {
+      // The invisible ::before copy of the chord sets the cell's minimum width.
+      expect(cell.className).toContain('inline-block')
+      expect(cell.className).toContain('before:content-[attr(data-chord)]')
+      expect(cell.style.getPropertyValue('--gs-chord-size')).toBe('30px')
+    }
+  })
+
+  it('keeps the words and their spacing as written, without doubled spaces', () => {
+    const { container } = render(<ChordOverlay lyrics={LINE} />)
+    const lyric = Array.from(container.querySelectorAll<HTMLElement>('[data-chord-index]'))
+      .map((c) => c.lastChild?.textContent)
+      .join('')
+    // Runs of spaces collapse to one; the last chord has no text at all.
+    expect(lyric).toBe(' Con el tiempo vas cambiando ​')
+  })
+})
+
 describe('ChordOverlay — levare', () => {
   it('marks the words before the first chord so the levare can light them up', () => {
     const { container } = render(<ChordOverlay lyrics={'[^1.5]I [E6]love her [E6]'} />)
