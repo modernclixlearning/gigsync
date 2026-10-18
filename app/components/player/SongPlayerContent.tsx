@@ -834,12 +834,7 @@ export function SongPlayerContent({
             glowColor: player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
             glowIntensity: player.state.beatHighlightGlowIntensity,
           }
-          const chordIdx =
-            autoScroll.currentElementStartBeat !== null
-              ? Math.floor(
-                  (autoScroll.currentBeat - autoScroll.currentElementStartBeat) / autoScroll.currentBeatsPerChord
-                )
-              : null
+          const chordIdx = autoScroll.currentChordIndex
           return (
             <style>{`
               /* Dim all non-active lines */
