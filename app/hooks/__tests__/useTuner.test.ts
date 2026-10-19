@@ -242,7 +242,7 @@ describe('useTuner', () => {
     const { result } = renderHook(() => useTuner())
 
     await waitFor(() => {
-      expect(result.current.error).toContain('suspended')
+      expect(result.current.error).toContain('en pausa')
     }, { timeout: 3000 })
   })
 
