@@ -21,6 +21,17 @@ export interface UseMicrophoneReturn extends MicrophoneState {
   audioContext: AudioContext | null
 }
 
+/** How long to wait for a suspended AudioContext to resume on its own. */
+const RESUME_TIMEOUT_MS = 500
+
+/** The mic is granted but the browser won't run audio until the user taps. */
+class AudioNeedsGestureError extends Error {
+  constructor() {
+    super('Tocá "Activar micrófono" para empezar a afinar.')
+    this.name = 'AudioNeedsGestureError'
+  }
+}
+
 /**
  * Hook for accessing the microphone using Web Audio API
  * Provides audio analysis capabilities for pitch detection
@@ -38,13 +49,14 @@ export function useMicrophone(): UseMicrophoneReturn {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const startingRef = useRef<Promise<void> | null>(null)
 
   // Check browser compatibility on mount
   useEffect(() => {
     if (!isWebAudioAPISupported()) {
       setState(prev => ({
         ...prev,
-        error: 'Web Audio API is not supported in this browser. Please use a modern browser like Chrome, Firefox, Safari, or Edge.',
+        error: 'Este navegador no puede procesar audio. Usá Chrome, Firefox, Safari o Edge actualizados.',
       }))
       return
     }
@@ -52,7 +64,7 @@ export function useMicrophone(): UseMicrophoneReturn {
     if (!isGetUserMediaSupported()) {
       setState(prev => ({
         ...prev,
-        error: 'Microphone access is not supported in this browser. Please use a modern browser.',
+        error: 'Este navegador no permite usar el micrófono.',
       }))
       return
     }
@@ -68,7 +80,7 @@ export function useMicrophone(): UseMicrophoneReturn {
         // AudioContext was suspended (e.g., browser tab became inactive)
         setState(prev => ({
           ...prev,
-          error: 'Audio processing was suspended. Please resume the audio context.',
+          error: 'El audio quedó en pausa. Tocá "Activar micrófono" para seguir afinando.',
         }))
       }
     }
@@ -96,92 +108,113 @@ export function useMicrophone(): UseMicrophoneReturn {
   }, [])
 
   const start = useCallback(async () => {
-    if (state.isActive) return
+    // Already listening. A suspended context (the phone paused the page's
+    // audio) is not listening, so it falls through and the graph is rebuilt.
+    if (state.isActive && audioContextRef.current?.state === 'running') return
+    // An auto-start and a tap can overlap: share the request in flight.
+    if (startingRef.current) return startingRef.current
 
     // Check compatibility before starting
     if (!isWebAudioAPISupported() || !isGetUserMediaSupported()) {
       setState(prev => ({
         ...prev,
         isRequesting: false,
-        error: 'Web Audio API or microphone access is not supported in this browser.',
+        error: 'Este navegador no permite usar el micrófono.',
       }))
       return
     }
 
     setState(prev => ({ ...prev, isRequesting: true, error: null }))
 
-    try {
-      // Request microphone access with cross-browser compatibility
-      const stream = await getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      })
+    const run = async () => {
+      let stream: MediaStream | null = null
+      try {
+        // Request microphone access with cross-browser compatibility
+        stream = await getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        })
 
-      streamRef.current = stream
+        streamRef.current?.getTracks().forEach(track => track.stop())
+        streamRef.current = stream
 
-      // Create or resume audio context with cross-browser compatibility
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-        const newContext = createAudioContext()
-        if (!newContext) {
-          throw new Error('Failed to create AudioContext')
+        // Create or resume audio context with cross-browser compatibility
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+          const newContext = createAudioContext()
+          if (!newContext) {
+            throw new Error('No se pudo iniciar el audio del navegador.')
+          }
+          audioContextRef.current = newContext
         }
-        audioContextRef.current = newContext
+
+        const audioContext = audioContextRef.current
+
+        // Resume if suspended. Without a user gesture Chrome leaves resume()
+        // pending instead of rejecting, so don't wait on it forever.
+        if (audioContext.state === 'suspended') {
+          await Promise.race([
+            audioContext.resume(),
+            new Promise(resolve => setTimeout(resolve, RESUME_TIMEOUT_MS)),
+          ])
+        }
+
+        // Verify context is running
+        if (audioContext.state !== 'running') {
+          throw new AudioNeedsGestureError()
+        }
+
+        // Clean up old analyser and source if they exist
+        if (analyserRef.current) {
+          analyserRef.current.disconnect()
+        }
+        if (sourceRef.current) {
+          sourceRef.current.disconnect()
+        }
+
+        // Create analyser node for pitch detection
+        const analyser = audioContext.createAnalyser()
+        analyser.fftSize = 4096 // Higher for better frequency resolution
+        analyser.smoothingTimeConstant = 0.8
+        analyserRef.current = analyser
+
+        // Connect microphone to analyser
+        const source = audioContext.createMediaStreamSource(stream)
+        source.connect(analyser)
+        sourceRef.current = source
+
+        // Note: We don't connect analyser to destination to avoid feedback
+
+        setState({
+          isActive: true,
+          hasPermission: true,
+          isRequesting: false,
+          error: null,
+          sampleRate: audioContext.sampleRate,
+        })
+      } catch (err) {
+        // Don't leave the mic open when the audio side failed.
+        stream?.getTracks().forEach(track => track.stop())
+        if (streamRef.current === stream) streamRef.current = null
+
+        const needsGesture = err instanceof AudioNeedsGestureError
+        setState(prev => ({
+          ...prev,
+          isActive: false,
+          // The mic was granted; only the audio is waiting for a tap.
+          hasPermission: needsGesture,
+          isRequesting: false,
+          error: needsGesture ? err.message : getUserMediaErrorMessage(err),
+        }))
       }
-
-      const audioContext = audioContextRef.current
-
-      // Resume if suspended
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-      }
-
-      // Verify context is running
-      if (audioContext.state !== 'running') {
-        throw new Error(`AudioContext is in ${audioContext.state} state`)
-      }
-
-      // Clean up old analyser and source if they exist
-      if (analyserRef.current) {
-        analyserRef.current.disconnect()
-      }
-      if (sourceRef.current) {
-        sourceRef.current.disconnect()
-      }
-
-      // Create analyser node for pitch detection
-      const analyser = audioContext.createAnalyser()
-      analyser.fftSize = 4096 // Higher for better frequency resolution
-      analyser.smoothingTimeConstant = 0.8
-      analyserRef.current = analyser
-
-      // Connect microphone to analyser
-      const source = audioContext.createMediaStreamSource(stream)
-      source.connect(analyser)
-      sourceRef.current = source
-
-      // Note: We don't connect analyser to destination to avoid feedback
-
-      setState({
-        isActive: true,
-        hasPermission: true,
-        isRequesting: false,
-        error: null,
-        sampleRate: audioContext.sampleRate,
-      })
-    } catch (err) {
-      const errorMessage = getUserMediaErrorMessage(err)
-      
-      setState(prev => ({
-        ...prev,
-        isActive: false,
-        hasPermission: false,
-        isRequesting: false,
-        error: errorMessage,
-      }))
     }
+
+    startingRef.current = run().finally(() => {
+      startingRef.current = null
+    })
+    return startingRef.current
   }, [state.isActive])
 
   const stop = useCallback(() => {

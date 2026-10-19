@@ -10,6 +10,8 @@ import type {
 import { DEFAULT_CALIBRATION } from '~/types/tuner'
 
 export interface UseTunerReturn extends TunerState {
+  /** Microphone access is being requested */
+  isRequesting: boolean
   /** Start listening for pitch */
   start: () => Promise<void>
   /** Stop listening */
@@ -204,7 +206,7 @@ export function useTuner(): UseTunerReturn {
         isListening: false,
         pitch: null,
         error: audioContext?.state === 'suspended'
-          ? 'Audio processing suspended. Please interact with the page to resume.'
+          ? 'El audio quedó en pausa. Tocá "Activar micrófono" para seguir afinando.'
           : null,
       }))
       return
@@ -240,7 +242,7 @@ export function useTuner(): UseTunerReturn {
           isListening: false,
           pitch: null,
           error: audioContext.state === 'suspended'
-            ? 'Audio processing suspended. Please interact with the page to resume.'
+            ? 'El audio quedó en pausa. Tocá "Activar micrófono" para seguir afinando.'
             : null,
         }))
         return
@@ -317,6 +319,7 @@ export function useTuner(): UseTunerReturn {
 
   return {
     ...state,
+    isRequesting: microphone.isRequesting,
     start,
     stop,
     toggle,

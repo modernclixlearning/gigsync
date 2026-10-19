@@ -83,7 +83,7 @@ export async function getUserMedia(constraints: MediaStreamConstraints): Promise
  */
 export function getUserMediaErrorMessage(error: unknown): string {
   if (!(error instanceof Error)) {
-    return 'Failed to access microphone'
+    return 'No se pudo acceder al micrófono.'
   }
 
   const errorName = (error as any).name || error.constructor.name
@@ -91,28 +91,28 @@ export function getUserMediaErrorMessage(error: unknown): string {
   switch (errorName) {
     case 'NotAllowedError':
     case 'PermissionDeniedError':
-      return 'Microphone access denied. Please allow microphone access in your browser settings.'
+      return 'El micrófono está bloqueado para GigSync. En Android: Chrome → Configuración → Configuración de sitios → Micrófono → permitir playgigsync.vercel.app. Después tocá "Activar micrófono".'
     
     case 'NotFoundError':
     case 'DevicesNotFoundError':
-      return 'No microphone found. Please connect a microphone and try again.'
+      return 'No se encontró ningún micrófono. Conectá uno y probá de nuevo.'
     
     case 'NotReadableError':
     case 'TrackStartError':
-      return 'Microphone is already in use by another application. Please close other applications using the microphone.'
+      return 'Otra app está usando el micrófono. Cerrala y probá de nuevo.'
     
     case 'OverconstrainedError':
     case 'ConstraintNotSatisfiedError':
-      return 'Microphone does not support the required settings. Please try a different microphone.'
+      return 'El micrófono no admite la configuración necesaria. Probá con otro micrófono.'
     
     case 'SecurityError':
-      return 'Microphone access blocked for security reasons. Please use HTTPS or localhost.'
+      return 'El navegador bloqueó el micrófono por seguridad (hace falta HTTPS).'
     
     case 'TypeError':
-      return 'Invalid microphone settings. Please check your browser configuration.'
+      return 'La configuración del micrófono no es válida. Revisá la configuración del navegador.'
     
     default:
-      return error.message || 'Failed to access microphone'
+      return error.message || 'No se pudo acceder al micrófono.'
   }
 }
 

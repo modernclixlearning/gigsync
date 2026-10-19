@@ -59,7 +59,7 @@ describe('useMicrophone', () => {
     
     const { result } = renderHook(() => useMicrophone())
 
-    expect(result.current.error).toContain('Web Audio API is not supported')
+    expect(result.current.error).toContain('no puede procesar audio')
   })
 
   it('should check getUserMedia support on mount', () => {
@@ -68,7 +68,7 @@ describe('useMicrophone', () => {
     
     const { result } = renderHook(() => useMicrophone())
 
-    expect(result.current.error).toContain('Microphone access is not supported')
+    expect(result.current.error).toContain('no permite usar el micrófono')
   })
 
   it('should start microphone successfully', async () => {
@@ -229,7 +229,71 @@ describe('useMicrophone', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.error).toContain('suspended')
+      expect(result.current.error).toContain('en pausa')
     })
+  })
+
+  it('should rebuild the audio when started again after the context was suspended', async () => {
+    const { result } = renderHook(() => useMicrophone())
+
+    await act(async () => {
+      await result.current.start()
+    })
+    const firstTrack = mockStream.getTracks()[0]
+    const stopFirstTrackSpy = vi.spyOn(firstTrack, 'stop')
+
+    // The phone paused the page's audio while the mic was "active"
+    mockAudioContext.state = 'suspended'
+    const secondStream = new MockMediaStream([new MockMediaStreamTrack() as unknown as MediaStreamTrack])
+    vi.mocked(webAudioUtils.getUserMedia).mockResolvedValue(secondStream as any)
+
+    await act(async () => {
+      await result.current.start()
+    })
+
+    expect(webAudioUtils.getUserMedia).toHaveBeenCalledTimes(2)
+    expect(stopFirstTrackSpy).toHaveBeenCalled()
+    expect(mockAudioContext.state).toBe('running')
+    expect(result.current.isActive).toBe(true)
+    expect(result.current.error).toBe(null)
+  })
+
+  it('should ask for a tap and release the mic when the audio cannot resume without a gesture', async () => {
+    vi.useFakeTimers()
+    try {
+      const blockedContext = new MockAudioContext()
+      blockedContext.state = 'suspended'
+      // Chrome without a user gesture: resume() never settles
+      vi.spyOn(blockedContext, 'resume').mockReturnValue(new Promise<void>(() => {}))
+      vi.mocked(webAudioUtils.createAudioContext).mockReturnValue(blockedContext as any)
+      const stopTrackSpy = vi.spyOn(mockStream.getTracks()[0], 'stop')
+
+      const { result } = renderHook(() => useMicrophone())
+
+      await act(async () => {
+        const starting = result.current.start()
+        await vi.advanceTimersByTimeAsync(1000)
+        await starting
+      })
+
+      expect(result.current.isActive).toBe(false)
+      expect(result.current.isRequesting).toBe(false)
+      expect(result.current.hasPermission).toBe(true)
+      expect(result.current.error).toContain('Activar micrófono')
+      expect(stopTrackSpy).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('should share one request when start is called twice at once', async () => {
+    const { result } = renderHook(() => useMicrophone())
+
+    await act(async () => {
+      await Promise.all([result.current.start(), result.current.start()])
+    })
+
+    expect(webAudioUtils.getUserMedia).toHaveBeenCalledTimes(1)
+    expect(result.current.isActive).toBe(true)
   })
 })

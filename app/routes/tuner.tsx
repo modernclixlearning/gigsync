@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '~/lib/utils'
 import { useTuner } from '~/hooks/useTuner'
 import { TunerNeedle } from '~/components/tuner/TunerNeedle'
@@ -21,9 +21,25 @@ function TunerPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('needle')
 
-  const handleStartStop = async () => {
-    await tuner.toggle()
-  }
+  // Opening the tuner already means you want the mic: start listening
+  // without a Start button, and again when the app comes back to the front.
+  // The mic is released when you leave the page (useMicrophone's unmount).
+  const [hasTriedStart, setHasTriedStart] = useState(false)
+  const startRef = useRef(tuner.start)
+  startRef.current = tuner.start
+  useEffect(() => {
+    const startListening = () => {
+      void startRef.current().finally(() => setHasTriedStart(true))
+    }
+    startListening()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') startListening()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  const needsAction = !tuner.isListening && !tuner.isRequesting && (hasTriedStart || !!tuner.error)
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#101322]">
@@ -53,13 +69,37 @@ function TunerPage() {
         {!showSettings ? (
           /* Main Tuner View */
           <div className="flex flex-col items-center py-6 space-y-6">
-            {/* Error State */}
-            {tuner.error && (
-              <div className="w-full max-w-md p-4 rounded-lg bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-sm">
-                <p className="font-medium">Microphone access required</p>
-                <p className="mt-1 text-rose-600 dark:text-rose-400">{tuner.error}</p>
+            {/* Mic status: listening, asking, or what to do to get it going */}
+            {tuner.isListening ? (
+              <p
+                role="status"
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                Escuchando
+              </p>
+            ) : tuner.isRequesting ? (
+              <p role="status" className="text-sm text-slate-500 dark:text-slate-400">
+                Activando el micrófono…
+              </p>
+            ) : needsAction ? (
+              <div
+                role="alert"
+                className="w-full max-w-md p-4 rounded-lg bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-sm"
+              >
+                <p className="font-medium">El afinador necesita el micrófono</p>
+                {tuner.error && (
+                  <p className="mt-1 text-rose-600 dark:text-rose-400">{tuner.error}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void tuner.start()}
+                  className="mt-3 w-full px-4 py-3 rounded-xl text-base font-semibold bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30"
+                >
+                  Activar micrófono
+                </button>
               </div>
-            )}
+            ) : null}
 
             {/* View Mode Toggle */}
             <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -119,22 +159,6 @@ function TunerPage() {
               isActive={tuner.isListening}
               className="max-w-md"
             />
-
-            {/* Start/Stop Button */}
-            <button
-              onClick={handleStartStop}
-              className={cn(
-                'w-full max-w-xs px-8 py-4 rounded-xl',
-                'text-lg font-semibold',
-                'transition-all duration-200',
-                'shadow-lg',
-                tuner.isListening
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30'
-                  : 'bg-primary hover:bg-primary/90 text-white shadow-primary/30'
-              )}
-            >
-              {tuner.isListening ? 'Stop Tuner' : 'Start Tuner'}
-            </button>
 
             {/* Selected Preset Display */}
             {tuner.preset && (
