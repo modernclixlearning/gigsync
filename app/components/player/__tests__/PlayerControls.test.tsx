@@ -194,11 +194,11 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} onToggleSettings={onToggleSettings} />
     )
 
-    await user.click(screen.getByRole('button', { name: /show settings/i }))
+    await user.click(screen.getByRole('button', { name: 'Ajustes' }))
     expect(onToggleSettings).toHaveBeenCalledTimes(1)
 
     rerender(<PlayerControls {...defaultProps} isSettingsOpen onToggleSettings={onToggleSettings} />)
-    expect(screen.getByRole('button', { name: /hide settings/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Cerrar ajustes' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('restarts the song from the top', async () => {
