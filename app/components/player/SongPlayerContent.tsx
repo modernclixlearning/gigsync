@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, FilePenLine } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '~/lib/utils'
 import {
@@ -98,7 +98,22 @@ export function SongPlayerContent({
     setIsPanelOpen(true)
   }, [])
   const closePanel = useCallback(() => setIsPanelOpen(false), [])
-  const togglePanel = useCallback(() => setIsPanelOpen((open) => !open), [])
+
+  // Two ways in, one per job: «Editar» in the header (the song's content) and
+  // the sliders in the bottom bar (how it's shown while playing, and Config).
+  // Each lights up only for its own part; pressing the other switches tab.
+  const lastViewTabRef = useRef<Exclude<PlayerPanelTab, 'edit'>>('adjust')
+  if (panelTab !== 'edit') lastViewTabRef.current = panelTab
+  const isEditPanelOpen = isPanelOpen && panelTab === 'edit'
+  const isViewPanelOpen = isPanelOpen && panelTab !== 'edit'
+  const toggleEditPanel = useCallback(
+    () => (isEditPanelOpen ? closePanel() : openPanel('edit')),
+    [isEditPanelOpen, closePanel, openPanel]
+  )
+  const toggleViewPanel = useCallback(
+    () => (isViewPanelOpen ? closePanel() : openPanel(lastViewTabRef.current)),
+    [isViewPanelOpen, closePanel, openPanel]
+  )
 
   const smartScrollContextWindowPercent =
     settings?.player.smartScrollContextWindow ?? 50
@@ -715,19 +730,21 @@ export function SongPlayerContent({
             )}
             <button
               type="button"
-              onClick={() => (isPanelOpen && panelTab === 'edit' ? closePanel() : openPanel('edit'))}
+              onClick={toggleEditPanel}
               aria-label="Editar canción"
-              title="Editar canción"
+              aria-pressed={isEditPanelOpen}
+              title={isEditPanelOpen ? 'Cerrar edición' : 'Editar la canción: letra, acordes, importar, grabar'}
               className={cn(
-                'p-2 rounded-lg transition-colors',
-                isPanelOpen && panelTab === 'edit'
-                  ? 'text-indigo-500 dark:text-indigo-400'
+                'flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                isEditPanelOpen
+                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                   : isSetlistMode
                     ? 'text-slate-400 hover:text-white'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
-              <Settings className="w-5 h-5" />
+              <FilePenLine className="w-5 h-5" />
+              <span className="hidden sm:inline">Editar</span>
             </button>
           </div>
         </div>
@@ -969,8 +986,8 @@ export function SongPlayerContent({
         onToggleMetronomeSound={player.toggleMetronomeSound}
         chordSoundEnabled={player.state.chordSoundEnabled}
         onToggleChordSound={player.toggleChordSound}
-        isSettingsOpen={isPanelOpen}
-        onToggleSettings={togglePanel}
+        isSettingsOpen={isViewPanelOpen}
+        onToggleSettings={toggleViewPanel}
         onRestart={handleRestart}
         isCountInOn={isCountInOn}
         onToggleCountIn={handleToggleCountIn}

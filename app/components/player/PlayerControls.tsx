@@ -32,7 +32,7 @@ interface PlayerControlsProps {
   /** Play the chords while the song runs (smart autoscroll only, like the metronome). */
   chordSoundEnabled?: boolean
   onToggleChordSound?: () => void
-  /** Whether the side panel (Ajustes / Editar / Config) is open. */
+  /** Whether the side panel is open on Ajustes or Config (Editar has its own button in the header). */
   isSettingsOpen: boolean
   onToggleSettings: () => void
   /** Back to the top of the song (keeps playing if it was playing). */
@@ -230,9 +230,9 @@ export function PlayerControls({
 
           <button
             onClick={onToggleSettings}
-            aria-label={isSettingsOpen ? 'Hide settings' : 'Show settings'}
+            aria-label={isSettingsOpen ? 'Cerrar ajustes' : 'Ajustes'}
             aria-pressed={isSettingsOpen}
-            title={isSettingsOpen ? 'Cerrar panel' : 'Ajustes, edición y config'}
+            title={isSettingsOpen ? 'Cerrar ajustes' : 'Ajustes de la vista y configuración'}
             className={cn(
               'p-3 rounded-xl transition-colors',
               isSettingsOpen
