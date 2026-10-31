@@ -27,8 +27,14 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
 6. **Parar**. Si parás un poco antes de la barra de compás, ese último compás igual cuenta.
 7. Revisá la toma en el carrete:
    - **Reproducir** / **Parar**: escuchás la toma con el click y el cursor.
-   - **Clic en una nota**: la borra (por ejemplo, una nota que se te escapó).
-   - **Cuantizar** a negras, corcheas o semicorcheas: lleva las notas a la grilla.
+   - **Grilla**: negras, corcheas, tresillos o semicorcheas. Dibuja las subdivisiones y todo lo que editás se ajusta a
+     ella.
+   - **Mover**: arrastrá una nota (a los costados cambia el momento; arriba/abajo, la nota). Suena al agarrarla.
+   - **Estirar o acortar**: arrastrá el borde derecho de la nota.
+   - **Agregar**: doble clic en un lugar vacío crea una nota de un paso de grilla; después la estirás.
+   - **Borrar**: doble clic en la nota, o elegila con un clic y apretá Supr.
+   - **Cuantizar**: lleva todas las notas a la grilla.
+   - **+ Compás / − Compás**: alarga la toma al final para dibujar más allá de lo que tocaste (o quita compases vacíos).
    - **Deshacer**: vuelve atrás la última corrección.
 
    Cada corrección vuelve a armar los acordes y el texto de compases.

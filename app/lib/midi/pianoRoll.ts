@@ -34,6 +34,36 @@ export function pitchRange(notes: NoteEvent[], minSpan = 24): { low: number; hig
   return { low, high: Math.min(127, high) }
 }
 
+/** Nearest multiple of `step` (or the one at/below, with `floor`). */
+export function snapTime(time: number, step: number, floor = false): number {
+  if (!(step > 0)) return time
+  return (floor ? Math.floor(time / step + 1e-9) : Math.round(time / step)) * step
+}
+
+/**
+ * A note dragged by `deltaSeconds` / `deltaPitch`: its start lands on the grid,
+ * it keeps its length, and it stays within [0, ∞) and the pitch range.
+ */
+export function moveNote(
+  note: NoteEvent,
+  deltaSeconds: number,
+  deltaPitch: number,
+  step: number,
+  range: { low: number; high: number },
+): NoteEvent {
+  return {
+    ...note,
+    startTimeSeconds: Math.max(0, snapTime(note.startTimeSeconds + deltaSeconds, step)),
+    pitchMidi: Math.min(range.high, Math.max(range.low, note.pitchMidi + deltaPitch)),
+  }
+}
+
+/** A note whose end was dragged by `deltaSeconds`: the end lands on the grid, at least one step after the start. */
+export function resizeNote(note: NoteEvent, deltaSeconds: number, step: number): NoteEvent {
+  const end = snapTime(note.startTimeSeconds + note.durationSeconds + deltaSeconds, step)
+  return { ...note, durationSeconds: Math.max(step, end - note.startTimeSeconds) }
+}
+
 /**
  * Snap note starts and ends to the nearest multiple of `stepSeconds`; a note
  * never ends up shorter than one step.

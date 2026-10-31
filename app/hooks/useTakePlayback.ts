@@ -29,6 +29,8 @@ export interface UseTakePlaybackReturn {
   stop: () => void
   /** Seconds into the take being heard right now, or null when stopped. */
   position: () => number | null
+  /** Play one short note (picking or drawing a note in the piano roll). */
+  audition: (pitch: number) => void
 }
 
 interface Playback {
@@ -50,6 +52,7 @@ function outputLatency(): number {
 export function useTakePlayback(): UseTakePlaybackReturn {
   const [playing, setPlaying] = useState(false)
   const playbackRef = useRef<Playback | null>(null)
+  const auditionRef = useRef<Tone.PolySynth | null>(null)
 
   const stop = useCallback(() => {
     const playback = playbackRef.current
@@ -111,7 +114,27 @@ export function useTakePlayback(): UseTakePlaybackReturn {
     return Tone.getContext().currentTime - outputLatency() - playback.origin
   }, [])
 
-  useEffect(() => stop, [stop])
+  const audition = useCallback((pitch: number) => {
+    if (Tone.getContext().state !== 'running') void Tone.start().catch(() => undefined)
+    if (!auditionRef.current) {
+      const synth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.005, decay: 0.2, sustain: 0.3, release: 0.4 },
+      }).toDestination()
+      synth.volume.value = -10
+      auditionRef.current = synth
+    }
+    auditionRef.current.triggerAttackRelease(Tone.Frequency(pitch, 'midi').toFrequency(), 0.25, Tone.immediate(), 0.7)
+  }, [])
 
-  return { playing, play, stop, position }
+  useEffect(
+    () => () => {
+      stop()
+      auditionRef.current?.dispose()
+      auditionRef.current = null
+    },
+    [stop],
+  )
+
+  return { playing, play, stop, position, audition }
 }
