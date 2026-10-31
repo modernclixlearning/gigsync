@@ -22,11 +22,11 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
    - **Escuchar el teclado en el navegador**: el MiniLab no tiene sonido propio, así que GigSync toca lo que apretás con
      un sintetizador simple. Apagalo si ya lo oís por otro lado (por ejemplo, Ableton con el monitoreo activo).
 4. Antes de grabar podés probar: el recuadro grande muestra el acorde que estás apretando.
-5. **Grabar** → precuenta → tocá con el click. Las notas van apareciendo en el carrete MIDI (piano roll), con el
+5. **Grabar** (arriba a la derecha, junto a **Reproducir** y **Parar**) → precuenta → tocá con el click. Las notas van apareciendo en el carrete MIDI (piano roll), con el
    cursor en rojo, la grilla de compases y el acorde de cada compás arriba.
 6. **Parar**. Si parás un poco antes de la barra de compás, ese último compás igual cuenta.
 7. Revisá la toma en el carrete:
-   - **Escuchar la toma**: la reproduce con el click y el cursor.
+   - **Reproducir** / **Parar**: escuchás la toma con el click y el cursor.
    - **Clic en una nota**: la borra (por ejemplo, una nota que se te escapó).
    - **Cuantizar** a negras, corcheas o semicorcheas: lleva las notas a la grilla.
    - **Deshacer**: vuelve atrás la última corrección.

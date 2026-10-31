@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MIDIRecordPanel, defaultKeyboardInput } from '../MIDIRecordPanel'
 
 describe('defaultKeyboardInput', () => {
@@ -53,5 +53,12 @@ describe('MIDIRecordPanel', () => {
     expect(keySelect).toHaveValue('Am')
     fireEvent.change(keySelect, { target: { value: 'D' } })
     expect(screen.getByLabelText('Posición')).toHaveTextContent('D · 4/4 · 90 BPM')
+
+    // Play, Stop and Record sit together; with no take yet only Record is available.
+    const transport = screen.getByRole('group', { name: 'Transporte' })
+    expect(within(transport).getAllByRole('button').map((b) => b.textContent)).toEqual(['Reproducir', 'Parar', 'Grabar'])
+    expect(within(transport).getByRole('button', { name: 'Reproducir' })).toBeDisabled()
+    expect(within(transport).getByRole('button', { name: 'Parar' })).toBeDisabled()
+    expect(within(transport).getByRole('button', { name: 'Grabar' })).toBeEnabled()
   })
 })
