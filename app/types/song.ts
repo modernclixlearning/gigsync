@@ -46,6 +46,8 @@ export interface SongPlayerState {
   isEditMode: boolean
   fontSize: number
   metronomeSoundEnabled: boolean
+  /** Play the song's chords (simple synth) while the player runs. */
+  chordSoundEnabled: boolean
   /** Consecutive lyric lines merged into one reading block (read mode only). 1 = each original line its own block. */
   linesPerBlock: number
   /** Max width (px) of the centered reading column — smaller = more side margin. Shared by the lyrics and the footer controls. */

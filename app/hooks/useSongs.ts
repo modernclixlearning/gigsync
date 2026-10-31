@@ -272,6 +272,7 @@ export interface UseSongPlayerReturn {
   toggleChords: () => void
   setFontSize: (size: number) => void
   toggleMetronomeSound: () => void
+  toggleChordSound: () => void
   setChordFontSize: (size: number) => void
   setBeatHighlightMode: (mode: BeatHighlightMode) => void
   setBeatHighlightTextColor: (color: string) => void
@@ -298,6 +299,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     isEditMode: false,
     fontSize: 32,
     metronomeSoundEnabled: false,
+    chordSoundEnabled: false,
     linesPerBlock: 2,
     contentWidth: 896,
     chordFontSize: 26,
@@ -410,6 +412,10 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setState((prev) => ({ ...prev, metronomeSoundEnabled: !prev.metronomeSoundEnabled }))
   }, [])
 
+  const toggleChordSound = useCallback(() => {
+    setState((prev) => ({ ...prev, chordSoundEnabled: !prev.chordSoundEnabled }))
+  }, [])
+
   const setChordFontSize = useCallback((size: number) => {
     setState((prev) => ({ ...prev, chordFontSize: Math.max(12, Math.min(80, Math.round(size))) }))
   }, [])
@@ -476,6 +482,7 @@ export function useSongPlayer(): UseSongPlayerReturn {
     setLinesPerBlock,
     setContentWidth,
     toggleMetronomeSound,
+    toggleChordSound,
     setChordFontSize,
     setBeatHighlightMode,
     setBeatHighlightTextColor,

@@ -42,30 +42,10 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
-import type { TimelineElement } from '~/types/timeline'
+import type { SongTimeline, TimelineElement } from '~/types/timeline'
+import { chordCellBeats } from '~/lib/timeline/chordEvents'
 
-/**
- * Beats of each chord cell of a timeline element, in the order they are drawn
- * (an instrumental's ×N repeats included). Lyric lines use their explicit
- * beats when every chord has them, otherwise the line is split evenly.
- */
-export function chordCellBeats(element: TimelineElement, beatsPerBar: number): number[] {
-  const content = element.content
-  if (!content || !('type' in content)) return []
-  if (content.type === 'instrumental') {
-    const { chordBars, repeatCount } = content.section
-    const base = chordBars.map((b) => b.beats ?? beatsPerBar)
-    return Array.from({ length: repeatCount ?? 1 }, () => base).flat()
-  }
-  if (content.type === 'chords-only') return content.chordBars.map((b) => b.beats ?? beatsPerBar)
-  if (content.type === 'lyric') {
-    const { chords } = content
-    if (chords.length === 0) return []
-    if (chords.every((c) => c.beats !== undefined)) return chords.map((c) => c.beats!)
-    return chords.map(() => element.durationBeats / chords.length)
-  }
-  return []
-}
+export { chordCellBeats }
 
 /**
  * Chord cell playing `elapsed` beats into its element, by each chord's own
@@ -202,6 +182,8 @@ export interface UseSmartAutoScrollReturn {
    * Null when timeline is not yet ready.
    */
   lineIndexToElementId: Map<number, string> | null
+  /** The song's timeline (null until computed). */
+  timeline: SongTimeline | null
 }
 
 /** Default duration for smooth scroll animation in milliseconds */
@@ -462,6 +444,7 @@ export function useSmartAutoScroll({
     reset: bpmSync.reset,
     seekToBeat: bpmSync.seekToBeat,
     seekToElement,
-    lineIndexToElementId: timeline.timeline?.lineIndexToElementId ?? null
+    lineIndexToElementId: timeline.timeline?.lineIndexToElementId ?? null,
+    timeline: timeline.timeline
   }
 }

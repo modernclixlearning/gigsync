@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  Piano,
   RotateCcw,
   ScrollText,
   SkipBack,
@@ -28,6 +29,9 @@ interface PlayerControlsProps {
   onResetTranspose: () => void
   metronomeSoundEnabled: boolean
   onToggleMetronomeSound: () => void
+  /** Play the chords while the song runs (smart autoscroll only, like the metronome). */
+  chordSoundEnabled?: boolean
+  onToggleChordSound?: () => void
   /** Whether the side panel (Ajustes / Editar / Config) is open. */
   isSettingsOpen: boolean
   onToggleSettings: () => void
@@ -55,6 +59,8 @@ export function PlayerControls({
   onResetTranspose,
   metronomeSoundEnabled,
   onToggleMetronomeSound,
+  chordSoundEnabled = false,
+  onToggleChordSound,
   isSettingsOpen,
   onToggleSettings,
   onRestart,
@@ -130,6 +136,23 @@ export function PlayerControls({
               ) : (
                 <VolumeX className="w-5 h-5" />
               )}
+            </button>
+          )}
+
+          {autoScrollEnabled && onToggleChordSound && (
+            <button
+              onClick={onToggleChordSound}
+              aria-label="Escuchar acordes"
+              aria-pressed={chordSoundEnabled}
+              className={cn(
+                'p-3 rounded-xl transition-colors',
+                chordSoundEnabled
+                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              )}
+              title={chordSoundEnabled ? 'Silenciar acordes' : 'Escuchar los acordes al reproducir'}
+            >
+              <Piano className="w-5 h-5" />
             </button>
           )}
         </div>
