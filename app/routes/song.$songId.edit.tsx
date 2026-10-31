@@ -6,6 +6,7 @@ import { useSong, useSongLibrary } from '~/hooks/useSongs'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
 import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
+import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
 import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, UpdateSongInput, ChordProSong } from '~/types'
@@ -24,6 +25,7 @@ function SongEditPage() {
   
   const [showImporter, setShowImporter] = useState(false)
   const [showAudioAnalysis, setShowAudioAnalysis] = useState(false)
+  const [showMIDIRecord, setShowMIDIRecord] = useState(false)
   const [formData, setFormData] = useState<CreateSongInput>({
     title: '',
     artist: '',
@@ -117,7 +119,7 @@ function SongEditPage() {
     setShowImporter(false)
   }
 
-  // Detected chords are appended as a new section — existing lyrics/chords are
+  // Detected or recorded chords are appended as a new section — existing lyrics/chords are
   // never rewritten. Changes only persist when the user saves the form.
   const handleApplyAnalysis = ({ bpm, section }: AudioAnalysisApply) => {
     setFormData((prev) => ({
@@ -126,6 +128,7 @@ function SongEditPage() {
       lyrics: section ? appendSection(prev.lyrics ?? '', section) : prev.lyrics
     }))
     setShowAudioAnalysis(false)
+    setShowMIDIRecord(false)
   }
 
   if (isLoading && !isNewSong) {
@@ -208,6 +211,29 @@ function SongEditPage() {
                 )}
               >
                 Detectar acordes y BPM desde audio
+              </button>
+            )}
+
+            {/* Chords played on a MIDI keyboard against a click */}
+            {showMIDIRecord ? (
+              <MIDIRecordPanel
+                timeSignature={formData.timeSignature ?? '4/4'}
+                currentBpm={formData.bpm ?? 120}
+                onApply={handleApplyAnalysis}
+                onClose={() => setShowMIDIRecord(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setShowMIDIRecord(true)}
+                className={cn(
+                  'w-full mb-4 px-4 py-3 rounded-xl',
+                  'bg-slate-100 dark:bg-slate-800',
+                  'text-slate-600 dark:text-slate-400',
+                  'hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'transition-colors text-sm font-medium'
+                )}
+              >
+                Grabar acordes desde teclado MIDI
               </button>
             )}
 
