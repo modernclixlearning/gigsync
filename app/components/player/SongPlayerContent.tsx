@@ -10,12 +10,15 @@ import {
   defaultPrefersFlats,
   isAmbiguousPitch,
   displayChordSpelling,
+  transposeChord,
 } from '~/lib/chordpro'
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSetlist } from '~/hooks/useSetlist'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { useMIDITransportSync } from '~/hooks/useMIDITransportSync'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
+import { useChordPlayback } from '~/hooks/useChordPlayback'
+import { chordEvents } from '~/lib/timeline/chordEvents'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
 import { ChordOverlay } from '~/components/player/ChordOverlay'
@@ -441,6 +444,24 @@ export function SongPlayerContent({
     player.state.transposePreferFlats ??
     (targetPitchIndex === -1 ? false : defaultPrefersFlats(targetPitchIndex))
   const transposeDisplay = getTransposedKeyName(song.key, player.state.transpose, effectiveUseFlats)
+  // The chords themselves, played along on the same Transport as the click
+  // (only with the smart autoscroll timeline, like the metronome), as shown:
+  // transposed and spelled like the sheet.
+  const songChordEvents = useMemo(
+    () =>
+      chordEvents(autoScroll.timeline).map((event) => ({
+        ...event,
+        chord:
+          player.state.transpose !== 0 ? transposeChord(event.chord, player.state.transpose, effectiveUseFlats) : event.chord,
+      })),
+    [autoScroll.timeline, player.state.transpose, effectiveUseFlats]
+  )
+  useChordPlayback({
+    enabled: player.state.chordSoundEnabled && player.state.isAutoScrollEnabled && !autoScroll.hasFallback,
+    isPlaying: metronomeIsPlaying,
+    events: songChordEvents,
+  })
+
   const handleToggleTransposeSpelling = useCallback(() => {
     player.setTransposePreferFlats(!effectiveUseFlats)
   }, [player.setTransposePreferFlats, effectiveUseFlats])
@@ -940,6 +961,8 @@ export function SongPlayerContent({
         onResetTranspose={player.resetTranspose}
         metronomeSoundEnabled={player.state.metronomeSoundEnabled}
         onToggleMetronomeSound={player.toggleMetronomeSound}
+        chordSoundEnabled={player.state.chordSoundEnabled}
+        onToggleChordSound={player.toggleChordSound}
         isSettingsOpen={isPanelOpen}
         onToggleSettings={togglePanel}
         onRestart={handleRestart}

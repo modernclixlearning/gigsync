@@ -88,6 +88,32 @@ describe('PlayerControls', () => {
     expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument()
   })
 
+  it('offers "Escuchar acordes" next to the metronome, only with smart autoscroll', async () => {
+    const onToggleChordSound = vi.fn()
+    const { rerender } = render(
+      <PlayerControls {...defaultProps} chordSoundEnabled={false} onToggleChordSound={onToggleChordSound} />
+    )
+    expect(screen.queryByRole('button', { name: 'Escuchar acordes' })).toBeNull()
+
+    rerender(
+      <PlayerControls
+        {...defaultProps}
+        autoScrollEnabled
+        chordSoundEnabled={false}
+        onToggleChordSound={onToggleChordSound}
+      />
+    )
+    const toggle = screen.getByRole('button', { name: 'Escuchar acordes' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(toggle)
+    expect(onToggleChordSound).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <PlayerControls {...defaultProps} autoScrollEnabled chordSoundEnabled onToggleChordSound={onToggleChordSound} />
+    )
+    expect(screen.getByRole('button', { name: 'Escuchar acordes' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('should toggle play/pause when play button is clicked', async () => {
     const user = userEvent.setup()
     const onPlayPause = vi.fn()
