@@ -16,6 +16,8 @@ import type { AnalyzeProgress } from '~/lib/audioAnalysis/analyzeAudioFile'
 export interface AudioAnalysisApply {
   /** New BPM, when the user chose to apply it. */
   bpm?: number
+  /** New key, when the user chose one (MIDI recording). */
+  key?: string
   /** ChordPro section to append to the lyrics, when chosen. */
   section?: string
 }

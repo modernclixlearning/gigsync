@@ -8,6 +8,9 @@ import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
 import { SongSearchPanel } from '~/components/songs/SongSearchPanel'
 import { ChordSheetPaste } from '~/components/songs/ChordSheetPaste'
+import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
+import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
+import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
 import type { LyricsSearchResult } from '~/lib/lyrics/lrclib'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, ChordProSong } from '~/types'
@@ -21,6 +24,8 @@ function NewSongPage() {
   const { createSong } = useSongLibrary()
   
   const [showImporter, setShowImporter] = useState(false)
+  const [showAudioAnalysis, setShowAudioAnalysis] = useState(false)
+  const [showMIDIRecord, setShowMIDIRecord] = useState(false)
   const [formData, setFormData] = useState<CreateSongInput>({
     title: '',
     artist: '',
@@ -68,6 +73,18 @@ function NewSongPage() {
   const handleApplyChordSheet = (chordPro: string) => {
     if (!confirmReplaceLyrics(chordPro)) return
     setFormData((prev) => ({ ...prev, lyrics: chordPro }))
+  }
+
+  // Detected or recorded chords are appended as a new section, after whatever was typed.
+  const handleApplyAnalysis = ({ bpm, key, section }: AudioAnalysisApply) => {
+    setFormData((prev) => ({
+      ...prev,
+      bpm: bpm ?? prev.bpm,
+      key: key ?? prev.key,
+      lyrics: section ? appendSection(prev.lyrics ?? '', section) : prev.lyrics
+    }))
+    setShowAudioAnalysis(false)
+    setShowMIDIRecord(false)
   }
 
   const handleImport = (chordProSong: ChordProSong) => {
@@ -154,6 +171,53 @@ function NewSongPage() {
               />
               <ChordSheetPaste onApply={handleApplyChordSheet} />
             </div>
+
+            {/* Chord/BPM detection from a local reference track (gs#28) */}
+            {showAudioAnalysis ? (
+              <AudioAnalysisPanel
+                timeSignature={formData.timeSignature ?? '4/4'}
+                currentBpm={formData.bpm ?? 120}
+                onApply={handleApplyAnalysis}
+                onClose={() => setShowAudioAnalysis(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setShowAudioAnalysis(true)}
+                className={cn(
+                  'w-full mb-4 px-4 py-3 rounded-xl',
+                  'bg-slate-100 dark:bg-slate-800',
+                  'text-slate-600 dark:text-slate-400',
+                  'hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'transition-colors text-sm font-medium'
+                )}
+              >
+                Detectar acordes y BPM desde audio
+              </button>
+            )}
+
+            {/* Chords played on a MIDI keyboard against a click */}
+            {showMIDIRecord ? (
+              <MIDIRecordPanel
+                timeSignature={formData.timeSignature ?? '4/4'}
+                currentBpm={formData.bpm ?? 120}
+                currentKey={formData.key}
+                onApply={handleApplyAnalysis}
+                onClose={() => setShowMIDIRecord(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setShowMIDIRecord(true)}
+                className={cn(
+                  'w-full mb-4 px-4 py-3 rounded-xl',
+                  'bg-slate-100 dark:bg-slate-800',
+                  'text-slate-600 dark:text-slate-400',
+                  'hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'transition-colors text-sm font-medium'
+                )}
+              >
+                Grabar acordes desde teclado MIDI
+              </button>
+            )}
 
             {/* Song Form */}
             <SongForm

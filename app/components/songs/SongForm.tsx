@@ -16,7 +16,7 @@ interface SongFormProps {
   lyricsLock?: { locked: boolean; onToggle: () => void }
 }
 
-const KEYS = [
+export const SONG_KEYS = [
   'C', 'Cm', 'C#', 'C#m', 
   'D', 'Dm', 'D#', 'D#m', 
   'E', 'Em', 
@@ -119,7 +119,7 @@ export function SongForm({
               'focus:outline-none focus:ring-2 focus:ring-indigo-500'
             )}
           >
-            {KEYS.map((key) => (
+            {SONG_KEYS.map((key) => (
               <option key={key} value={key}>
                 {key}
               </option>

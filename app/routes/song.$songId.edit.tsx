@@ -121,10 +121,11 @@ function SongEditPage() {
 
   // Detected or recorded chords are appended as a new section — existing lyrics/chords are
   // never rewritten. Changes only persist when the user saves the form.
-  const handleApplyAnalysis = ({ bpm, section }: AudioAnalysisApply) => {
+  const handleApplyAnalysis = ({ bpm, key, section }: AudioAnalysisApply) => {
     setFormData((prev) => ({
       ...prev,
       bpm: bpm ?? prev.bpm,
+      key: key ?? prev.key,
       lyrics: section ? appendSection(prev.lyrics ?? '', section) : prev.lyrics
     }))
     setShowAudioAnalysis(false)
@@ -219,6 +220,7 @@ function SongEditPage() {
               <MIDIRecordPanel
                 timeSignature={formData.timeSignature ?? '4/4'}
                 currentBpm={formData.bpm ?? 120}
+                currentKey={formData.key}
                 onApply={handleApplyAnalysis}
                 onClose={() => setShowMIDIRecord(false)}
               />
