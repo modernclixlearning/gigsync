@@ -3,10 +3,9 @@
  *
  * Listens to MIDI Clock (0xF8) + Start/Continue/Stop (0xFA/0xFB/0xFC) from a
  * Web MIDI input (e.g. a loopMIDI port fed by REAPER / Ableton Live) and
- * exposes the DAW tempo + transport events. It does NOT own a clock: the caller
- * feeds `bpm` into the existing Tone.Transport (useBPMSync) and maps the
- * transport callbacks onto the player's play/pause, so autoscroll and the
- * metronome keep following that single transport.
+ * exposes the DAW tempo + transport events (with each event's timestamp). It
+ * does NOT touch Tone: useMIDITransportSync drives the one Tone.Transport from
+ * these callbacks, so autoscroll and the metronome keep following it.
  *
  * Opt-in: when `enabled` is false nothing is requested (no permission prompt).
  * Unsupported browser / denied permission / missing port are reported through
@@ -31,12 +30,14 @@ export interface UseMIDIClockSyncOptions {
   enabled: boolean
   /** Name of the MIDI input to follow. Null/undefined → first available input. */
   inputName?: string | null
-  /** DAW sent Start (0xFA): play from the beginning. */
-  onStart?: () => void
+  /** DAW sent Start (0xFA): play from the beginning. `timestampMs` is the event's performance.now() time. */
+  onStart?: (timestampMs: number) => void
   /** DAW sent Continue (0xFB): resume from the current position. */
-  onContinue?: () => void
+  onContinue?: (timestampMs: number) => void
   /** DAW sent Stop (0xFC). */
-  onStop?: () => void
+  onStop?: (timestampMs: number) => void
+  /** Every Timing Clock tick (0xF8), with the current tempo estimate (null until known). */
+  onClock?: (timestampMs: number, bpm: number | null) => void
 }
 
 export interface UseMIDIClockSyncReturn {
@@ -66,6 +67,7 @@ export function useMIDIClockSync({
   onStart,
   onContinue,
   onStop,
+  onClock,
 }: UseMIDIClockSyncOptions): UseMIDIClockSyncReturn {
   const [access, setAccess] = useState<MIDIAccess | null>(null)
   const [accessStatus, setAccessStatus] = useState<'idle' | 'unsupported' | 'requesting' | 'denied' | 'granted'>('idle')
@@ -73,9 +75,9 @@ export function useMIDIClockSync({
   const [bpm, setBpm] = useState<number | null>(null)
 
   const estimatorRef = useRef(createClockBpmEstimator())
-  const callbacksRef = useRef({ onStart, onContinue, onStop })
+  const callbacksRef = useRef({ onStart, onContinue, onStop, onClock })
   useEffect(() => {
-    callbacksRef.current = { onStart, onContinue, onStop }
+    callbacksRef.current = { onStart, onContinue, onStop, onClock }
   })
 
   // Request Web MIDI access only while enabled.
@@ -128,15 +130,16 @@ export function useMIDIClockSync({
     const midiEvent = event as MIDIMessageEvent
     const kind = parseMIDIRealtimeMessage(midiEvent.data)
     if (!kind) return
+    const timestamp = midiEvent.timeStamp || performance.now()
     if (kind === 'clock') {
-      const timestamp = midiEvent.timeStamp || performance.now()
       const next = estimatorRef.current.tick(timestamp)
       if (next !== null) setBpm(next)
+      callbacksRef.current.onClock?.(timestamp, estimatorRef.current.getBpm())
       return
     }
-    if (kind === 'start') callbacksRef.current.onStart?.()
-    else if (kind === 'continue') callbacksRef.current.onContinue?.()
-    else if (kind === 'stop') callbacksRef.current.onStop?.()
+    if (kind === 'start') callbacksRef.current.onStart?.(timestamp)
+    else if (kind === 'continue') callbacksRef.current.onContinue?.(timestamp)
+    else if (kind === 'stop') callbacksRef.current.onStop?.(timestamp)
   }, [])
 
   // Attach to the selected input.

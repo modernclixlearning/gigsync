@@ -97,6 +97,11 @@ export interface MidiClockSyncPreferences {
   enabled: boolean
   /** MIDI input to follow. Null → first available input. */
   inputName: string | null
+  /**
+   * Latency compensation (ms). Positive = GigSync plays earlier than the
+   * clock says. Missing in settings saved before it existed (→ 0).
+   */
+  offsetMs?: number
 }
 
 export interface AppSettings {
@@ -176,12 +181,14 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
   midiClockSync: {
     enabled: false,
     inputName: null,
+    offsetMs: 0,
   },
 }
 
 export const DEFAULT_MIDI_CLOCK_SYNC: MidiClockSyncPreferences = {
   enabled: false,
   inputName: null,
+  offsetMs: 0,
 }
 
 export const INSTRUMENTS = [

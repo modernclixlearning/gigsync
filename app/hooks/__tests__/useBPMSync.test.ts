@@ -68,6 +68,15 @@ describe('useBPMSync', () => {
     })
   })
 
+  it('leaves the Transport tempo alone when it is driven externally (MIDI Clock)', () => {
+    mockTransport.bpm.value = 123.4
+    renderHook(() =>
+      useBPMSync({ bpm: 120, timeSignature: '3/4', isPlaying: false, externalTempo: true })
+    )
+    expect(mockTransport.bpm.value).toBe(123.4)
+    expect(mockTransport.timeSignature).toEqual([3, 4])
+  })
+
   it('should update time signature when prop changes', async () => {
     const { rerender } = renderHook(
       ({ timeSignature }) =>

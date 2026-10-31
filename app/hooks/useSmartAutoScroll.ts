@@ -105,7 +105,8 @@ export interface UseSmartAutoScrollOptions extends UseSongTimelineOptions {
   /**
    * Tempo for the Tone.Transport only (e.g. the BPM followed from a DAW's MIDI
    * Clock). The timeline is laid out in beats, so it keeps using `bpm` and is
-   * not recalculated on every tempo nudge. Defaults to `bpm`.
+   * not recalculated on every tempo nudge. Defaults to `bpm`. When set, the
+   * Transport tempo is owned by whoever follows the clock and is not written here.
    */
   transportBpm?: number | null
 }
@@ -327,7 +328,9 @@ export function useSmartAutoScroll({
     bpm: transportBpm ?? bpm,
     timeSignature,
     isPlaying: isPlaying && isEnabled,
-    onBeatChange: handleBeatChange
+    onBeatChange: handleBeatChange,
+    // A DAW's clock is driving the Transport tempo (useMIDITransportSync).
+    externalTempo: transportBpm != null
   })
   
   // Measure element positions when timeline is ready (only once per timeline change)

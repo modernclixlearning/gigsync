@@ -50,6 +50,12 @@ export interface UseBPMSyncOptions {
   onBeatChange?: (beat: number) => void
   /** Optional callback fired when bar changes */
   onBarChange?: (bar: number) => void
+  /**
+   * The Transport tempo is driven from outside (MIDI Clock, see
+   * useMIDITransportSync): don't write `bpm` into it, or it would undo the
+   * phase-lock corrections.
+   */
+  externalTempo?: boolean
 }
 
 /**
@@ -98,7 +104,8 @@ export function useBPMSync({
   timeSignature,
   isPlaying,
   onBeatChange,
-  onBarChange
+  onBarChange,
+  externalTempo = false
 }: UseBPMSyncOptions): UseBPMSyncReturn {
   const [currentBeat, setCurrentBeat] = useState(0)
   const [preciseBeat, setPreciseBeat] = useState(0)
@@ -124,11 +131,11 @@ export function useBPMSync({
   
   // Initialize Transport
   useEffect(() => {
-    Tone.Transport.bpm.value = bpm
+    if (!externalTempo) Tone.Transport.bpm.value = bpm
     // Parse time signature for Tone.js (e.g., "4/4" -> [4, 4])
     const [beats, noteValue] = timeSignature.split('/').map(Number)
     Tone.Transport.timeSignature = [beats || 4, noteValue || 4]
-  }, [bpm, timeSignature])
+  }, [bpm, timeSignature, externalTempo])
   
   // Create beat tracking loop
   useEffect(() => {
