@@ -14,7 +14,7 @@ import {
 import { useSong, useSongPlayer } from '~/hooks/useSongs'
 import { useSetlist } from '~/hooks/useSetlist'
 import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
-import { useMIDIClockSync } from '~/hooks/useMIDIClockSync'
+import { useMIDITransportSync } from '~/hooks/useMIDITransportSync'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
@@ -234,9 +234,9 @@ export function SongPlayerContent({
     return Math.round(minDuration + (maxDuration - minDuration) * normalized)
   }
 
-  // External sync: follow a DAW's MIDI Clock (opt-in). It only feeds the one
-  // existing Tone.Transport (tempo) and the player's play/pause (transport
-  // events) — autoscroll and the metronome keep following that transport,
+  // External sync: follow a DAW's MIDI Clock (opt-in). It drives the one
+  // existing Tone.Transport (start time, tempo, phase lock) and the player's
+  // play/pause — autoscroll and the metronome keep following that transport,
   // there's no second clock. Callbacks read refs because they fire from MIDI
   // events, outside React's render cycle.
   const midiClockPrefs = settings?.midiClockSync ?? DEFAULT_MIDI_CLOCK_SYNC
@@ -261,9 +261,10 @@ export function SongPlayerContent({
     }
   }, [])
 
-  const midiClock = useMIDIClockSync({
+  const midiClock = useMIDITransportSync({
     enabled: midiClockPrefs.enabled,
     inputName: midiClockPrefs.inputName,
+    offsetMs: midiClockPrefs.offsetMs ?? 0,
     onStart: () => startFromMidi(true),
     onContinue: () => startFromMidi(false),
     onStop: () => {

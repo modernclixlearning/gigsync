@@ -5,6 +5,7 @@ import {
   SettingsRow,
   SettingsToggle,
   SettingsSelect,
+  SettingsStepper,
 } from './SettingsSection'
 
 export interface MidiClockSyncSettingsProps {
@@ -69,6 +70,20 @@ export function MidiClockSyncSettings({ settings, onUpdate }: MidiClockSyncSetti
                 onUpdate({ inputName: value === AUTO_INPUT_LABEL ? null : value })
               }
               disabled={midi.inputs.length === 0 && !settings.inputName}
+            />
+          </SettingsRow>
+
+          <SettingsRow
+            label="Compensación de latencia"
+            description="Si el click de GigSync suena después que el del DAW, subilo; si suena antes, bajalo."
+          >
+            <SettingsStepper
+              value={settings.offsetMs ?? 0}
+              min={-100}
+              max={200}
+              step={5}
+              onChange={(value) => onUpdate({ offsetMs: value })}
+              format={(value) => `${value > 0 ? '+' : ''}${value} ms`}
             />
           </SettingsRow>
 
