@@ -95,6 +95,8 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
   const { access, accessStatus, inputs } = useMIDIAccess(true)
   const [inputId, setInputId] = useState<string | null>(null)
   const [bpm, setBpm] = useState(clampBpm(currentBpm))
+  /** What the BPM box shows while typing; becomes `bpm` once it's a valid tempo. */
+  const [bpmText, setBpmText] = useState(String(bpm))
   const [songKey, setSongKey] = useState(currentKey || 'C')
   const [countInBars, setCountInBars] = useState(1)
   const [monitor, setMonitor] = useState(true)
@@ -332,11 +334,20 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
               <input
                 type="number"
                 aria-label="BPM de la grabación"
-                value={bpm}
+                value={bpmText}
                 min={20}
                 max={300}
                 disabled={busy}
-                onChange={(e) => setBpm(clampBpm(parseInt(e.target.value) || bpm))}
+                onChange={(e) => {
+                  // Typed freely ("9" on the way to "90" is fine); the tempo follows once it's in range.
+                  setBpmText(e.target.value)
+                  const typed = parseInt(e.target.value)
+                  if (typed >= 20 && typed <= 300) setBpm(typed)
+                }}
+                onBlur={() => setBpmText(String(bpm))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
                 className={inputClass}
               />
             </label>
