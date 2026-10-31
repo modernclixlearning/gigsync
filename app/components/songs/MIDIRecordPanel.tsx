@@ -10,12 +10,14 @@ import {
   progressionToBarLines,
 } from '~/lib/audioAnalysis/chordproOutput'
 import type { AudioAnalysisApply } from './AudioAnalysisPanel'
+import { SONG_KEYS } from './SongForm'
 
 export const RECORDED_SECTION_NAME = 'Grabación'
 
 interface MIDIRecordPanelProps {
   timeSignature: string
   currentBpm: number
+  currentKey?: string
   onApply: (changes: AudioAnalysisApply) => void
   onClose: () => void
 }
@@ -55,11 +57,12 @@ const ACCESS_MESSAGE = {
  * metronome at the song's tempo), review them as bar lines and append them to
  * the song as their own section, ready for adding the lyrics.
  */
-export function MIDIRecordPanel({ timeSignature, currentBpm, onApply, onClose }: MIDIRecordPanelProps) {
+export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply, onClose }: MIDIRecordPanelProps) {
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature)
   const { access, accessStatus, inputs } = useMIDIAccess(true)
   const [inputId, setInputId] = useState<string | null>(null)
   const [bpm, setBpm] = useState(clampBpm(currentBpm))
+  const [songKey, setSongKey] = useState(currentKey || 'C')
   const [countInBars, setCountInBars] = useState(1)
   const [monitor, setMonitor] = useState(true)
 
@@ -83,11 +86,13 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, onApply, onClose }:
   const parsedBars = parseBarText(barText, beatsPerBar)
   const chordsInvalid = parsedBars.invalidLines.length > 0 || parsedBars.lines.length === 0
   const bpmChanged = bpm !== currentBpm
+  const keyChanged = songKey !== currentKey
 
   const handleApply = () => {
     if (chordsInvalid) return
     onApply({
       bpm: bpmChanged ? bpm : undefined,
+      key: keyChanged ? songKey : undefined,
       section: buildDetectedSection(parsedBars.lines, parsedBars.barCount, cleanSectionName(sectionName)),
     })
   }
@@ -166,6 +171,22 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, onApply, onClose }:
             />
           </label>
           <label className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="block mb-1 font-medium">Tonalidad</span>
+            <select
+              aria-label="Tonalidad de la canción"
+              value={songKey}
+              disabled={busy}
+              onChange={(e) => setSongKey(e.target.value)}
+              className={inputClass}
+            >
+              {SONG_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-700 dark:text-slate-300">
             <span className="block mb-1 font-medium">Precuenta</span>
             <select
               aria-label="Compases de precuenta"
@@ -201,7 +222,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, onApply, onClose }:
                 ? `Precuenta ${recorder.countIn ?? ''}`
                 : phase === 'recording' && recorder.position
                   ? `Compás ${recorder.position.bar} · tiempo ${recorder.position.beat}`
-                  : `${timeSignature} · ${bpm} BPM`}
+                  : `${songKey} · ${timeSignature} · ${bpm} BPM`}
             </span>
           </div>
           {busy ? (
@@ -267,6 +288,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, onApply, onClose }:
               Un compás por celda ({beatsPerBar} tiempos; «G 2» = medio compás). Se agrega al final como
               sección propia; la letra existente no se toca.
               {bpmChanged ? ` También se guarda el BPM nuevo (${bpm}).` : ''}
+              {keyChanged ? ` También se guarda la tonalidad (${songKey}).` : ''}
             </p>
           </div>
           <p className="text-xs text-slate-400">
