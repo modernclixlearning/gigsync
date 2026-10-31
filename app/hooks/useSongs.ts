@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
 import * as Tone from 'tone'
 import { db } from '~/lib/db'
+import { isUntouchedNewSong } from '~/lib/newSong'
 import type {
   Song,
   CreateSongInput,
@@ -184,6 +185,23 @@ export function useSongLibrary(): UseSongLibraryReturn {
     setFilterOptions,
     filteredSongs
   }
+}
+
+/**
+ * Throws away the blank songs "Add song" created and nobody touched (see
+ * lib/newSong) — run back in the library and before creating another one.
+ * A song already put in a setlist is kept.
+ */
+export function useDiscardUntouchedNewSongs(): () => Promise<void> {
+  const queryClient = useQueryClient()
+  return useCallback(async () => {
+    const [songs, setlists] = await Promise.all([db.songs.toArray(), db.setlists.toArray()])
+    const inSetlists = new Set(setlists.flatMap((setlist) => setlist.songIds))
+    const ids = songs.filter((song) => isUntouchedNewSong(song) && !inSetlists.has(song.id)).map((song) => song.id)
+    if (ids.length === 0) return
+    await db.songs.bulkDelete(ids)
+    await queryClient.invalidateQueries({ queryKey: ['songs'] })
+  }, [queryClient])
 }
 
 // ============================================================================
