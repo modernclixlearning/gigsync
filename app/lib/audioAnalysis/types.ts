@@ -27,14 +27,16 @@ export interface TempoEstimate {
   confidence: number
 }
 
-export type ChordQuality = 'maj' | 'min' | '7' | 'm7'
+export type ChordQuality = 'maj' | 'min' | '7' | 'm7' | 'maj7' | 'm7b5' | 'dim' | 'sus4'
 
 export interface ChordMatch {
   /** Pitch class of the root, 0 = C. */
   root: number
   quality: ChordQuality
-  /** Display/ChordPro label, e.g. "Am", "G7", "Bb". */
+  /** Display/ChordPro label, e.g. "Am", "G7", "Bb", "C/E". */
   label: string
+  /** Pitch class of the bass when it's a chord tone other than the root (an inversion: C/E). */
+  bass?: number
   /** Cosine similarity between chroma and template, 0..1. */
   score: number
 }

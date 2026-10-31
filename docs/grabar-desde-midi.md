@@ -31,8 +31,11 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
 
 - El tiempo 1 es el del click (no se adivina), y cada compás se lee entero o partido al medio cuando el acorde cambia en
   el tiempo 3 (en 4/4).
-- Reconoce acordes mayores, menores, de séptima (`G7`) y menores con séptima (`Am7`). Otros (sus, maj7, dim,
-  inversiones) salen como el más parecido de esos: corregilos en el texto.
+- Reconoce acordes mayores, menores, de séptima (`G7`), menores con séptima (`Am7`), con séptima mayor (`Cmaj7`),
+  semidisminuidos (`Bm7b5`), disminuidos (`Bdim`) y suspendidos (`Dsus4`). Otros (sus2, aug, 6, 9…) salen como el más
+  parecido de esos: corregilos en el texto.
+- Las inversiones se escriben con el bajo: si la nota más grave es otra nota del acorde, sale `C/E` (E-G-C) o
+  `Am/C`. Si la usaste solo para enlazar voces y no querés la barra, borrala en el texto.
 - Tocá al menos tres notas por acorde. Un acorde tocado un poquito antes del tiempo cuenta para el compás que empieza.
 - El pedal de sustain se respeta: las notas sostenidas con el pedal cuentan hasta que lo soltás.
 - Los pads (canal MIDI 10) se ignoran.

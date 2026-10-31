@@ -36,8 +36,8 @@ const PATTERNS = {
   /** Repeat marker at end: x4, x2, etc. */
   repeatMarker: /\s*x(\d+)\s*$/i,
   
-  /** Valid chord pattern */
-  chord: /^[A-G][#b]?(?:m(?:aj|in)?|maj|M|dim|aug|\+|sus[24]?|add[249]?|[0-9]+)*(?:\/[A-G][#b]?)?$/,
+  /** Valid chord pattern: Am7, Cmaj7, Bm7b5, Bø, E°, C7#9, C/E… */
+  chord: /^[A-G][#b]?(?:m(?:aj|in)?|maj|M|dim|aug|\+|sus[24]?|add[249]?|[#b](?:5|9|11|13)|[ø°º]|[0-9]+)*(?:\/[A-G][#b]?)?$/,
 }
 
 // ============================================================================
