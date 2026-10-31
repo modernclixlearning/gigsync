@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MIDIRecordPanel, defaultKeyboardInput } from '../MIDIRecordPanel'
 
 describe('defaultKeyboardInput', () => {
@@ -31,6 +32,32 @@ describe('MIDIRecordPanel', () => {
     render(<MIDIRecordPanel timeSignature="4/4" currentBpm={120} onApply={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByRole('alert')).toHaveTextContent('Chrome o Edge')
     expect(screen.queryByRole('button', { name: /grabar/i })).toBeNull()
+  })
+
+  it('lets the BPM be typed digit by digit (90, not clamped to 20 on the way)', async () => {
+    const user = userEvent.setup()
+    const input = { id: 'k1', name: 'Minilab3 MIDI', addEventListener: vi.fn(), removeEventListener: vi.fn() }
+    const access = { inputs: new Map([['k1', input]]), addEventListener: vi.fn(), removeEventListener: vi.fn() }
+    Object.defineProperty(navigator, 'requestMIDIAccess', {
+      configurable: true,
+      value: vi.fn(() => Promise.resolve(access)),
+    })
+    render(<MIDIRecordPanel timeSignature="4/4" currentBpm={120} currentKey="C" onApply={vi.fn()} onClose={vi.fn()} />)
+    const bpm = (await screen.findByLabelText('BPM de la grabación')) as HTMLInputElement
+
+    await user.clear(bpm)
+    await user.type(bpm, '9')
+    expect(bpm.value).toBe('9')
+    await user.type(bpm, '0')
+    expect(bpm.value).toBe('90')
+    expect(screen.getByLabelText('Posición')).toHaveTextContent('90 BPM')
+
+    // Out of range: the last valid tempo stays, and the box shows it again on leaving.
+    await user.clear(bpm)
+    await user.type(bpm, '5')
+    expect(screen.getByLabelText('Posición')).toHaveTextContent('90 BPM')
+    await user.tab()
+    expect(bpm.value).toBe('90')
   })
 
   it('starts from the song key and shows the chosen one', async () => {
