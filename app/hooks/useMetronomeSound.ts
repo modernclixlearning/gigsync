@@ -1,20 +1,21 @@
 /**
  * useMetronomeSound Hook
- * Provides metronome sound synchronized with BPM sync
- * Reuses logic from useMetronome but integrates with useBPMSync
+ * Metronome click for the song player, scheduled on the shared Tone.Transport
+ * (the one useBPMSync runs and the autoscroll follows).
+ *
+ * Each click is scheduled at its exact audio time from a Transport loop, like
+ * useMetronome and useCountIn do. It must not be triggered from React state
+ * (beat changes go through Tone.Draw + a render), or the click lands whenever
+ * the main thread gets there: audibly uneven and ~lookAhead late.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import * as Tone from 'tone'
 
 export type MetronomeSoundType = 'classic' | 'woodblock' | 'sticks' | 'electronic' | 'silent'
 
 export interface UseMetronomeSoundOptions {
   enabled: boolean
-  bpm: number
-  timeSignature: string
-  currentBeatInBar: number
-  currentBar: number
   isPlaying: boolean
   sound?: MetronomeSoundType
   volume?: number
@@ -29,41 +30,36 @@ const SOUNDS: Record<MetronomeSoundType, { accent: number; normal: number }> = {
   silent: { accent: 0, normal: 0 },
 }
 
-function parseTimeSignature(signature: string): number {
-  const [beats] = signature.split('/').map(Number)
-  return beats || 4
+/**
+ * Whether a click at `ticks` falls on the first beat of a bar.
+ * `quartersPerBar` is Tone's own measure length (e.g. 4 for 4/4, 3 for 6/8).
+ */
+export function isDownbeat(ticks: number, ppq: number, quartersPerBar: number): boolean {
+  const ticksPerBar = Math.round(Math.max(1, quartersPerBar) * ppq)
+  const tickInBar = ((Math.round(ticks) % ticksPerBar) + ticksPerBar) % ticksPerBar
+  return tickInBar < ppq / 2 || ticksPerBar - tickInBar < ppq / 2
 }
 
 export function useMetronomeSound({
   enabled,
-  bpm,
-  timeSignature,
-  currentBeatInBar,
-  currentBar,
   isPlaying,
   sound = 'classic',
   volume = 0.6,
   accentFirst = true,
 }: UseMetronomeSoundOptions): void {
   const synthRef = useRef<Tone.Synth | null>(null)
-  const previousBeatInBarRef = useRef<number>(-1)
-  const isInitializedRef = useRef(false)
+  // Read from the audio callback, outside React's render cycle.
+  const optionsRef = useRef({ isPlaying, sound, accentFirst })
+  optionsRef.current = { isPlaying, sound, accentFirst }
 
-  // Initialize synth
+  // Synth + a quarter-note loop on the Transport. The loop only fires while the
+  // Transport runs, so play/pause/seek/tempo changes are followed for free.
   useEffect(() => {
-    if (!enabled) {
-      // Clean up when disabled
-      if (synthRef.current) {
-        synthRef.current.dispose()
-        synthRef.current = null
-      }
-      isInitializedRef.current = false
-      previousBeatInBarRef.current = -1
-      return
-    }
+    if (!enabled) return
 
+    let loop: Tone.Loop | null = null
     try {
-      synthRef.current = new Tone.Synth({
+      const synth = new Tone.Synth({
         oscillator: { type: 'sine' },
         envelope: {
           attack: 0.001,
@@ -72,19 +68,28 @@ export function useMetronomeSound({
           release: 0.1,
         },
       }).toDestination()
-      isInitializedRef.current = true
+      synthRef.current = synth
+
+      loop = new Tone.Loop((time: number) => {
+        const { isPlaying: playing, sound: currentSound, accentFirst: accent } = optionsRef.current
+        if (!playing) return
+        const frequencies = SOUNDS[currentSound]
+        if (frequencies.normal <= 0) return
+
+        const transport = Tone.getTransport()
+        const downbeat =
+          accent && isDownbeat(transport.getTicksAtTime(time), transport.PPQ, Number(transport.timeSignature))
+        synth.triggerAttackRelease(downbeat ? frequencies.accent : frequencies.normal, '32n', time)
+      }, '4n')
+      loop.start(0)
     } catch (error) {
       console.error('Failed to initialize metronome sound:', error)
-      isInitializedRef.current = false
     }
 
     return () => {
-      if (synthRef.current) {
-        synthRef.current.dispose()
-        synthRef.current = null
-      }
-      isInitializedRef.current = false
-      previousBeatInBarRef.current = -1
+      loop?.dispose()
+      synthRef.current?.dispose()
+      synthRef.current = null
     }
   }, [enabled])
 
@@ -94,48 +99,4 @@ export function useMetronomeSound({
       synthRef.current.volume.value = Tone.gainToDb(volume)
     }
   }, [volume, enabled])
-
-  // Play sound when beat changes
-  useEffect(() => {
-    if (!enabled || !isPlaying || !isInitializedRef.current || !synthRef.current) {
-      return
-    }
-
-    // Only play sound when beat actually changes
-    if (currentBeatInBar !== previousBeatInBarRef.current && currentBeatInBar >= 0) {
-      const beatsPerBar = parseTimeSignature(timeSignature)
-      // currentBeatInBar is 0-based (0, 1, 2, 3), so accent is on beat 0
-      const isAccent = accentFirst && currentBeatInBar === 0
-      const soundConfig = SOUNDS[sound]
-      const frequency = isAccent ? soundConfig.accent : soundConfig.normal
-
-      if (frequency > 0) {
-        try {
-          // Use Tone.now() for immediate playback
-          // triggerAttackRelease needs audio time, not Transport time
-          const now = Tone.now()
-          synthRef.current.triggerAttackRelease(frequency, '32n', now)
-        } catch (error) {
-          console.error('Failed to play metronome sound:', error)
-        }
-      }
-
-      previousBeatInBarRef.current = currentBeatInBar
-    }
-  }, [
-    enabled,
-    isPlaying,
-    currentBeatInBar,
-    currentBar,
-    timeSignature,
-    sound,
-    accentFirst,
-  ])
-
-  // Reset previous beat when stopped
-  useEffect(() => {
-    if (!isPlaying) {
-      previousBeatInBarRef.current = -1
-    }
-  }, [isPlaying])
 }

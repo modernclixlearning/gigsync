@@ -307,10 +307,6 @@ export function SongPlayerContent({
 
   useMetronomeSound({
     enabled: metronomeEnabled,
-    bpm: song.bpm || 120,
-    timeSignature: song.timeSignature || '4/4',
-    currentBeatInBar: autoScroll.currentBeatInBar,
-    currentBar: autoScroll.currentBar,
     isPlaying: metronomeIsPlaying,
     sound: 'classic',
     volume: 0.6,
