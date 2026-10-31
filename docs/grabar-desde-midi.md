@@ -8,7 +8,7 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
 ## Pasos
 
 1. Conectá el teclado por USB (por ejemplo el Arturia MiniLab 3) antes o después de abrir GigSync; aparece solo.
-2. Abrí el panel **Grabar acordes desde teclado MIDI**:
+2. Abrí **Grabar acordes desde teclado MIDI** (se abre a pantalla completa; `Esc` o la X la cierran):
    - En una canción nueva: **Agregar canción** → el botón está arriba del formulario.
    - En una canción existente: abrí la canción → **Editar canción** → abajo de todo, «Importar ChordPro, detectar desde
      audio, grabar desde teclado MIDI o borrar».
@@ -17,14 +17,22 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
 3. Revisá:
    - **Teclado**: se elige solo el que no parece un puerto virtual o de control (en el MiniLab, `Minilab3 MIDI`, no
      `DIN THRU`, `MCU/HUI` ni `ALV`; tampoco `loopMIDI Port`).
-   - **BPM**: el de la canción; si lo cambiás, al agregar la grabación también se guarda el BPM nuevo.
+   - **BPM** y **Tonalidad**: los de la canción; si los cambiás, al agregar la grabación también se guardan.
    - **Precuenta**: 0, 1 o 2 compases.
    - **Escuchar el teclado en el navegador**: el MiniLab no tiene sonido propio, así que GigSync toca lo que apretás con
      un sintetizador simple. Apagalo si ya lo oís por otro lado (por ejemplo, Ableton con el monitoreo activo).
 4. Antes de grabar podés probar: el recuadro grande muestra el acorde que estás apretando.
-5. **Grabar** → precuenta → tocá con el click. Mientras grabás se ve el compás y la progresión que se va armando.
+5. **Grabar** → precuenta → tocá con el click. Las notas van apareciendo en el carrete MIDI (piano roll), con el
+   cursor en rojo, la grilla de compases y el acorde de cada compás arriba.
 6. **Parar**. Si parás un poco antes de la barra de compás, ese último compás igual cuenta.
-7. Corregí lo que haga falta en el texto (un compás por celda; `G 2` = medio compás), poné el nombre de la sección y
+7. Revisá la toma en el carrete:
+   - **Escuchar la toma**: la reproduce con el click y el cursor.
+   - **Clic en una nota**: la borra (por ejemplo, una nota que se te escapó).
+   - **Cuantizar** a negras, corcheas o semicorcheas: lleva las notas a la grilla.
+   - **Deshacer**: vuelve atrás la última corrección.
+
+   Cada corrección vuelve a armar los acordes y el texto de compases.
+8. Corregí lo que haga falta en el texto (un compás por celda; `G 2` = medio compás), poné el nombre de la sección y
    **Agregar a la canción**. Se agrega al final, sin tocar la letra existente. Guardá la canción como siempre.
 
 ## Cómo lee los acordes

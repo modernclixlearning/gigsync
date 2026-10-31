@@ -186,6 +186,18 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+/** Below this similarity the two halves of a bar are different harmonies. */
+const HALVES_SIMILARITY = 0.85
+
+/** Cosine similarity of two chroma vectors (square-root compressed, like matchChord). */
+function chromaSimilarity(a: number[], b: number[]): number {
+  const ca = a.map(v => Math.sqrt(Math.max(0, v)))
+  const cb = b.map(v => Math.sqrt(Math.max(0, v)))
+  const dot = ca.reduce((s, v, i) => s + v * cb[i], 0)
+  const norm = Math.sqrt(ca.reduce((s, v) => s + v * v, 0)) * Math.sqrt(cb.reduce((s, v) => s + v * v, 0))
+  return norm > 1e-9 ? dot / norm : 1
+}
+
 /** Sum of the per-beat chroma for beats [from, to). */
 function sumBeats(beatChroma: number[][], from: number, to: number): number[] {
   let acc = new Array<number>(12).fill(0)
@@ -270,11 +282,16 @@ export function detectChordProgression(
       const mid = a + bpb / 2
       const first = labelCell(a, mid, bpb / 2)
       const second = labelCell(mid, b, bpb / 2)
+      const halvesFit = (first.confidence + second.confidence) / 2
+      // Two clearly different halves (C then Em) are a chord change even when
+      // one four-note chord (Cmaj7) happens to cover both.
+      const harmonyChanges =
+        chromaSimilarity(sumBeats(beatChroma, a, mid), sumBeats(beatChroma, mid, b)) < HALVES_SIMILARITY
       if (
         first.chord &&
         second.chord &&
         first.chord !== second.chord &&
-        (first.confidence + second.confidence) / 2 > whole.confidence * (1 + splitGain)
+        (halvesFit > whole.confidence * (1 + splitGain) || (harmonyChanges && halvesFit >= whole.confidence))
       ) {
         cells = [first, second]
       }

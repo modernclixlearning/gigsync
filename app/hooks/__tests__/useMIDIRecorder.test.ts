@@ -135,6 +135,9 @@ describe('useMIDIRecorder', () => {
       keys.chord([43, 55, 59, 62], ORIGIN + 5, ORIGIN + 5.9) // G (half bar)
     })
     tone.context.currentTime = ORIGIN + 5.95 // stopped just before the bar line
+    const live = result.current.peek()!
+    expect(live.time).toBeCloseTo(5.95, 2)
+    expect(live.notes).toHaveLength(16)
     act(() => result.current.stop())
 
     expect(result.current.phase).toBe('done')
@@ -142,6 +145,8 @@ describe('useMIDIRecorder', () => {
     expect(recording.durationSeconds).toBeCloseTo(5.95, 2)
     expect(recording.notes[0].startTimeSeconds).toBe(0)
     expect(recording.progression.bars.map((b) => b.cells.map((c) => c.chord))).toEqual([['C'], ['Am'], ['F', 'G']])
+    expect(recording.grid).toEqual({ bpm: 120, beatsPerBar: 4 })
+    expect(result.current.peek()).toBeNull()
   })
 
   it('carries a chord held from the count-in into bar 1', async () => {
