@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { Pencil } from 'lucide-react'
+import { AudioLines, FileUp, Pencil, Piano, Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import { routeHelpers } from '~/lib/routes'
 import { SongForm } from '~/components/songs/SongForm'
-import type { CreateSongInput, Song, UpdateSongInput } from '~/types'
+import { ChordProImporter } from '~/components/songs/ChordProImporter'
+import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
+import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
+import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
+import { applyChordProImport } from '~/lib/chordpro/importToForm'
+import type { ChordProSong, CreateSongInput, Song, UpdateSongInput } from '~/types'
 
 /** How long typing has to pause before the change is written (and the song re-renders). */
 const LIVE_SAVE_DELAY_MS = 300
@@ -53,14 +56,26 @@ interface SongLiveEditorProps {
   isChordEditMode: boolean
   /** Undefined when chord editing isn't available right now (playing, or chords hidden). */
   onToggleChordEditMode?: () => void
+  /** Deletes the song (after confirming); omitted where deleting doesn't apply (e.g. inside a setlist). */
+  onDelete?: () => void | Promise<void>
 }
+
+type EditorTool = 'import' | 'audio' | 'midi'
+
+const toolButtonClass = cn(
+  'w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
+  'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
+  'hover:bg-slate-200 dark:hover:bg-slate-700'
+)
 
 /**
  * The song edit form, inside the player's side panel: every change is
  * written after a short pause, so the song next to it re-renders with the
  * new lyrics/chords/BPM while you type — no Save button, no page switch.
+ * The tools (import ChordPro, detect from audio, record from a MIDI keyboard)
+ * and deleting the song live here too.
  */
-export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEditMode }: SongLiveEditorProps) {
+export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEditMode, onDelete }: SongLiveEditorProps) {
   const [draft, setDraft] = useState<CreateSongInput>(() => toFormData(song))
   /** The ChordPro text starts read-only; "Editar" unlocks it. */
   const [isLyricsLocked, setIsLyricsLocked] = useState(true)
@@ -105,6 +120,31 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
     timerRef.current = setTimeout(flush, LIVE_SAVE_DELAY_MS)
   }
 
+  const [tool, setTool] = useState<EditorTool | null>(null)
+  const toggleTool = (next: EditorTool) => setTool((current) => (current === next ? null : next))
+
+  // Saved right away like any other edit, so replacing the lyrics asks first.
+  const handleImport = (imported: ChordProSong) => {
+    if (draft.lyrics?.trim() && !window.confirm('¿Reemplazar la letra y los acordes por los del archivo importado?')) return
+    handleChange(applyChordProImport(draft, imported))
+    setTool(null)
+  }
+
+  // Detected or recorded chords are appended as their own section; the lyrics aren't rewritten.
+  const handleApplyChords = ({ bpm, key, section }: AudioAnalysisApply) => {
+    handleChange({
+      ...draft,
+      bpm: bpm ?? draft.bpm,
+      key: key ?? draft.key,
+      lyrics: section ? appendSection(draft.lyrics ?? '', section) : draft.lyrics,
+    })
+    setTool(null)
+  }
+
+  const handleDelete = () => {
+    if (onDelete && window.confirm(`¿Borrar «${song.title}»? No se puede deshacer.`)) void onDelete()
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 px-3 py-2">
@@ -133,6 +173,43 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
         </button>
       </div>
 
+      <div className="space-y-2">
+        {tool === 'import' ? (
+          <ChordProImporter onImport={handleImport} onCancel={() => setTool(null)} />
+        ) : (
+          <button type="button" onClick={() => toggleTool('import')} className={toolButtonClass}>
+            <FileUp className="w-4 h-4" />
+            Importar ChordPro
+          </button>
+        )}
+        {tool === 'audio' ? (
+          <AudioAnalysisPanel
+            timeSignature={draft.timeSignature ?? '4/4'}
+            currentBpm={draft.bpm ?? 120}
+            onApply={handleApplyChords}
+            onClose={() => setTool(null)}
+          />
+        ) : (
+          <button type="button" onClick={() => toggleTool('audio')} className={toolButtonClass}>
+            <AudioLines className="w-4 h-4" />
+            Detectar acordes y BPM desde audio
+          </button>
+        )}
+        <button type="button" onClick={() => setTool('midi')} className={toolButtonClass}>
+          <Piano className="w-4 h-4" />
+          Grabar acordes desde teclado MIDI
+        </button>
+        {tool === 'midi' && (
+          <MIDIRecordPanel
+            timeSignature={draft.timeSignature ?? '4/4'}
+            currentBpm={draft.bpm ?? 120}
+            currentKey={draft.key}
+            onApply={handleApplyChords}
+            onClose={() => setTool(null)}
+          />
+        )}
+      </div>
+
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Los cambios se guardan solos y se ven al instante en la canción.
       </p>
@@ -143,12 +220,16 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
         lyricsLock={{ locked: isLyricsLocked, onToggle: () => setIsLyricsLocked((locked) => !locked) }}
       />
 
-      <Link
-        {...routeHelpers.songEdit(song.id)}
-        className="block text-center text-sm text-indigo-500 hover:text-indigo-600 py-2"
-      >
-        Importar ChordPro, detectar desde audio, grabar desde teclado MIDI o borrar →
-      </Link>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          Borrar canción
+        </button>
+      )}
     </div>
   )
 }

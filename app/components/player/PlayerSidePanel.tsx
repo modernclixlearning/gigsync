@@ -35,7 +35,8 @@ export function PlayerSidePanel({ isOpen, tab, onTabChange, onClose, content }: 
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // A dialog on top (e.g. the MIDI recording view) handles its own Escape.
+      if (e.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)

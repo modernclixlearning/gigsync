@@ -29,6 +29,8 @@ export function useSpaceToPlay({ enabled, onToggle }: { enabled: boolean; onTogg
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isSpace(e) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
       if (isTextEntryTarget(e.target)) return
+      // A dialog on top (e.g. the MIDI recording view) owns the keyboard.
+      if (document.querySelector('[aria-modal="true"]')) return
       e.preventDefault()
       swallowKeyUp = true
       if (!e.repeat) onToggleRef.current()

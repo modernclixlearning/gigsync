@@ -11,6 +11,7 @@ import { ChordSheetPaste } from '~/components/songs/ChordSheetPaste'
 import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
 import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
 import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
+import { applyChordProImport } from '~/lib/chordpro/importToForm'
 import type { LyricsSearchResult } from '~/lib/lyrics/lrclib'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSongInput, ChordProSong } from '~/types'
@@ -88,33 +89,7 @@ function NewSongPage() {
   }
 
   const handleImport = (chordProSong: ChordProSong) => {
-    const reconstructLine = (line: { text: string; chords: { chord: string; position: number }[] }) => {
-      if (line.chords.length === 0) return line.text
-      
-      let result = ''
-      let lastPos = 0
-      
-      const sortedChords = [...line.chords].sort((a, b) => a.position - b.position)
-      
-      for (const { chord, position } of sortedChords) {
-        result += line.text.slice(lastPos, position)
-        result += `[${chord}]`
-        lastPos = position
-      }
-      
-      result += line.text.slice(lastPos)
-      return result
-    }
-    
-    setFormData((prev) => ({
-      ...prev,
-      title: chordProSong.title || prev.title,
-      artist: chordProSong.artist || prev.artist,
-      key: chordProSong.key || prev.key,
-      bpm: chordProSong.tempo || prev.bpm,
-      timeSignature: chordProSong.timeSignature || prev.timeSignature,
-      lyrics: chordProSong.lines.map(reconstructLine).join('\n')
-    }))
+    setFormData((prev) => applyChordProImport(prev, chordProSong))
     setShowImporter(false)
   }
 
