@@ -64,6 +64,10 @@ export interface SongPlayerContentProps {
   song: Song
   onBack?: () => void
   setlistContext?: SetlistContext
+  /** Open the side panel on this tab when the player mounts (e.g. 'edit' from /song/$id/edit). */
+  initialPanelTab?: PlayerPanelTab
+  /** Delete the song (shown in the Editar tab); omitted inside a setlist. */
+  onDelete?: () => void | Promise<void>
 }
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -73,7 +77,9 @@ const clamp = (value: number, min: number, max: number): number =>
 export function SongPlayerContent({
   song,
   onBack,
-  setlistContext
+  setlistContext,
+  initialPanelTab,
+  onDelete
 }: SongPlayerContentProps) {
   const player = useSongPlayer()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -83,8 +89,8 @@ export function SongPlayerContent({
 
   // Side panel (Ajustes / Editar / Config): docked next to the song so every
   // change is visible on it while being made.
-  const [isPanelOpen, setIsPanelOpen] = useState(false)
-  const [panelTab, setPanelTab] = useState<PlayerPanelTab>('adjust')
+  const [isPanelOpen, setIsPanelOpen] = useState(initialPanelTab !== undefined)
+  const [panelTab, setPanelTab] = useState<PlayerPanelTab>(initialPanelTab ?? 'adjust')
   const isPanelOpenRef = useRef(isPanelOpen)
   isPanelOpenRef.current = isPanelOpen
   const openPanel = useCallback((tab: PlayerPanelTab) => {
@@ -1043,6 +1049,7 @@ export function SongPlayerContent({
               onToggleChordEditMode={
                 player.state.showChords && !player.state.isPlaying ? player.toggleEditMode : undefined
               }
+              onDelete={onDelete}
             />
           ),
           config: settings ? (

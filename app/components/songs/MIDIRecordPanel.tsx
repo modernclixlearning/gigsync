@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Magnet, Minus, Piano, Play, Plus, Square, Undo2, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useMIDIAccess, type MIDIInputInfo } from '~/hooks/useMIDIAccess'
@@ -150,9 +150,12 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
     reset()
     onClose()
   }, [stopPlayback, reset, onClose])
+  // Keyboard focus moves into the view, off whatever opened it underneath.
+  const dialogRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus({ preventScroll: true })
     return () => {
       document.body.style.overflow = previous
     }
@@ -269,10 +272,12 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
 
   return (
     <section
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label="Grabar acordes desde teclado MIDI"
-      className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-[#101322] text-slate-900 dark:text-white"
+      className="fixed inset-0 z-50 flex flex-col outline-none bg-slate-50 dark:bg-[#101322] text-slate-900 dark:text-white"
     >
       <header className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
         <Piano className="w-5 h-5 text-indigo-500 shrink-0" />

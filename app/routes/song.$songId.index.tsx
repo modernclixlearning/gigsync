@@ -1,17 +1,32 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { Music2 } from 'lucide-react'
-import { useSong } from '~/hooks/useSongs'
+import { useSong, useSongLibrary } from '~/hooks/useSongs'
 import { SongPlayerContent } from '~/components/player/SongPlayerContent'
+import type { PlayerPanelTab } from '~/components/player/PlayerSidePanel'
 import { ROUTES } from '~/lib/routes'
 
+const PANEL_TABS: PlayerPanelTab[] = ['adjust', 'edit', 'config']
+
 export const Route = createFileRoute('/song/$songId/')({
+  /** `?panel=edit` opens the player with its side panel on that tab. */
+  validateSearch: (search: Record<string, unknown>): { panel?: PlayerPanelTab } =>
+    PANEL_TABS.includes(search?.panel as PlayerPanelTab) ? { panel: search.panel as PlayerPanelTab } : {},
   component: SongPlayerPage
 })
 
 function SongPlayerPage() {
   const { songId } = Route.useParams()
+  const { panel } = Route.useSearch()
   const navigate = useNavigate()
   const { song, isLoading } = useSong(songId)
+  const { deleteSong } = useSongLibrary()
+
+  // The panel is opened once; the address goes back to the plain song so a
+  // reload or a shared link doesn't reopen it.
+  useEffect(() => {
+    if (panel && song) void navigate({ to: '/song/$songId', params: { songId }, search: {}, replace: true })
+  }, [panel, song, songId, navigate])
 
   if (isLoading) {
     return (
@@ -42,6 +57,11 @@ function SongPlayerPage() {
     <SongPlayerContent
       song={song}
       onBack={() => navigate({ to: ROUTES.HOME })}
+      initialPanelTab={panel}
+      onDelete={async () => {
+        await deleteSong(song.id)
+        void navigate({ to: ROUTES.HOME })
+      }}
     />
   )
 }

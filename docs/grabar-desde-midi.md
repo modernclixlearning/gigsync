@@ -10,8 +10,8 @@ Funciona en Chrome o Edge en la compu (Web MIDI). Todo pasa en el navegador: no 
 1. Conectá el teclado por USB (por ejemplo el Arturia MiniLab 3) antes o después de abrir GigSync; aparece solo.
 2. Abrí **Grabar acordes desde teclado MIDI** (se abre a pantalla completa; `Esc` o la X la cierran):
    - En una canción nueva: **Agregar canción** → el botón está arriba del formulario.
-   - En una canción existente: abrí la canción → **Editar canción** → abajo de todo, «Importar ChordPro, detectar desde
-     audio, grabar desde teclado MIDI o borrar».
+   - En una canción existente: abrí la canción → **Editar canción** (el lápiz de arriba) → en la pestaña **Editar** del
+     panel lateral, el botón está arriba del formulario.
 
    La primera vez el navegador pide permiso para MIDI.
 3. Revisá:

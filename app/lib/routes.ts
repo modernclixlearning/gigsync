@@ -32,11 +32,12 @@ export const routeHelpers = {
   }),
 
   /**
-   * Ruta para editar una canción existente
+   * Editar una canción existente: el reproductor con el panel lateral en «Editar»
    */
   songEdit: (songId: string) => ({
-    to: '/song/$songId/edit' as const,
+    to: '/song/$songId' as const,
     params: { songId },
+    search: { panel: 'edit' as const },
   }),
 
   /**
