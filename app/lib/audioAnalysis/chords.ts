@@ -113,9 +113,14 @@ export interface ProgressionOptions {
    * label before a bar is split in two.
    */
   splitGain?: number
+  /**
+   * Beat index of the first downbeat when it's known (e.g. a recording made
+   * against a click). Omitted → guessed from the harmony.
+   */
+  downbeatOffset?: number
 }
 
-const PROGRESSION_DEFAULTS: Required<ProgressionOptions> = {
+const PROGRESSION_DEFAULTS: Required<Omit<ProgressionOptions, 'downbeatOffset'>> = {
   silenceRatio: 0.15,
   minScore: 0.5,
   splitGain: 0.08,
@@ -177,7 +182,10 @@ export function detectChordProgression(
   const beatEnds = beats.map((t, i) => (i + 1 < beats.length ? beats[i + 1] : t + beatPeriod))
   const beatChroma = beats.map((t, i) => chromaForWindow(notes, t, beatEnds[i]))
 
-  const downbeatOffset = chooseDownbeatOffset(beatChroma, bpb)
+  const downbeatOffset =
+    options.downbeatOffset !== undefined
+      ? Math.max(0, Math.round(options.downbeatOffset))
+      : chooseDownbeatOffset(beatChroma, bpb)
 
   const barRanges: [number, number][] = []
   for (let b = downbeatOffset; b + bpb <= beats.length; b += bpb) barRanges.push([b, b + bpb])

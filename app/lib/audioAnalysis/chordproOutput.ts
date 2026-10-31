@@ -76,8 +76,8 @@ export function parseBarText(text: string, beatsPerBar: number): ParsedBarText {
 }
 
 /** Header + bar lines, ready to append to the song's ChordPro. */
-export function buildDetectedSection(lines: string[], barCount: number): string {
-  return [`[${DETECTED_SECTION_NAME} | ${barCount} bars]`, ...lines].join('\n')
+export function buildDetectedSection(lines: string[], barCount: number, name = DETECTED_SECTION_NAME): string {
+  return [`[${name} | ${barCount} bars]`, ...lines].join('\n')
 }
 
 /**

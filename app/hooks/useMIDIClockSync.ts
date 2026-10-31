@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMIDIAccess, type MIDIInputInfo } from './useMIDIAccess'
 import {
   createClockBpmEstimator,
   getMIDIClockStatusMessage,
@@ -20,10 +21,7 @@ import {
   type MIDIClockSyncStatus,
 } from '~/lib/midi/clock'
 
-export interface MIDIInputInfo {
-  id: string
-  name: string
-}
+export type { MIDIInputInfo }
 
 export interface UseMIDIClockSyncOptions {
   /** Opt-in switch. False → no Web MIDI access is requested. */
@@ -52,15 +50,6 @@ export interface UseMIDIClockSyncReturn {
   message: string | null
 }
 
-function listInputs(access: MIDIAccess): MIDIInputInfo[] {
-  const result: MIDIInputInfo[] = []
-  access.inputs.forEach((input) => {
-    if (input.state && input.state !== 'connected') return
-    result.push({ id: input.id, name: input.name ?? input.id })
-  })
-  return result
-}
-
 export function useMIDIClockSync({
   enabled,
   inputName,
@@ -69,9 +58,7 @@ export function useMIDIClockSync({
   onStop,
   onClock,
 }: UseMIDIClockSyncOptions): UseMIDIClockSyncReturn {
-  const [access, setAccess] = useState<MIDIAccess | null>(null)
-  const [accessStatus, setAccessStatus] = useState<'idle' | 'unsupported' | 'requesting' | 'denied' | 'granted'>('idle')
-  const [inputs, setInputs] = useState<MIDIInputInfo[]>([])
+  const { access, accessStatus, inputs } = useMIDIAccess(enabled)
   const [bpm, setBpm] = useState<number | null>(null)
 
   const estimatorRef = useRef(createClockBpmEstimator())
@@ -79,47 +66,6 @@ export function useMIDIClockSync({
   useEffect(() => {
     callbacksRef.current = { onStart, onContinue, onStop, onClock }
   })
-
-  // Request Web MIDI access only while enabled.
-  useEffect(() => {
-    if (!enabled) {
-      setAccess(null)
-      setAccessStatus('idle')
-      setInputs([])
-      return
-    }
-
-    if (typeof navigator === 'undefined' || typeof navigator.requestMIDIAccess !== 'function') {
-      setAccessStatus('unsupported')
-      return
-    }
-
-    let cancelled = false
-    let grantedAccess: MIDIAccess | null = null
-    const handleStateChange = () => {
-      if (grantedAccess && !cancelled) setInputs(listInputs(grantedAccess))
-    }
-
-    setAccessStatus('requesting')
-    navigator
-      .requestMIDIAccess({ sysex: false })
-      .then((midiAccess) => {
-        if (cancelled) return
-        grantedAccess = midiAccess
-        midiAccess.addEventListener('statechange', handleStateChange)
-        setAccess(midiAccess)
-        setInputs(listInputs(midiAccess))
-        setAccessStatus('granted')
-      })
-      .catch(() => {
-        if (!cancelled) setAccessStatus('denied')
-      })
-
-    return () => {
-      cancelled = true
-      grantedAccess?.removeEventListener('statechange', handleStateChange)
-    }
-  }, [enabled])
 
   const selectedInput: MIDIInputInfo | null = inputName
     ? inputs.find((input) => input.name === inputName) ?? null

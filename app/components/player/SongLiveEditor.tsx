@@ -147,7 +147,7 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
         {...routeHelpers.songEdit(song.id)}
         className="block text-center text-sm text-indigo-500 hover:text-indigo-600 py-2"
       >
-        Importar ChordPro, detectar desde audio o borrar →
+        Importar ChordPro, detectar desde audio, grabar desde teclado MIDI o borrar →
       </Link>
     </div>
   )
