@@ -42,6 +42,12 @@ const toolButtonClass = cn(
   'hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors',
 )
 
+/** Play / Stop / Record, side by side like a DAW's transport. */
+const transportButtonClass = cn(
+  'px-4 rounded-xl font-semibold text-sm flex items-center gap-2 transition-colors',
+  'disabled:cursor-not-allowed disabled:opacity-40',
+)
+
 /** Quantize options: subdivisions of the beat. */
 const QUANTIZE_STEPS = [
   { value: 1, label: 'negras' },
@@ -171,9 +177,14 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
     setTake(previous)
     setHistory(history.slice(0, -1))
   }
-  const togglePlayback = () => {
-    if (playback.playing) stopPlayback()
-    else if (recording && take) void playback.play(take, { grid: recording.grid, durationSeconds: recording.durationSeconds })
+  const canPlay = phase === 'done' && !!recording && !!take && take.length > 0
+  const playTake = () => {
+    if (recording && take) void playback.play(take, { grid: recording.grid, durationSeconds: recording.durationSeconds })
+  }
+  /** One Stop for both: ends the recording, or the playback. */
+  const stopTransport = () => {
+    if (busy) recorder.stop()
+    else stopPlayback()
   }
   const startRecording = () => {
     stopPlayback()
@@ -353,25 +364,50 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
                       : `${songKey} · ${timeSignature} · ${bpm} BPM`}
                 </span>
               </div>
-              {busy ? (
+              <div role="group" aria-label="Transporte" className="flex items-stretch gap-1.5">
                 <button
                   type="button"
-                  onClick={recorder.stop}
-                  className="px-5 rounded-xl font-semibold text-sm bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center gap-2"
+                  onClick={playTake}
+                  disabled={!canPlay || playback.playing}
+                  aria-pressed={playback.playing}
+                  className={cn(
+                    transportButtonClass,
+                    playback.playing
+                      ? 'bg-emerald-500 text-white disabled:opacity-100 disabled:cursor-default'
+                      : 'bg-white dark:bg-[#1a1f36] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800',
+                  )}
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  Reproducir
+                </button>
+                <button
+                  type="button"
+                  onClick={stopTransport}
+                  disabled={!busy && !playback.playing}
+                  className={cn(
+                    transportButtonClass,
+                    'bg-white dark:bg-[#1a1f36] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800',
+                  )}
                 >
                   <Square className="w-4 h-4 fill-current" />
                   Parar
                 </button>
-              ) : (
                 <button
                   type="button"
                   onClick={startRecording}
-                  className="px-5 rounded-xl font-semibold text-sm bg-red-500 hover:bg-red-600 text-white flex items-center gap-2"
+                  disabled={busy}
+                  aria-pressed={busy}
+                  className={cn(
+                    transportButtonClass,
+                    busy
+                      ? 'bg-red-500 text-white animate-pulse disabled:opacity-100 disabled:cursor-default'
+                      : 'bg-red-500 hover:bg-red-600 text-white',
+                  )}
                 >
                   <Circle className="w-4 h-4 fill-current" />
-                  {phase === 'done' ? 'Grabar de nuevo' : 'Grabar'}
+                  Grabar
                 </button>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -392,10 +428,6 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
       {phase === 'done' && recording && take && (
         <div className="max-h-[45vh] overflow-y-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1f36] px-4 py-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={togglePlayback} disabled={take.length === 0} className={toolButtonClass}>
-              {playback.playing ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-              {playback.playing ? 'Detener' : 'Escuchar la toma'}
-            </button>
             <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
               <span>Cuantizar a</span>
               <select
