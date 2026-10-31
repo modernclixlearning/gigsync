@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chromaForWindow, detectChordProgression, matchChord } from '../chords'
+import { bassForWindow, chromaForWindow, detectChordProgression, matchChord } from '../chords'
 import { deriveBpmAndChords } from '../derive'
 import { chordTones, syntheticSong } from './synthetic'
 import type { ChordProgression } from '../types'
@@ -31,6 +31,45 @@ describe('matchChord', () => {
 
   it('returns null for an empty chroma', () => {
     expect(matchChord(new Array(12).fill(0))).toBeNull()
+  })
+
+  it.each([
+    ['Cmaj7', [0, 4, 7, 11]],
+    ['Bm7b5', [11, 2, 5, 9]],
+    ['Bdim', [11, 2, 5]],
+    ['Dsus4', [2, 7, 9]],
+  ])('labels a clean %s chroma', (label, tones) => {
+    const chroma = new Array(12).fill(0)
+    for (const pc of tones) chroma[pc] = 1
+    expect(matchChord(chroma)?.label).toBe(label)
+  })
+
+  it('names an inversion after its bass, only when the bass is a chord tone', () => {
+    expect(matchChord(chromaOf('C'), 4)?.label).toBe('C/E')
+    expect(matchChord(chromaOf('Am'), 0)).toMatchObject({ label: 'Am/C', root: 9, bass: 0 })
+    expect(matchChord(chromaOf('C'), 0)?.label).toBe('C')
+    expect(matchChord(chromaOf('C'), 2)?.label).toBe('C')
+  })
+})
+
+describe('bassForWindow', () => {
+  const note = (pitchMidi: number, startTimeSeconds: number, durationSeconds: number) => ({
+    pitchMidi,
+    startTimeSeconds,
+    durationSeconds,
+    amplitude: 0.8,
+  })
+
+  it('is the lowest note for most of the window', () => {
+    // E under a C triad, with the previous chord's G bass ringing for a moment.
+    const notes = [note(43, 0, 0.1), note(52, 0.05, 2), note(60, 0, 2), note(67, 0, 2)]
+    expect(bassForWindow(notes, 0, 2)).toBe(4)
+  })
+
+  it('is null when no bass note holds half the time, or nothing sounds', () => {
+    const walking = [note(48, 0, 0.5), note(50, 0.5, 0.5), note(52, 1, 0.5), note(53, 1.5, 0.5), note(64, 0, 2)]
+    expect(bassForWindow(walking, 0, 2)).toBeNull()
+    expect(bassForWindow([], 0, 2)).toBeNull()
   })
 })
 

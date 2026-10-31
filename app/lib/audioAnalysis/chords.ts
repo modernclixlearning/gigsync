@@ -4,8 +4,8 @@
  * Notes (from basic-pitch) are folded into a 12-bin chroma per beat, beats are
  * grouped into bars, and each bar (or half bar, when the chord clearly changes
  * mid-bar) is labelled by cosine template matching against major, minor,
- * dominant-7 and minor-7 chords. Labels are approximations meant for review,
- * not ground truth.
+ * 7, m7, maj7, m7b5, dim and sus4 chords — optionally with the bass as a slash
+ * chord (C/E). Labels are approximations meant for review, not ground truth.
  */
 
 import type {
@@ -25,6 +25,10 @@ const QUALITY_INTERVALS: Record<ChordQuality, number[]> = {
   min: [0, 3, 7],
   '7': [0, 4, 7, 10],
   m7: [0, 3, 7, 10],
+  maj7: [0, 4, 7, 11],
+  m7b5: [0, 3, 6, 10],
+  dim: [0, 3, 6],
+  sus4: [0, 5, 7],
 }
 
 const QUALITY_SUFFIX: Record<ChordQuality, string> = {
@@ -32,17 +36,26 @@ const QUALITY_SUFFIX: Record<ChordQuality, string> = {
   min: 'm',
   '7': '7',
   m7: 'm7',
+  maj7: 'maj7',
+  m7b5: 'm7b5',
+  dim: 'dim',
+  sus4: 'sus4',
 }
 
 /**
  * Four-note templates fit any triad-plus-extra chroma, so they get a small
- * handicap: a seventh is only reported when it's clearly present.
+ * handicap: a seventh is only reported when it's clearly present. Diminished
+ * and suspended triads are rarer than major/minor, so they get it too.
  */
 const QUALITY_PRIOR: Record<ChordQuality, number> = {
   maj: 1,
   min: 1,
   '7': 0.95,
   m7: 0.95,
+  maj7: 0.95,
+  m7b5: 0.95,
+  dim: 0.95,
+  sus4: 0.95,
 }
 
 export function chordLabel(root: number, quality: ChordQuality): string {
@@ -76,11 +89,38 @@ function chromaEnergy(chroma: number[]): number {
 }
 
 /**
+ * Pitch class of the lowest sounding note for most of [start, end), or null
+ * when no single bass note holds at least half of the time something sounds.
+ */
+export function bassForWindow(notes: NoteEvent[], start: number, end: number): number | null {
+  if (!(end > start)) return null
+  const SAMPLES = 24
+  const counts = new Array<number>(12).fill(0)
+  let sounding = 0
+  for (let i = 0; i < SAMPLES; i++) {
+    const t = start + ((i + 0.5) / SAMPLES) * (end - start)
+    let lowest: number | null = null
+    for (const note of notes) {
+      if (note.startTimeSeconds <= t && t < note.startTimeSeconds + note.durationSeconds) {
+        if (lowest === null || note.pitchMidi < lowest) lowest = note.pitchMidi
+      }
+    }
+    if (lowest === null) continue
+    sounding++
+    counts[((lowest % 12) + 12) % 12]++
+  }
+  if (sounding === 0) return null
+  const best = counts.indexOf(Math.max(...counts))
+  return counts[best] * 2 >= sounding ? best : null
+}
+
+/**
  * Best matching chord for a chroma vector, or null if it's (near) empty.
  * The chroma is square-root compressed first so a loud bass root doesn't drown
- * the third/seventh in the cosine.
+ * the third/seventh in the cosine. With `bass` (a pitch class) that is a chord
+ * tone other than the root, the label becomes a slash chord: C/E.
  */
-export function matchChord(rawChroma: number[]): ChordMatch | null {
+export function matchChord(rawChroma: number[], bass: number | null = null): ChordMatch | null {
   const chroma = rawChroma.map(v => Math.sqrt(Math.max(0, v)))
   const norm = Math.sqrt(chroma.reduce((s, v) => s + v * v, 0))
   if (norm <= 1e-9) return null
@@ -95,6 +135,12 @@ export function matchChord(rawChroma: number[]): ChordMatch | null {
       if (!best || score > best.score + 1e-12) {
         best = { root, quality, label: chordLabel(root, quality), score }
       }
+    }
+  }
+  if (best && bass !== null && bass !== best.root) {
+    const bassInterval = (((bass - best.root) % 12) + 12) % 12
+    if (QUALITY_INTERVALS[best.quality].includes(bassInterval)) {
+      best = { ...best, bass, label: `${best.label}/${PITCH_CLASS_NAMES[bass]}` }
     }
   }
   return best
@@ -118,12 +164,19 @@ export interface ProgressionOptions {
    * against a click). Omitted → guessed from the harmony.
    */
   downbeatOffset?: number
+  /**
+   * Name inversions after their bass (C/E). Meant for played parts (a MIDI
+   * keyboard), where the lowest note is the one the player chose; a band
+   * recording's moving bass line would add slashes that aren't there.
+   */
+  slashChords?: boolean
 }
 
 const PROGRESSION_DEFAULTS: Required<Omit<ProgressionOptions, 'downbeatOffset'>> = {
   silenceRatio: 0.15,
   minScore: 0.5,
   splitGain: 0.08,
+  slashChords: false,
 }
 
 function median(values: number[]): number {
@@ -174,7 +227,7 @@ export function detectChordProgression(
   beatsPerBar: number,
   options: ProgressionOptions = {},
 ): ChordProgression {
-  const { silenceRatio, minScore, splitGain } = { ...PROGRESSION_DEFAULTS, ...options }
+  const { silenceRatio, minScore, splitGain, slashChords } = { ...PROGRESSION_DEFAULTS, ...options }
   const bpb = Math.max(1, Math.round(beatsPerBar))
   if (beats.length < 2) return { bars: [], beatsPerBar: bpb, downbeatOffset: 0 }
 
@@ -198,7 +251,8 @@ export function detectChordProgression(
     const energy = chromaEnergy(chroma)
     // Silence is judged per bar-equivalent so half bars aren't penalised.
     const scaledEnergy = (energy * bpb) / beatsInCell
-    const match = scaledEnergy >= silenceThreshold && energy > 0 ? matchChord(chroma) : null
+    const bass = slashChords ? bassForWindow(notes, beats[from], beatEnds[to - 1]) : null
+    const match = scaledEnergy >= silenceThreshold && energy > 0 ? matchChord(chroma, bass) : null
     const accepted = match && match.score >= minScore ? match : null
     return {
       chord: accepted ? accepted.label : null,

@@ -20,6 +20,7 @@ const QUALITIES = [
   { label: 'sus2', suffix: 'sus2' },
   { label: 'sus4', suffix: 'sus4' },
   { label: 'dim', suffix: 'dim' },
+  { label: 'm7b5', suffix: 'm7b5' },
   { label: 'aug', suffix: 'aug' },
   { label: 'add9', suffix: 'add9' },
   { label: '9', suffix: '9' },

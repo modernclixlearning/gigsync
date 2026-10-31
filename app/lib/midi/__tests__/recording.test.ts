@@ -96,6 +96,14 @@ describe('recordingToProgression', () => {
     expect(progressionToBarLines(progression)).toEqual(['C | Am | F | G |'])
   })
 
+  it('writes inversions and four-note chords as played', () => {
+    const CE = [52, 60, 64, 67]
+    const Cmaj7 = [48, 60, 64, 67, 71]
+    const Bm7b5 = [47, 62, 65, 69]
+    const notes = [...chord(Cmaj7, 0, 4), ...chord(Bm7b5, 4, 4), ...chord(CE, 8, 4)]
+    expect(progressionToBarLines(recordingToProgression(notes, 6, grid))).toEqual(['Cmaj7 | Bm7b5 | C/E |'])
+  })
+
   it('splits a bar with two chords into halves', () => {
     const notes = [...chord(C, 0, 4), ...chord(F, 4, 2), ...chord(G, 6, 2)]
     expect(progressionToBarLines(recordingToProgression(notes, 4, grid))).toEqual(['C | F 2 | G 2 |'])
@@ -134,5 +142,14 @@ describe('positionAt / describeSounding', () => {
     expect(describeSounding([43, 55, 59, 62])).toBe('G')
     expect(describeSounding([48, 55])).toBe('C G')
     expect(describeSounding([])).toBeNull()
+  })
+
+  it('names sevenths, half-diminished chords and inversions', () => {
+    expect(describeSounding([60, 64, 67, 71])).toBe('Cmaj7')
+    expect(describeSounding([59, 62, 65, 69])).toBe('Bm7b5')
+    expect(describeSounding([64, 67, 72])).toBe('C/E')
+    expect(describeSounding([64, 67, 71, 72])).toBe('Cmaj7/E')
+    expect(describeSounding([52, 59, 67])).toBe('Em')
+    expect(describeSounding([59, 64, 67])).toBe('Em/B')
   })
 })
