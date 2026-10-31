@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
-import { isBlackKey, noteName, pitchRange } from '~/lib/midi/pianoRoll'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type MouseEvent } from 'react'
+import { cn } from '~/lib/utils'
+import { isBlackKey, moveNote, noteName, pitchRange, resizeNote, snapTime } from '~/lib/midi/pianoRoll'
 import { beatSeconds } from '~/lib/midi/recording'
 import type { ChordProgression, NoteEvent } from '~/lib/audioAnalysis/types'
 
@@ -7,6 +8,11 @@ const PX_PER_BEAT = 48
 const ROW_PX = 12
 const KEYS_PX = 44
 const CHORD_ROW_PX = 28
+/** Width of the grab area at a note's right edge, for stretching it. */
+const HANDLE_PX = 6
+/** Pointer travel before a press on a note becomes a drag. */
+const DRAG_THRESHOLD_PX = 3
+const NEW_NOTE_AMPLITUDE = 0.8
 
 interface PianoRollProps {
   notes: NoteEvent[]
@@ -18,14 +24,31 @@ interface PianoRollProps {
   progression?: ChordProgression | null
   /** Playhead in seconds from the first downbeat, read every animation frame; null hides it. */
   getPlayhead?: () => number | null
-  /** When set, clicking a note deletes it. */
-  onDeleteNote?: (index: number) => void
+  /** Grid lines per beat; edits snap to them (1 = quarter notes, 2 = eighths…). */
+  subdivision?: number
+  /**
+   * Makes the roll editable: drag a note to move it, its right edge to stretch
+   * it, double-click to add or delete, Supr to delete the selected one. Gets
+   * the whole new note list after each edit.
+   */
+  onChangeNotes?: (notes: NoteEvent[]) => void
+  /** Called with the pitch of a note that is picked, added or moved, to play it. */
+  onAudition?: (pitch: number) => void
+}
+
+interface Drag {
+  index: number
+  mode: 'move' | 'resize'
+  pointerId: number
+  startX: number
+  startY: number
+  moved: boolean
 }
 
 /**
  * The take as a piano roll: one row per semitone (keyboard on the left), the
- * click's bars and beats as the grid, the detected chords on top. Scrolls
- * sideways and follows the playhead while it moves.
+ * click's bars, beats and subdivisions as the grid, the detected chords on
+ * top. Scrolls sideways and follows the playhead while it moves.
  */
 export function PianoRoll({
   notes,
@@ -34,18 +57,32 @@ export function PianoRoll({
   durationSeconds,
   progression,
   getPlayhead,
-  onDeleteNote,
+  subdivision = 1,
+  onChangeNotes,
+  onAudition,
 }: PianoRollProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
   const playheadRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<Drag | null>(null)
+  /** Notes as they look mid-drag (committed on release). */
+  const [draft, setDraft] = useState<NoteEvent[] | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
+
+  const editable = !!onChangeNotes
+  const shown = draft ?? notes
+  const selectedIndex = selected !== null && selected < notes.length ? selected : null
 
   const beat = beatSeconds(bpm)
   const bpb = Math.max(1, Math.round(beatsPerBar))
-  const notesEnd = notes.reduce((end, n) => Math.max(end, n.startTimeSeconds + n.durationSeconds), 0)
+  const sub = Math.max(1, Math.round(subdivision))
+  const step = beat / sub
+  const notesEnd = shown.reduce((end, n) => Math.max(end, n.startTimeSeconds + n.durationSeconds), 0)
   const bars = Math.max(1, Math.ceil(Math.max(durationSeconds, notesEnd) / (beat * bpb) - 1e-6))
   const totalBeats = bars * bpb
   const width = totalBeats * PX_PER_BEAT
-  const { low, high } = pitchRange(notes)
+  const range = pitchRange(notes)
+  const { low, high } = range
   const pitches = Array.from({ length: high - low + 1 }, (_, i) => high - i)
   const height = pitches.length * ROW_PX
   const x = (seconds: number) => (seconds / beat) * PX_PER_BEAT
@@ -90,6 +127,90 @@ export function PianoRoll({
     scroller.scrollTop = Math.max(0, y(middle) + CHORD_ROW_PX - scroller.clientHeight / 2)
   })
 
+  /** Seconds and pitch under the pointer, from the grid's own box. */
+  const gridPoint = (clientX: number, clientY: number) => {
+    const box = svgRef.current?.getBoundingClientRect()
+    const px = clientX - (box?.left ?? 0)
+    const py = clientY - (box?.top ?? 0)
+    return {
+      seconds: Math.max(0, (px / PX_PER_BEAT) * beat),
+      pitch: Math.min(high, Math.max(low, high - Math.floor(py / ROW_PX))),
+    }
+  }
+
+  const deleteNote = (index: number) => {
+    setSelected(null)
+    onChangeNotes?.(notes.filter((_, i) => i !== index))
+  }
+
+  const handleNotePointerDown = (event: PointerEvent<SVGRectElement>, index: number, mode: Drag['mode']) => {
+    if (!editable || event.button !== 0) return
+    event.stopPropagation()
+    svgRef.current?.setPointerCapture?.(event.pointerId)
+    dragRef.current = { index, mode, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false }
+    setSelected(index)
+    scrollRef.current?.focus({ preventScroll: true })
+    onAudition?.(notes[index].pitchMidi)
+  }
+
+  const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD_PX) return
+    drag.moved = true
+    const original = notes[drag.index]
+    const deltaSeconds = (dx / PX_PER_BEAT) * beat
+    const next =
+      drag.mode === 'move'
+        ? moveNote(original, deltaSeconds, -Math.round(dy / ROW_PX), step, range)
+        : resizeNote(original, deltaSeconds, step)
+    const current = (draft ?? notes)[drag.index]
+    if (drag.mode === 'move' && next.pitchMidi !== current.pitchMidi) onAudition?.(next.pitchMidi)
+    setDraft(notes.map((note, i) => (i === drag.index ? next : note)))
+  }
+
+  const handlePointerUp = (event: PointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    svgRef.current?.releasePointerCapture?.(event.pointerId)
+    if (drag.moved && draft) onChangeNotes?.(draft)
+    setDraft(null)
+  }
+
+  const handleDoubleClick = (event: MouseEvent<SVGSVGElement>) => {
+    if (!editable) return
+    const target = event.target as Element
+    const index = target.getAttribute('data-note')
+    if (index !== null) {
+      deleteNote(Number(index))
+      return
+    }
+    const { seconds, pitch } = gridPoint(event.clientX, event.clientY)
+    const created: NoteEvent = {
+      pitchMidi: pitch,
+      startTimeSeconds: snapTime(seconds, step, true),
+      durationSeconds: step,
+      amplitude: NEW_NOTE_AMPLITUDE,
+    }
+    setSelected(notes.length)
+    onChangeNotes?.([...notes, created])
+    onAudition?.(pitch)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!editable || selectedIndex === null) return
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault()
+      deleteNote(selectedIndex)
+    } else if (event.key === 'Escape') {
+      event.stopPropagation()
+      setSelected(null)
+    }
+  }
+
   const cells = (progression?.bars ?? []).flatMap((bar) => bar.cells).filter((cell) => cell.chord)
 
   return (
@@ -97,7 +218,9 @@ export function PianoRoll({
       ref={scrollRef}
       role="region"
       aria-label="Carrete MIDI"
-      className="h-full overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a1f36]"
+      tabIndex={editable ? 0 : undefined}
+      onKeyDown={handleKeyDown}
+      className="h-full overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a1f36] focus:outline-none"
     >
       <div
         className="grid"
@@ -151,7 +274,17 @@ export function PianoRoll({
         </div>
 
         <div className="relative">
-          <svg width={width} height={height} className="block">
+          <svg
+            ref={svgRef}
+            width={width}
+            height={height}
+            className={cn('block select-none touch-none', editable && 'cursor-crosshair')}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onPointerDown={() => editable && setSelected(null)}
+            onDoubleClick={handleDoubleClick}
+          >
             {pitches.map((pitch) =>
               isBlackKey(pitch) ? (
                 <rect
@@ -164,40 +297,72 @@ export function PianoRoll({
                 />
               ) : null,
             )}
-            {Array.from({ length: totalBeats + 1 }, (_, i) => (
+            {Array.from({ length: totalBeats * sub + 1 }, (_, i) => (
               <line
                 key={i}
-                x1={i * PX_PER_BEAT}
-                x2={i * PX_PER_BEAT}
+                x1={(i / sub) * PX_PER_BEAT}
+                x2={(i / sub) * PX_PER_BEAT}
                 y1={0}
                 y2={height}
                 className={
-                  i % bpb === 0 ? 'stroke-slate-400 dark:stroke-slate-500' : 'stroke-slate-200 dark:stroke-slate-700'
+                  i % (bpb * sub) === 0
+                    ? 'stroke-slate-400 dark:stroke-slate-500'
+                    : i % sub === 0
+                      ? 'stroke-slate-200 dark:stroke-slate-700'
+                      : 'stroke-slate-100 dark:stroke-slate-800'
                 }
                 strokeWidth={1}
+                strokeDasharray={i % sub === 0 ? undefined : '2 3'}
               />
             ))}
-            {notes.map((note, index) => (
-              <rect
-                key={index}
-                role={onDeleteNote ? 'button' : undefined}
-                aria-label={`${noteName(note.pitchMidi)}, compás ${Math.floor(note.startTimeSeconds / beat / bpb) + 1}`}
-                x={x(note.startTimeSeconds) + 0.5}
-                y={y(note.pitchMidi) + 1}
-                width={Math.max(3, x(note.durationSeconds) - 1)}
-                height={ROW_PX - 2}
-                rx={2}
-                className={
-                  onDeleteNote
-                    ? 'fill-indigo-500 hover:fill-red-500 cursor-pointer'
-                    : 'fill-indigo-500'
-                }
-                fillOpacity={0.45 + 0.55 * note.amplitude}
-                onClick={onDeleteNote ? () => onDeleteNote(index) : undefined}
-              >
-                {onDeleteNote && <title>{`${noteName(note.pitchMidi)} — clic para borrar`}</title>}
-              </rect>
-            ))}
+            {/* The selected note is drawn last, over any note it overlaps. */}
+            {shown
+              .map((note, index) => ({ note, index }))
+              .sort((a, b) => Number(a.index === selectedIndex) - Number(b.index === selectedIndex))
+              .map(({ note, index }) => {
+                const left = x(note.startTimeSeconds) + 0.5
+                const noteWidth = Math.max(3, x(note.durationSeconds) - 1)
+                const isSelected = index === selectedIndex
+                return (
+                  <g key={index}>
+                    <rect
+                      data-note={index}
+                      role={editable ? 'button' : undefined}
+                      aria-label={`${noteName(note.pitchMidi)}, compás ${Math.floor(note.startTimeSeconds / beat / bpb) + 1}`}
+                      aria-pressed={editable ? isSelected : undefined}
+                      x={left}
+                      y={y(note.pitchMidi) + 1}
+                      width={noteWidth}
+                      height={ROW_PX - 2}
+                      rx={2}
+                      className={cn(
+                        isSelected ? 'fill-amber-500' : 'fill-indigo-500',
+                        editable && 'cursor-grab active:cursor-grabbing',
+                      )}
+                      stroke={isSelected ? 'currentColor' : undefined}
+                      fillOpacity={isSelected ? 1 : 0.45 + 0.55 * note.amplitude}
+                      onPointerDown={(event) => handleNotePointerDown(event, index, 'move')}
+                    >
+                      {editable && (
+                        <title>{`${noteName(note.pitchMidi)} — arrastrá para mover, doble clic para borrar`}</title>
+                      )}
+                    </rect>
+                    {editable && (
+                      <rect
+                        data-note={index}
+                        data-handle="resize"
+                        aria-label={`Estirar ${noteName(note.pitchMidi)}`}
+                        x={left + noteWidth - Math.min(HANDLE_PX, noteWidth / 2)}
+                        y={y(note.pitchMidi) + 1}
+                        width={Math.min(HANDLE_PX, noteWidth / 2)}
+                        height={ROW_PX - 2}
+                        className="fill-transparent cursor-ew-resize"
+                        onPointerDown={(event) => handleNotePointerDown(event, index, 'resize')}
+                      />
+                    )}
+                  </g>
+                )
+              })}
           </svg>
           <div
             ref={playheadRef}
