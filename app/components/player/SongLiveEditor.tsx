@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AudioLines, FileUp, Pencil, Piano, Trash2 } from 'lucide-react'
+import { AudioLines, FileUp, Pencil, Piano, Search, Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
 import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
 import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
+import { SongSearchPanel } from '~/components/songs/SongSearchPanel'
+import { ChordSheetPaste } from '~/components/songs/ChordSheetPaste'
+import type { LyricsSearchResult } from '~/lib/lyrics/lrclib'
+import { NEW_SONG_TITLE, isUntouchedNewSong } from '~/lib/newSong'
 import { appendSection } from '~/lib/audioAnalysis/chordproOutput'
 import { applyChordProImport } from '~/lib/chordpro/importToForm'
 import type { ChordProSong, CreateSongInput, Song, UpdateSongInput } from '~/types'
@@ -60,7 +64,7 @@ interface SongLiveEditorProps {
   onDelete?: () => void | Promise<void>
 }
 
-type EditorTool = 'import' | 'audio' | 'midi'
+type EditorTool = 'search' | 'import' | 'audio' | 'midi'
 
 const toolButtonClass = cn(
   'w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
@@ -72,8 +76,9 @@ const toolButtonClass = cn(
  * The song edit form, inside the player's side panel: every change is
  * written after a short pause, so the song next to it re-renders with the
  * new lyrics/chords/BPM while you type — no Save button, no page switch.
- * The tools (import ChordPro, detect from audio, record from a MIDI keyboard)
- * and deleting the song live here too.
+ * The tools (search the lyrics, paste a chord sheet, import ChordPro, detect
+ * from audio, record from a MIDI keyboard) and deleting the song live here too
+ * — also for a song just created by "Add song", which opens with the search.
  */
 export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEditMode, onDelete }: SongLiveEditorProps) {
   const [draft, setDraft] = useState<CreateSongInput>(() => toFormData(song))
@@ -120,8 +125,29 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
     timerRef.current = setTimeout(flush, LIVE_SAVE_DELAY_MS)
   }
 
-  const [tool, setTool] = useState<EditorTool | null>(null)
+  // A blank song from "Add song" starts at the lyrics search: usually the first step.
+  const [tool, setTool] = useState<EditorTool | null>(() => (isUntouchedNewSong(song) ? 'search' : null))
   const toggleTool = (next: EditorTool) => setTool((current) => (current === next ? null : next))
+
+  /** Ask before overwriting lyrics that are already there. */
+  const confirmReplaceLyrics = (next: string) =>
+    !draft.lyrics?.trim() || draft.lyrics === next || window.confirm('¿Reemplazar la letra actual?')
+
+  const handleSelectSearchResult = (result: LyricsSearchResult) => {
+    const replaceLyrics = !!result.lyrics && confirmReplaceLyrics(result.lyrics)
+    handleChange({
+      ...draft,
+      title: result.title || draft.title,
+      artist: result.artist || draft.artist,
+      duration: result.duration || draft.duration,
+      lyrics: replaceLyrics ? result.lyrics : draft.lyrics,
+    })
+    setTool(null)
+  }
+
+  const handleApplyChordSheet = (chordPro: string) => {
+    if (confirmReplaceLyrics(chordPro)) handleChange({ ...draft, lyrics: chordPro })
+  }
 
   // Saved right away like any other edit, so replacing the lyrics asks first.
   const handleImport = (imported: ChordProSong) => {
@@ -174,6 +200,28 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
       </div>
 
       <div className="space-y-2">
+        {tool === 'search' ? (
+          <div className="space-y-1">
+            <SongSearchPanel
+              artist={draft.artist}
+              title={draft.title === NEW_SONG_TITLE ? '' : draft.title}
+              onSelect={handleSelectSearchResult}
+            />
+            <button
+              type="button"
+              onClick={() => setTool(null)}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Ocultar búsqueda
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => toggleTool('search')} className={toolButtonClass}>
+            <Search className="w-4 h-4" />
+            Buscar letra (LRCLIB)
+          </button>
+        )}
+        <ChordSheetPaste onApply={handleApplyChordSheet} />
         {tool === 'import' ? (
           <ChordProImporter onImport={handleImport} onCancel={() => setTool(null)} />
         ) : (

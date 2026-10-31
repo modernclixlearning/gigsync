@@ -168,7 +168,7 @@ export function ChordSheetPaste({ onApply }: ChordSheetPasteProps) {
             Usar como letra
           </button>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Reemplaza la letra actual del formulario. No se guarda hasta que crees la canción.
+            Reemplaza la letra actual de la canción (pide confirmación si ya tiene).
           </p>
         </div>
       )}

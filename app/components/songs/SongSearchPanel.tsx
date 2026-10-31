@@ -97,8 +97,8 @@ export function SongSearchPanel({ artist, title, onSelect }: SongSearchPanelProp
           Buscar canción
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Buscá la letra en LRCLIB por artista y título. Al elegir un resultado se rellena el
-          formulario; no se guarda nada hasta que confirmes.
+          Buscá la letra en LRCLIB por artista y título. Al elegir un resultado se completan título,
+          artista, duración y letra (si ya tiene letra, pregunta antes de reemplazarla).
         </p>
       </div>
 

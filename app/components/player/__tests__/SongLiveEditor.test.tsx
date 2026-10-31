@@ -83,6 +83,34 @@ describe('SongLiveEditor — tools in the panel', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('opens with the lyrics search for a blank song from "Add song", not for a real one', () => {
+    const blank: Song = { ...SONG, title: 'Nueva canción', artist: '', lyrics: '' }
+    const { unmount } = render(<SongLiveEditor song={blank} onSave={vi.fn()} isChordEditMode={false} />)
+    // The query doesn't start with the placeholder title.
+    expect(screen.getByLabelText('Buscar por artista y título')).toHaveValue('')
+    unmount()
+
+    renderEditor(SONG)
+    expect(screen.queryByLabelText('Buscar por artista y título')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Buscar letra (LRCLIB)' })).toBeInTheDocument()
+  })
+
+  it('puts a pasted chord sheet in as the lyrics, saved right away', async () => {
+    const user = userEvent.setup()
+    const blank: Song = { ...SONG, title: 'Nueva canción', artist: '', lyrics: '' }
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<SongLiveEditor song={blank} onSave={onSave} isChordEditMode={false} />)
+    await user.click(screen.getByRole('button', { name: /Pegar cifrado/ }))
+    fireEvent.change(screen.getByLabelText('Cifrado con acordes sobre la letra'), {
+      target: { value: 'E        A\nCon el tiempo' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Convertir y previsualizar' }))
+    await user.click(screen.getByRole('button', { name: 'Usar como letra' }))
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lyrics: expect.stringContaining('[E]') }))
+    )
+  })
+
   it('deletes the song only after confirming, and only where deleting applies', async () => {
     const user = userEvent.setup()
     const onDelete = vi.fn()

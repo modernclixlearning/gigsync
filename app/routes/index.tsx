@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Music2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import { useSongLibrary } from '~/hooks/useSongs'
+import { useDiscardUntouchedNewSongs, useSongLibrary } from '~/hooks/useSongs'
 import { SongCard } from '~/components/library/SongCard'
 import { SongFilters } from '~/components/library/SongFilters'
 import { SongSearch } from '~/components/library/SongSearch'
@@ -22,6 +22,12 @@ function SongsLibraryPage() {
     setFilterOptions
   } = useSongLibrary()
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
+
+  // Back in the library, blank songs from "Add song" that were never filled in go away.
+  const discardUntouchedNewSongs = useDiscardUntouchedNewSongs()
+  useEffect(() => {
+    void discardUntouchedNewSongs()
+  }, [discardUntouchedNewSongs])
 
   const handleSearchChange = (query: string) => {
     setFilterOptions({ searchQuery: query })
