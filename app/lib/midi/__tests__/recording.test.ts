@@ -104,6 +104,13 @@ describe('recordingToProgression', () => {
     expect(progressionToBarLines(recordingToProgression(notes, 6, grid))).toEqual(['Cmaj7 | Bm7b5 | C/E |'])
   })
 
+  it('splits C then Em in one bar instead of reading it as Cmaj7', () => {
+    const CE = [52, 60, 67]
+    const Em = [52, 59, 67]
+    const notes = [...chord(CE, 0, 2), ...chord(Em, 2, 2)]
+    expect(progressionToBarLines(recordingToProgression(notes, 2, grid))).toEqual(['C/E 2 | Em 2 |'])
+  })
+
   it('splits a bar with two chords into halves', () => {
     const notes = [...chord(C, 0, 4), ...chord(F, 4, 2), ...chord(G, 6, 2)]
     expect(progressionToBarLines(recordingToProgression(notes, 4, grid))).toEqual(['C | F 2 | G 2 |'])

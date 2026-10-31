@@ -16,7 +16,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Tone from 'tone'
 import { createAudioTimeMapper, type AudioClockLike } from '~/lib/midi/audioTime'
 import { createNoteRecorder, MIDI_DRUM_CHANNEL, parseMIDINoteMessage, type NoteRecorder } from '~/lib/midi/notes'
-import { beatSeconds, describeSounding, positionAt, recordingToProgression } from '~/lib/midi/recording'
+import {
+  beatSeconds,
+  describeSounding,
+  positionAt,
+  recordingToProgression,
+  type RecordingGrid,
+} from '~/lib/midi/recording'
 import { progressionToBarLines } from '~/lib/audioAnalysis/chordproOutput'
 import type { ChordProgression, NoteEvent } from '~/lib/audioAnalysis/types'
 
@@ -34,6 +40,15 @@ export interface MIDIRecording {
   progression: ChordProgression
   /** Seconds from the first downbeat to Stop. */
   durationSeconds: number
+  /** Tempo and meter of the click it was played against. */
+  grid: RecordingGrid
+}
+
+/** The take in progress: notes so far (held ones end now) and the time heard now. */
+export interface LiveTake {
+  notes: NoteEvent[]
+  /** Seconds from the first downbeat (negative during the count-in). */
+  time: number
 }
 
 export interface UseMIDIRecorderOptions {
@@ -57,7 +72,11 @@ export interface UseMIDIRecorderReturn {
   sounding: string | null
   /** Progression so far, refreshed on every downbeat while recording. */
   liveLines: string[]
+  /** Same, as the detected progression (for drawing chords over a piano roll). */
+  liveProgression: ChordProgression | null
   recording: MIDIRecording | null
+  /** The take in progress, or null when not recording. Cheap enough to poll. */
+  peek: () => LiveTake | null
   start: () => Promise<void>
   stop: () => void
   reset: () => void
@@ -95,7 +114,8 @@ export function useMIDIRecorder({
   const [countIn, setCountIn] = useState<number | null>(null)
   const [position, setPosition] = useState<{ bar: number; beat: number } | null>(null)
   const [sounding, setSounding] = useState<string | null>(null)
-  const [liveLines, setLiveLines] = useState<string[]>([])
+  const [liveProgression, setLiveProgression] = useState<ChordProgression | null>(null)
+  const liveLines = liveProgression ? progressionToBarLines(liveProgression) : []
   const [recording, setRecording] = useState<MIDIRecording | null>(null)
 
   const mapperRef = useRef(createAudioTimeMapper())
@@ -269,7 +289,7 @@ export function useMIDIRecorder({
             setPosition(positionAt(index * beat, { bpm: tempo, beatsPerBar: bpb }))
             if (downbeat && index > 0) {
               const now = index * beat
-              setLiveLines(progressionToBarLines(recordingToProgression(recorder.notesUntil(now), now, { bpm: tempo, beatsPerBar: bpb })))
+              setLiveProgression(recordingToProgression(recorder.notesUntil(now), now, { bpm: tempo, beatsPerBar: bpb }))
             }
           }, delay)
         session.timers.add(timer)
@@ -280,7 +300,7 @@ export function useMIDIRecorder({
 
     sessionRef.current = session
     setRecording(null)
-    setLiveLines([])
+    setLiveProgression(null)
     setPosition(null)
     setCountIn(null)
     setPhase(countInBeats > 0 ? 'count-in' : 'recording')
@@ -296,7 +316,7 @@ export function useMIDIRecorder({
     const held = session.recorder.sounding()
     const notes = session.recorder.finish(end)
     const grid = { bpm: 60 / session.beat, beatsPerBar: session.bpb }
-    setRecording({ notes, progression: recordingToProgression(notes, end, grid), durationSeconds: end })
+    setRecording({ notes, progression: recordingToProgression(notes, end, grid), durationSeconds: end, grid })
     setCountIn(null)
     setPosition(null)
     setPhase('done')
@@ -304,10 +324,17 @@ export function useMIDIRecorder({
     for (const pitch of held) idleRef.current.noteOn(pitch, 90, performance.now() / 1000)
   }, [endSession, timeOf])
 
+  const peek = useCallback((): LiveTake | null => {
+    const session = sessionRef.current
+    if (!session) return null
+    const time = timeOf(performance.now())
+    return { notes: session.recorder.notesUntil(Math.max(0, time)), time }
+  }, [timeOf])
+
   const reset = useCallback(() => {
     endSession()
     setRecording(null)
-    setLiveLines([])
+    setLiveProgression(null)
     setCountIn(null)
     setPosition(null)
     setPhase('idle')
@@ -315,5 +342,5 @@ export function useMIDIRecorder({
 
   useEffect(() => () => void endSession(), [endSession])
 
-  return { phase, countIn, position, sounding, liveLines, recording, start, stop, reset }
+  return { phase, countIn, position, sounding, liveLines, liveProgression, recording, peek, start, stop, reset }
 }
