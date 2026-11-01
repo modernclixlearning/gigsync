@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { useState } from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { PianoRoll } from '../PianoRoll'
 import type { ChordProgression, NoteEvent } from '~/lib/audioAnalysis/types'
@@ -116,5 +117,116 @@ describe('PianoRoll', () => {
     render(<PianoRoll {...base} />)
     expect(screen.queryAllByRole('button')).toHaveLength(0)
     expect(screen.getByRole('region', { name: 'Carrete MIDI' })).not.toHaveAttribute('tabindex')
+  })
+})
+
+describe('PianoRoll — selecting several notes', () => {
+  // Range drawn: C3 (48) … D5 (74); a row is 12 px, so pitch p sits at y = (74 - p) × 12.
+  const rowY = (pitch: number) => (74 - pitch) * 12 + 6
+  const click = (element: Element, modifiers: { shiftKey?: boolean; ctrlKey?: boolean } = {}) => {
+    const svg = element.closest('svg')!
+    fireEvent.pointerDown(element, { clientX: 10, clientY: 10, pointerId: 1, button: 0, ...modifiers })
+    fireEvent.pointerUp(svg, { clientX: 10, clientY: 10, pointerId: 1 })
+  }
+  const note = (name: string) => screen.getByRole('button', { name })
+  const selectedNames = () =>
+    screen
+      .getAllByRole('button', { pressed: true })
+      .map((b) => b.getAttribute('aria-label'))
+      .sort()
+
+  it('Shift or Ctrl+click adds and removes notes; Supr deletes them all', () => {
+    const onChangeNotes = vi.fn()
+    render(<PianoRoll {...base} onChangeNotes={onChangeNotes} />)
+    click(note('C4, compás 1'))
+    click(note('E4, compás 1'), { shiftKey: true })
+    click(note('A3, compás 2'), { ctrlKey: true })
+    expect(selectedNames()).toEqual(['A3, compás 2', 'C4, compás 1', 'E4, compás 1'])
+    click(note('A3, compás 2'), { ctrlKey: true })
+    expect(selectedNames()).toEqual(['C4, compás 1', 'E4, compás 1'])
+
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Carrete MIDI' }), { key: 'Delete' })
+    expect(lastNotes(onChangeNotes).map((n) => n.pitchMidi)).toEqual([67, 57])
+  })
+
+  it('selects with a box dragged over empty space', () => {
+    const { container } = render(<PianoRoll {...base} onChangeNotes={vi.fn()} />)
+    const svg = container.querySelector('svg')!
+    fireEvent.pointerDown(svg, { clientX: 10, clientY: rowY(67) - 8, pointerId: 1, button: 0 })
+    fireEvent.pointerMove(svg, { clientX: 40, clientY: rowY(64), pointerId: 1 })
+    expect(screen.getByLabelText('Recuadro de selección')).toBeInTheDocument()
+    fireEvent.pointerUp(svg, { clientX: 40, clientY: rowY(64), pointerId: 1 })
+    expect(screen.queryByLabelText('Recuadro de selección')).toBeNull()
+    expect(selectedNames()).toEqual(['E4, compás 1', 'G4, compás 1'])
+
+    // A plain click on empty space clears it.
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: rowY(50), pointerId: 1, button: 0 })
+    fireEvent.pointerUp(svg, { clientX: 300, clientY: rowY(50), pointerId: 1 })
+    expect(screen.queryAllByRole('button', { pressed: true })).toHaveLength(0)
+  })
+
+  it('drags the whole selection together, and a click on one of them selects just that one', () => {
+    const onChangeNotes = vi.fn()
+    render(<PianoRoll {...base} subdivision={2} onChangeNotes={onChangeNotes} />)
+    click(note('C4, compás 1'))
+    click(note('E4, compás 1'), { shiftKey: true })
+    drag(note('C4, compás 1'), 50, -24)
+    const moved = lastNotes(onChangeNotes)
+    expect(moved[0]).toMatchObject({ pitchMidi: 62, startTimeSeconds: 0.5 })
+    expect(moved[1]).toMatchObject({ pitchMidi: 66, startTimeSeconds: 0.5 })
+    expect(moved[2]).toEqual(notes[2])
+
+    click(note('E4, compás 1'))
+    expect(selectedNames()).toEqual(['E4, compás 1'])
+  })
+
+  it('Ctrl+A selects all; arrows transpose and nudge; Ctrl+D duplicates; Esc clears', () => {
+    // Keeps the notes and the selection like the recording panel does.
+    const changes: NoteEvent[][] = []
+    const selections: number[][] = []
+    function Harness() {
+      const [current, setCurrent] = useState(notes)
+      const [selection, setSelection] = useState<number[]>([])
+      return (
+        <PianoRoll
+          {...base}
+          notes={current}
+          subdivision={2}
+          selection={selection}
+          onSelectionChange={(next) => {
+            selections.push(next)
+            setSelection(next)
+          }}
+          onChangeNotes={(next) => {
+            changes.push(next)
+            setCurrent(next)
+          }}
+        />
+      )
+    }
+    render(<Harness />)
+    const roll = screen.getByRole('region', { name: 'Carrete MIDI' })
+    fireEvent.keyDown(roll, { key: 'a', ctrlKey: true })
+    expect(selections.at(-1)).toEqual([0, 1, 2, 3])
+
+    fireEvent.keyDown(roll, { key: 'ArrowUp', shiftKey: true })
+    expect(changes.at(-1)!.map((n) => n.pitchMidi)).toEqual([72, 76, 79, 69])
+    fireEvent.keyDown(roll, { key: 'ArrowRight' })
+    expect(changes.at(-1)!.map((n) => n.startTimeSeconds)).toEqual([0.25, 0.25, 0.25, 2.25])
+
+    click(note('C5, compás 1'))
+    click(note('E5, compás 1'), { shiftKey: true })
+    fireEvent.keyDown(roll, { key: 'd', ctrlKey: true })
+    const duplicated = changes.at(-1)!
+    expect(duplicated).toHaveLength(6)
+    expect(duplicated.slice(4).map((n) => [n.pitchMidi, n.startTimeSeconds])).toEqual([
+      [72, 2.25],
+      [76, 2.25],
+    ])
+    expect(selectedNames()).toEqual(['C5, compás 2', 'E5, compás 2'])
+
+    fireEvent.keyDown(roll, { key: 'Escape' })
+    expect(selections.at(-1)).toEqual([])
+    expect(screen.queryAllByRole('button', { pressed: true })).toHaveLength(0)
   })
 })

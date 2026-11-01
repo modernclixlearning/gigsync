@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Magnet, Minus, Piano, Play, Plus, Square, Undo2, X } from 'lucide-react'
+import { Circle, Magnet, Minus, Piano, Play, Plus, Square, Trash2, Undo2, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useMIDIAccess, type MIDIInputInfo } from '~/hooks/useMIDIAccess'
 import { useMIDIRecorder, type LiveTake } from '~/hooks/useMIDIRecorder'
@@ -107,6 +107,8 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
   /** The take being corrected, with undo history. */
   const [take, setTake] = useState<Take | null>(null)
   const [history, setHistory] = useState<Take[]>([])
+  /** Notes selected in the piano roll (indices into the take). */
+  const [selection, setSelection] = useState<number[]>([])
   const [gridStep, setGridStep] = useState<number>(2)
   const [live, setLive] = useState<LiveTake | null>(null)
 
@@ -125,6 +127,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
   useEffect(() => {
     setTake(recording ? { notes: recording.notes, durationSeconds: recording.durationSeconds } : null)
     setHistory([])
+    setSelection([])
   }, [recording])
 
   // Chords follow the corrected take; editing notes rewrites the bar lines.
@@ -179,8 +182,22 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
   const changeNotes = (notes: NoteEvent[]) => {
     if (take) editTake({ ...take, notes })
   }
+  // With notes selected, Cuantizar and Borrar act on them only.
   const quantize = () => {
-    if (recording && take) changeNotes(quantizeNotes(take.notes, beatSeconds(recording.grid.bpm) / gridStep))
+    if (!recording || !take) return
+    const stepSeconds = beatSeconds(recording.grid.bpm) / gridStep
+    const chosen = new Set(selection)
+    changeNotes(
+      chosen.size === 0
+        ? quantizeNotes(take.notes, stepSeconds)
+        : take.notes.map((note, i) => (chosen.has(i) ? quantizeNotes([note], stepSeconds)[0] : note)),
+    )
+  }
+  const deleteSelection = () => {
+    if (!take || selection.length === 0) return
+    const chosen = new Set(selection)
+    setSelection([])
+    changeNotes(take.notes.filter((_, i) => !chosen.has(i)))
   }
 
   // Bars of the take: more can be added at the end to draw into; empty ones removed.
@@ -202,6 +219,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
     stopPlayback()
     setTake(previous)
     setHistory(history.slice(0, -1))
+    setSelection([])
   }
   const canPlay = phase === 'done' && !!recording && !!take && take.notes.length > 0
   const playTake = () => {
@@ -463,6 +481,8 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
             subdivision={gridStep}
             onChangeNotes={roll.onChangeNotes}
             onAudition={roll.onChangeNotes ? playback.audition : undefined}
+            selection={roll.onChangeNotes ? selection : undefined}
+            onSelectionChange={roll.onChangeNotes ? setSelection : undefined}
           />
         </div>
 
@@ -486,8 +506,14 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
               </label>
               <button type="button" onClick={quantize} disabled={take.notes.length === 0} className={toolButtonClass}>
                 <Magnet className="w-4 h-4" />
-                Cuantizar
+                {selection.length > 0 ? 'Cuantizar selección' : 'Cuantizar'}
               </button>
+              {selection.length > 0 && (
+                <button type="button" onClick={deleteSelection} className={toolButtonClass}>
+                  <Trash2 className="w-4 h-4" />
+                  Borrar selección
+                </button>
+              )}
               <button type="button" onClick={addBar} className={toolButtonClass}>
                 <Plus className="w-4 h-4" />
                 Compás
@@ -507,12 +533,15 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
                 Deshacer
               </button>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                {take.notes.length} notas · {takeBars} compases
+                {take.notes.length} notas
+                {selection.length > 0 ? ` (${selection.length} seleccionadas)` : ''} · {takeBars} compases
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Arrastrá una nota para moverla y su borde derecho para estirarla; doble clic para agregar o borrar
-              (Supr borra la elegida). Todo se ajusta a la grilla.
+              Clic elige una nota; Shift o Ctrl+clic suma o saca, arrastrar en un lugar vacío elige con un recuadro
+              y Ctrl+A elige todas. Arrastrá la selección para moverla y el borde derecho para estirarla; flechas la
+              mueven (↑↓ un semitono, Shift una octava; ←→ un paso, Shift un compás), Ctrl+D la duplica y Supr la
+              borra. Doble clic agrega o borra una nota. Todo se ajusta a la grilla.
             </p>
 
             {takeProgression && takeProgression.bars.length === 0 && (

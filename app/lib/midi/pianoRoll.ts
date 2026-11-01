@@ -65,6 +65,90 @@ export function resizeNote(note: NoteEvent, deltaSeconds: number, step: number):
 }
 
 /**
+ * Several notes dragged together by the one under the pointer (`anchor`): the
+ * anchor's start lands on the grid and the rest keep their distance to it, as
+ * a block — which stops at time 0 and at the edges of the pitch range rather
+ * than squashing.
+ */
+export function moveNotes(
+  notes: NoteEvent[],
+  indices: readonly number[],
+  anchor: number,
+  deltaSeconds: number,
+  deltaPitch: number,
+  step: number,
+  range: { low: number; high: number },
+): NoteEvent[] {
+  const moving = new Set(indices)
+  const group = notes.filter((_, i) => moving.has(i))
+  if (group.length === 0) return notes
+  const anchorNote = notes[anchor] ?? group[0]
+  const earliest = Math.min(...group.map((n) => n.startTimeSeconds))
+  const dt = Math.max(-earliest, snapTime(anchorNote.startTimeSeconds + deltaSeconds, step) - anchorNote.startTimeSeconds)
+  const lowest = Math.min(...group.map((n) => n.pitchMidi))
+  const highest = Math.max(...group.map((n) => n.pitchMidi))
+  const dp = Math.min(range.high - highest, Math.max(range.low - lowest, deltaPitch))
+  return notes.map((note, i) =>
+    moving.has(i) ? { ...note, startTimeSeconds: note.startTimeSeconds + dt, pitchMidi: note.pitchMidi + dp } : note,
+  )
+}
+
+/**
+ * Several notes stretched together by the one whose edge is dragged: its end
+ * lands on the grid and the others grow or shrink by the same amount, none
+ * below one step.
+ */
+export function resizeNotes(
+  notes: NoteEvent[],
+  indices: readonly number[],
+  anchor: number,
+  deltaSeconds: number,
+  step: number,
+): NoteEvent[] {
+  const anchorNote = notes[anchor]
+  if (!anchorNote) return notes
+  const anchorEnd = anchorNote.startTimeSeconds + anchorNote.durationSeconds
+  const dEnd = Math.max(step, snapTime(anchorEnd + deltaSeconds, step) - anchorNote.startTimeSeconds) - anchorNote.durationSeconds
+  const resizing = new Set(indices)
+  return notes.map((note, i) =>
+    resizing.has(i) ? { ...note, durationSeconds: Math.max(step, note.durationSeconds + dEnd) } : note,
+  )
+}
+
+/** Indices of the notes that overlap a box of time (seconds) × pitch (both ends included). */
+export function notesInBox(
+  notes: NoteEvent[],
+  box: { fromSeconds: number; toSeconds: number; lowPitch: number; highPitch: number },
+): number[] {
+  const [t0, t1] = [Math.min(box.fromSeconds, box.toSeconds), Math.max(box.fromSeconds, box.toSeconds)]
+  const [p0, p1] = [Math.min(box.lowPitch, box.highPitch), Math.max(box.lowPitch, box.highPitch)]
+  const found: number[] = []
+  notes.forEach((note, i) => {
+    const overlaps = note.startTimeSeconds < t1 && note.startTimeSeconds + note.durationSeconds > t0
+    if (overlaps && note.pitchMidi >= p0 && note.pitchMidi <= p1) found.push(i)
+  })
+  return found
+}
+
+/**
+ * Copies of the selected notes placed right after them (the block's length,
+ * rounded up to the grid). Returns the new list and the copies' indices.
+ */
+export function duplicateNotes(
+  notes: NoteEvent[],
+  indices: readonly number[],
+  step: number,
+): { notes: NoteEvent[]; copies: number[] } {
+  const group = indices.map((i) => notes[i]).filter(Boolean)
+  if (group.length === 0) return { notes, copies: [] }
+  const start = Math.min(...group.map((n) => n.startTimeSeconds))
+  const end = Math.max(...group.map((n) => n.startTimeSeconds + n.durationSeconds))
+  const span = step > 0 ? Math.ceil((end - start) / step - 1e-9) * step : end - start
+  const copies = group.map((note) => ({ ...note, startTimeSeconds: note.startTimeSeconds + span }))
+  return { notes: [...notes, ...copies], copies: copies.map((_, k) => notes.length + k) }
+}
+
+/**
  * Snap note starts and ends to the nearest multiple of `stepSeconds`; a note
  * never ends up shorter than one step.
  */

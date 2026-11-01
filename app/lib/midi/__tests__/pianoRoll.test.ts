@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { isBlackKey, moveNote, noteName, pitchRange, quantizeNotes, resizeNote, snapTime } from '../pianoRoll'
+import {
+  duplicateNotes,
+  isBlackKey,
+  moveNote,
+  moveNotes,
+  noteName,
+  notesInBox,
+  pitchRange,
+  quantizeNotes,
+  resizeNote,
+  resizeNotes,
+  snapTime,
+} from '../pianoRoll'
 import type { NoteEvent } from '~/lib/audioAnalysis/types'
 
 const note = (pitchMidi: number, startTimeSeconds: number, durationSeconds: number): NoteEvent => ({
@@ -72,5 +84,46 @@ describe('snapTime / moveNote / resizeNote', () => {
   it('stretches or shortens a note to the grid, never below one step', () => {
     expect(resizeNote(note(60, 0, 0.9), 0.4, 0.25).durationSeconds).toBeCloseTo(1.25)
     expect(resizeNote(note(60, 1, 0.5), -2, 0.25).durationSeconds).toBeCloseTo(0.25)
+  })
+})
+
+describe('group edits', () => {
+  const range = { low: 48, high: 72 }
+  const chord = [note(60, 0, 1), note(64, 0, 1), note(67, 0.5, 1), note(50, 2, 1)]
+
+  it('moves the selection as a block, snapping the dragged note', () => {
+    const moved = moveNotes(chord, [0, 1, 2], 0, 0.62, 2, 0.25, range)
+    expect(moved.slice(0, 3).map((n) => [n.pitchMidi, n.startTimeSeconds])).toEqual([
+      [62, 0.5],
+      [66, 0.5],
+      [69, 1],
+    ])
+    expect(moved[3]).toEqual(chord[3])
+  })
+
+  it('stops the block at time 0 and at the pitch range instead of squashing it', () => {
+    const moved = moveNotes(chord, [0, 2], 2, -2, 10, 0.25, range)
+    expect(moved[0]).toMatchObject({ startTimeSeconds: 0, pitchMidi: 65 })
+    expect(moved[2]).toMatchObject({ startTimeSeconds: 0.5, pitchMidi: 72 })
+  })
+
+  it('stretches every selected note by what the dragged one grew', () => {
+    const stretched = resizeNotes(chord, [0, 2], 0, 0.5, 0.25)
+    expect(stretched[0].durationSeconds).toBeCloseTo(1.5)
+    expect(stretched[2].durationSeconds).toBeCloseTo(1.5)
+    expect(stretched[1].durationSeconds).toBe(1)
+    expect(resizeNotes(chord, [0, 2], 0, -5, 0.25)[2].durationSeconds).toBeCloseTo(0.25)
+  })
+
+  it('finds the notes a selection box touches', () => {
+    expect(notesInBox(chord, { fromSeconds: 0.9, toSeconds: 0.2, lowPitch: 63, highPitch: 70 })).toEqual([1, 2])
+    expect(notesInBox(chord, { fromSeconds: 1.6, toSeconds: 1.9, lowPitch: 40, highPitch: 80 })).toEqual([])
+  })
+
+  it('duplicates the selection right after itself, on the grid', () => {
+    const { notes: next, copies } = duplicateNotes(chord, [0, 2], 0.25)
+    expect(copies).toEqual([4, 5])
+    expect(next[4]).toMatchObject({ pitchMidi: 60, startTimeSeconds: 1.5 })
+    expect(next[5]).toMatchObject({ pitchMidi: 67, startTimeSeconds: 2 })
   })
 })
