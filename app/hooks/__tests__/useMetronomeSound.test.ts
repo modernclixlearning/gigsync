@@ -69,6 +69,17 @@ describe('useMetronomeSound', () => {
     expect(tone.loops).toHaveLength(0)
   })
 
+  it('clicks at the volume it is given; 0 is silent rather than broken', () => {
+    const { rerender } = renderHook(({ volume }) => useMetronomeSound({ enabled: true, isPlaying: true, volume }), {
+      initialProps: { volume: 0.1 },
+    })
+    const synth = tone.synths[0] as unknown as { volume: { value: number } }
+    expect(synth.volume.value).toBeCloseTo(-20, 1)
+    rerender({ volume: 0 })
+    expect(Number.isFinite(synth.volume.value)).toBe(true)
+    expect(synth.volume.value).toBeLessThan(-60)
+  })
+
   it('schedules each click at the loop audio time, accenting downbeats', () => {
     renderHook(() => useMetronomeSound({ enabled: true, isPlaying: true }))
     expect(tone.loops).toHaveLength(1)

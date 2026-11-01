@@ -96,7 +96,7 @@ export function useMetronomeSound({
   // Update volume
   useEffect(() => {
     if (synthRef.current && enabled) {
-      synthRef.current.volume.value = Tone.gainToDb(volume)
+      synthRef.current.volume.value = Tone.gainToDb(Math.max(0.0001, volume))
     }
   }, [volume, enabled])
 }

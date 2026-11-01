@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlayerControls } from '../PlayerControls'
 import { PlayerAdjustments } from '../PlayerAdjustments'
+import { TransposeControl } from '../PlayerSoundSettings'
 
 describe('PlayerControls', () => {
   const defaultProps = {
@@ -350,12 +351,26 @@ describe('PlayerControls', () => {
     expect(onSaveControlForSong).toHaveBeenCalledWith('textAlign', 'center')
   })
 
-  it('should render the adjustments rows', () => {
+  it('groups the view rows by what they change, without the sound ones', () => {
     render(<PlayerAdjustments {...defaultProps} />)
 
-    expect(screen.getByText('Scroll Speed')).toBeInTheDocument()
-    expect(screen.getByText('Font Size')).toBeInTheDocument()
-    expect(screen.getByText('Transpose')).toBeInTheDocument()
+    for (const section of ['Letra', 'Acordes', 'Resaltado', 'Pantalla', 'Desplazamiento']) {
+      expect(screen.getByRole('region', { name: section })).toBeInTheDocument()
+    }
+    expect(within(screen.getByRole('region', { name: 'Letra' })).getByText('Tamaño de letra')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Desplazamiento' })).getByText('Velocidad del scroll')).toBeInTheDocument()
+    expect(screen.queryByText('Transponer')).toBeNull()
+  })
+
+  it('switches the app theme from the display section', async () => {
+    const user = userEvent.setup()
+    const onThemeChange = vi.fn()
+    render(<PlayerAdjustments {...defaultProps} theme="dark" onThemeChange={onThemeChange} />)
+
+    const themes = screen.getByRole('group', { name: 'Tema' })
+    expect(within(themes).getByRole('button', { name: 'Oscuro' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(themes).getByRole('button', { name: 'Claro' }))
+    expect(onThemeChange).toHaveBeenCalledWith('light')
   })
 
   it('should change auto-scroll speed', async () => {
@@ -371,7 +386,7 @@ describe('PlayerControls', () => {
 
     // Find and click increment button (the stepper is the row's last direct
     // child — its first child holds the label + save-as-default/for-song buttons)
-    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
+    const speedControls = screen.getByText('Velocidad del scroll').closest('[data-testid="settings-row"]')
     const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
@@ -390,7 +405,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
+    const speedControls = screen.getByText('Velocidad del scroll').closest('[data-testid="settings-row"]')
     const decrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
@@ -406,7 +421,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const speedControls = screen.getByText('Scroll Speed').closest('[data-testid="settings-row"]')
+    const speedControls = screen.getByText('Velocidad del scroll').closest('[data-testid="settings-row"]')
     const incrementButton = speedControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
@@ -422,7 +437,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
+    const fontSizeControls = screen.getByText('Tamaño de letra').closest('[data-testid="settings-row"]')
     const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (incrementButton) {
       await user.click(incrementButton)
@@ -434,7 +449,7 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     render(<PlayerAdjustments {...defaultProps} fontSize={20} />)
 
-    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
+    const fontSizeControls = screen.getByText('Tamaño de letra').closest('[data-testid="settings-row"]')
     const decrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     expect(decrementButton).toBeDisabled()
   })
@@ -443,7 +458,7 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     render(<PlayerAdjustments {...defaultProps} fontSize={56} />)
 
-    const fontSizeControls = screen.getByText('Font Size').closest('[data-testid="settings-row"]')
+    const fontSizeControls = screen.getByText('Tamaño de letra').closest('[data-testid="settings-row"]')
     const incrementButton = fontSizeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     expect(incrementButton).toBeDisabled()
   })
@@ -452,12 +467,12 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     const onTranspose = vi.fn()
     render(
-      <PlayerAdjustments {...defaultProps} transpose={0} onTranspose={onTranspose} />
+      <TransposeControl {...defaultProps} onSaveTranspose={vi.fn()} transpose={0} onTranspose={onTranspose} />
     )
 
     // Find the transpose stepper (row's last direct child — its first child
     // holds the label + save-as-default/for-song buttons)
-    const transposeLabel = screen.getByText('Transpose')
+    const transposeLabel = screen.getByText('Transponer')
     const transposeRow = transposeLabel.closest('[data-testid="settings-row"]')
     expect(transposeRow).toBeTruthy()
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
@@ -475,10 +490,10 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     const onTranspose = vi.fn()
     render(
-      <PlayerAdjustments {...defaultProps} transpose={0} onTranspose={onTranspose} />
+      <TransposeControl {...defaultProps} onSaveTranspose={vi.fn()} transpose={0} onTranspose={onTranspose} />
     )
 
-    const transposeControls = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
+    const transposeControls = screen.getByText('Transponer').closest('[data-testid="settings-row"]')
     const decrementButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[0]
     if (decrementButton) {
       await user.click(decrementButton)
@@ -490,14 +505,15 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     const onResetTranspose = vi.fn()
     render(
-      <PlayerAdjustments
+      <TransposeControl
         {...defaultProps}
+        onSaveTranspose={vi.fn()}
         transpose={3}
         onResetTranspose={onResetTranspose}
       />
     )
 
-    const transposeControls = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
+    const transposeControls = screen.getByText('Transponer').closest('[data-testid="settings-row"]')
     const resetButton = transposeControls?.querySelector(':scope > div:last-child')?.querySelectorAll('button')[1]
     if (resetButton) {
       await user.click(resetButton)
@@ -520,13 +536,13 @@ describe('PlayerControls', () => {
   it('should display the transpose target key name, not a raw semitone count', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
-      <PlayerAdjustments {...defaultProps} transpose={3} transposeDisplay="D#" />
+      <TransposeControl {...defaultProps} onSaveTranspose={vi.fn()} transpose={3} transposeDisplay="D#" />
     )
 
     // The transpose target is displayed as a note name in a button
     expect(screen.getByText('D#')).toBeInTheDocument()
 
-    rerender(<PlayerAdjustments {...defaultProps} transpose={-2} transposeDisplay="Bb" />)
+    rerender(<TransposeControl {...defaultProps} onSaveTranspose={vi.fn()} transpose={-2} transposeDisplay="Bb" />)
     expect(screen.getByText('Bb')).toBeInTheDocument()
   })
 
@@ -534,8 +550,9 @@ describe('PlayerControls', () => {
     const user = userEvent.setup()
     const onToggleTransposeSpelling = vi.fn()
     render(
-      <PlayerAdjustments
+      <TransposeControl
         {...defaultProps}
+        onSaveTranspose={vi.fn()}
         transpose={3}
         transposeDisplay="D#"
         isTransposeSpellingFlexible
@@ -543,7 +560,7 @@ describe('PlayerControls', () => {
       />
     )
 
-    const transposeRow = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
+    const transposeRow = screen.getByText('Transponer').closest('[data-testid="settings-row"]')
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
     const spellingToggle = stepper?.querySelectorAll('button')[3]
     expect(spellingToggle).toBeTruthy()
@@ -555,15 +572,16 @@ describe('PlayerControls', () => {
   it('should disable the sharp/flat toggle when the target note has no alternative spelling', async () => {
     const user = userEvent.setup()
     render(
-      <PlayerAdjustments
+      <TransposeControl
         {...defaultProps}
+        onSaveTranspose={vi.fn()}
         transpose={0}
         transposeDisplay="C"
         isTransposeSpellingFlexible={false}
       />
     )
 
-    const transposeRow = screen.getByText('Transpose').closest('[data-testid="settings-row"]')
+    const transposeRow = screen.getByText('Transponer').closest('[data-testid="settings-row"]')
     const stepper = transposeRow?.querySelector(':scope > div:last-child')
     const spellingToggle = stepper?.querySelectorAll('button')[3]
     expect(spellingToggle).toBeDisabled()

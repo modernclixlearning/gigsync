@@ -3,10 +3,10 @@ import { useEffect } from 'react'
 import { Music2 } from 'lucide-react'
 import { useSong, useSongLibrary } from '~/hooks/useSongs'
 import { SongPlayerContent } from '~/components/player/SongPlayerContent'
-import type { PlayerPanelTab } from '~/components/player/PlayerSidePanel'
+import { PLAYER_PANEL_TABS, type PlayerPanelTab } from '~/components/player/PlayerSidePanel'
 import { ROUTES } from '~/lib/routes'
 
-const PANEL_TABS: PlayerPanelTab[] = ['adjust', 'edit', 'config']
+const PANEL_TABS: PlayerPanelTab[] = PLAYER_PANEL_TABS.map((tab) => tab.id)
 
 export const Route = createFileRoute('/song/$songId/')({
   /** `?panel=edit` opens the player with its side panel on that tab. */

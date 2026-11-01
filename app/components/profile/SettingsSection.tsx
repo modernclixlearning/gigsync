@@ -83,18 +83,22 @@ export interface SettingsToggleProps {
   checked: boolean
   onChange: (checked: boolean) => void
   disabled?: boolean
+  /** Needed where the switch isn't next to its label's text (e.g. several in one row). */
+  ariaLabel?: string
 }
 
 export function SettingsToggle({
   checked,
   onChange,
   disabled,
+  ariaLabel,
 }: SettingsToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
@@ -159,6 +163,7 @@ export interface SettingsSliderProps {
   showValue?: boolean
   suffix?: string
   disabled?: boolean
+  ariaLabel?: string
 }
 
 export function SettingsSlider({
@@ -170,6 +175,7 @@ export function SettingsSlider({
   showValue = true,
   suffix = '',
   disabled,
+  ariaLabel,
 }: SettingsSliderProps) {
   return (
     <div className="flex items-center gap-3">
@@ -181,6 +187,7 @@ export function SettingsSlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         disabled={disabled}
+        aria-label={ariaLabel}
         className={cn(
           'w-24 h-2 rounded-full appearance-none cursor-pointer',
           'bg-slate-200 dark:bg-[#232948]',

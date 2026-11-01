@@ -2,12 +2,17 @@ import { useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
-export type PlayerPanelTab = 'adjust' | 'edit' | 'config'
+/**
+ * One tab per kind of thing: how the song is shown (view), what it sounds
+ * like while playing (sound), and the song itself — its data, lyrics and
+ * chords (edit; the id stays 'edit' so `?panel=edit` links keep working).
+ */
+export type PlayerPanelTab = 'view' | 'sound' | 'edit'
 
-const TABS: { id: PlayerPanelTab; label: string }[] = [
-  { id: 'adjust', label: 'Ajustes' },
-  { id: 'edit', label: 'Editar' },
-  { id: 'config', label: 'Config' },
+export const PLAYER_PANEL_TABS: { id: PlayerPanelTab; label: string }[] = [
+  { id: 'view', label: 'Vista' },
+  { id: 'sound', label: 'Sonido' },
+  { id: 'edit', label: 'Canción' },
 ]
 
 /** Width of the docked panel from `md:` up — the player reserves the same space on its right. */
@@ -60,7 +65,7 @@ export function PlayerSidePanel({ isOpen, tab, onTabChange, onClose, content }: 
     >
       <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
         <div role="tablist" className="flex flex-1 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60">
-          {TABS.map(({ id, label }) => (
+          {PLAYER_PANEL_TABS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
@@ -88,7 +93,8 @@ export function PlayerSidePanel({ isOpen, tab, onTabChange, onClose, content }: 
         </button>
       </div>
 
-      <div role="tabpanel" className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+      {/* Keyed by tab: each tab opens at its top, not at the last one's scroll. */}
+      <div key={tab} role="tabpanel" className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
         {content[tab]}
       </div>
     </aside>

@@ -51,6 +51,14 @@ describe('useCountIn', () => {
     expect(result.current.isCountingIn).toBe(false)
   })
 
+  it('clicks at the volume it is given (the player passes its metronome volume)', async () => {
+    const { result } = renderHook(() => useCountIn())
+    await act(async () => {
+      await result.current.start({ bpm: 120, beatsPerBar: 4, bars: 1, volume: 0.1, onDone: vi.fn() })
+    })
+    expect(synth.volume.value).toBeCloseTo(-20, 1)
+  })
+
   it('cancel stops the count and never starts the song', async () => {
     const onDone = vi.fn()
     const { result } = renderHook(() => useCountIn())

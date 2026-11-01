@@ -11,6 +11,8 @@ export interface CountInOptions {
   bpm: number
   beatsPerBar: number
   bars: number
+  /** 0..1, like the player's click. Default 1. */
+  volume?: number
   /** Called on the downbeat right after the last click: start the song here. */
   onDone: () => void
 }
@@ -45,7 +47,7 @@ export function useCountIn(): UseCountInReturn {
   }, [])
 
   const start = useCallback(
-    async ({ bpm, beatsPerBar, bars, onDone }: CountInOptions) => {
+    async ({ bpm, beatsPerBar, bars, volume = 1, onDone }: CountInOptions) => {
       cancel()
       if (Tone.context.state !== 'running') await Tone.start()
 
@@ -53,6 +55,7 @@ export function useCountIn(): UseCountInReturn {
         oscillator: { type: 'sine' },
         envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
       }).toDestination()
+      synth.volume.value = Tone.gainToDb(Math.max(0.0001, volume))
       synthRef.current = synth
       setIsCountingIn(true)
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SongLiveEditor } from '../SongLiveEditor'
 import type { Song } from '~/types'
@@ -124,5 +124,17 @@ describe('SongLiveEditor — tools in the panel', () => {
     await user.click(screen.getByRole('button', { name: 'Borrar canción' }))
     expect(onDelete).toHaveBeenCalledTimes(1)
     confirm.mockRestore()
+  })
+
+  it('sets the grid chords snap to, next to chord editing', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <SongLiveEditor song={SONG} onSave={vi.fn()} isChordEditMode={false} chordGrid={{ value: 0.25, onChange }} />
+    )
+    const grid = screen.getByRole('group', { name: 'Grilla de los acordes' })
+    expect(within(grid).getByRole('button', { name: '1/16' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(grid).getByRole('button', { name: '1/8' }))
+    expect(onChange).toHaveBeenCalledWith(0.5)
   })
 })
