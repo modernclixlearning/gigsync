@@ -8,12 +8,16 @@ describe('resolvePlaybackPreferences', () => {
       autoAdvance: false,
       autoAdvanceDelaySeconds: 15,
       countInBars: 1,
+      metronomeVolume: 60,
+      chordVolume: 50,
     })
     expect(resolvePlaybackPreferences({ gridResolution: 0.25 })).toEqual({
       countInEnabled: false,
       autoAdvance: false,
       autoAdvanceDelaySeconds: 15,
       countInBars: 1,
+      metronomeVolume: 60,
+      chordVolume: 50,
     })
   })
 
@@ -23,10 +27,19 @@ describe('resolvePlaybackPreferences', () => {
       autoAdvance: true,
       autoAdvanceDelaySeconds: 0,
       countInBars: 2,
+      metronomeVolume: 60,
+      chordVolume: 50,
     })
-    const clamped = resolvePlaybackPreferences({ autoAdvanceDelaySeconds: 999, countInBars: 9 })
+    const clamped = resolvePlaybackPreferences({
+      autoAdvanceDelaySeconds: 999,
+      countInBars: 9,
+      metronomeVolume: 150,
+      chordVolume: -5,
+    })
     expect(clamped.autoAdvanceDelaySeconds).toBe(120)
     expect(clamped.countInBars).toBe(4)
+    expect(clamped.metronomeVolume).toBe(100)
+    expect(clamped.chordVolume).toBe(0)
   })
 })
 

@@ -31,8 +31,8 @@ import {
   type PlayerPanelTab
 } from '~/components/player/PlayerSidePanel'
 import { SongLiveEditor } from '~/components/player/SongLiveEditor'
-import { PlayerSettings } from '~/components/profile/PlayerSettings'
-import { AppearanceSettings } from '~/components/profile/AppearanceSettings'
+import { PlayerSoundSettings } from '~/components/player/PlayerSoundSettings'
+import type { SaveTier } from '~/components/profile/SettingsSection'
 import { VisualBeat } from '~/components/metronome/VisualBeat'
 import { useSettings } from '~/hooks/useSettings'
 import { BeatIndicator } from '~/components/player/BeatIndicator'
@@ -66,7 +66,7 @@ export interface SongPlayerContentProps {
   setlistContext?: SetlistContext
   /** Open the side panel on this tab when the player mounts (e.g. 'edit' from /song/$id/edit). */
   initialPanelTab?: PlayerPanelTab
-  /** Delete the song (shown in the Editar tab); omitted inside a setlist. */
+  /** Delete the song (shown in the Canción tab); omitted inside a setlist. */
   onDelete?: () => void | Promise<void>
 }
 
@@ -87,10 +87,10 @@ export function SongPlayerContent({
   const { settings, updateSettings, updatePlayerSettings } = useSettings()
   const { setlist, updateSetlist } = useSetlist(setlistContext?.setlistId ?? '')
 
-  // Side panel (Ajustes / Editar / Config): docked next to the song so every
-  // change is visible on it while being made.
+  // Side panel (Vista / Sonido / Canción): docked next to the song so every
+  // change is visible (or audible) on it while being made.
   const [isPanelOpen, setIsPanelOpen] = useState(initialPanelTab !== undefined)
-  const [panelTab, setPanelTab] = useState<PlayerPanelTab>(initialPanelTab ?? 'adjust')
+  const [panelTab, setPanelTab] = useState<PlayerPanelTab>(initialPanelTab ?? 'view')
   const isPanelOpenRef = useRef(isPanelOpen)
   isPanelOpenRef.current = isPanelOpen
   const openPanel = useCallback((tab: PlayerPanelTab) => {
@@ -99,10 +99,11 @@ export function SongPlayerContent({
   }, [])
   const closePanel = useCallback(() => setIsPanelOpen(false), [])
 
-  // Two ways in, one per job: «Editar» in the header (the song's content) and
-  // the sliders in the bottom bar (how it's shown while playing, and Config).
-  // Each lights up only for its own part; pressing the other switches tab.
-  const lastViewTabRef = useRef<Exclude<PlayerPanelTab, 'edit'>>('adjust')
+  // Two ways in, one per job: «Editar» in the header (the song itself: the
+  // Canción tab) and the sliders in the bottom bar (how it looks and sounds
+  // while playing: Vista and Sonido, back on the last one used). Each lights
+  // up only for its own part; pressing the other switches tab.
+  const lastViewTabRef = useRef<Exclude<PlayerPanelTab, 'edit'>>('view')
   if (panelTab !== 'edit') lastViewTabRef.current = panelTab
   const isEditPanelOpen = isPanelOpen && panelTab === 'edit'
   const isViewPanelOpen = isPanelOpen && panelTab !== 'edit'
@@ -330,11 +331,12 @@ export function SongPlayerContent({
     player.state.isAutoScrollEnabled &&
     !autoScroll.hasFallback
 
+  const playbackPrefs = resolvePlaybackPreferences(settings?.player)
   useMetronomeSound({
     enabled: metronomeEnabled,
     isPlaying: metronomeIsPlaying,
     sound: 'classic',
-    volume: 0.6,
+    volume: playbackPrefs.metronomeVolume / 100,
     accentFirst: true
   })
 
@@ -345,7 +347,6 @@ export function SongPlayerContent({
   const beatsPerBar = parseTimeSignature(song.timeSignature)
 
   // ── Transport: restart, count-in, end of song, next song ──────────────────
-  const playbackPrefs = resolvePlaybackPreferences(settings?.player)
   const countIn = useCountIn()
   const [isAdvancePending, setIsAdvancePending] = useState(false)
   const autoScrollPlay = autoScroll.play
@@ -385,11 +386,12 @@ export function SongPlayerContent({
       bpm: countInBpm,
       beatsPerBar,
       bars: playbackPrefs.countInBars,
+      volume: playbackPrefs.metronomeVolume / 100,
       onDone: () => {
         if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
       },
     })
-  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, rewindIfFinished])
+  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, playbackPrefs.metronomeVolume, rewindIfFinished])
 
   // The count-in is a toggle, not a separate play: while it's on, every Play
   // (button or space bar) starts with it. Saved in the settings, so it stays
@@ -481,7 +483,21 @@ export function SongPlayerContent({
     enabled: player.state.chordSoundEnabled && player.state.isAutoScrollEnabled && !autoScroll.hasFallback,
     isPlaying: metronomeIsPlaying,
     events: songChordEvents,
+    volume: playbackPrefs.chordVolume / 100,
   })
+
+  // The click and the chords play along the smart autoscroll's timeline only.
+  const soundUnavailableReason = !player.state.isAutoScrollEnabled
+    ? 'El metrónomo y los acordes suenan con el scroll activado (botón de scroll en la barra de abajo).'
+    : autoScroll.hasFallback
+      ? 'Esta canción no tiene compases para seguir el tempo: el metrónomo y los acordes no suenan.'
+      : undefined
+  const saveTranspose = (tier: SaveTier) => {
+    const value = player.state.transpose
+    if (tier === 'song') handleSaveControlForSong('transpose', value)
+    else if (tier === 'setlist') handleSaveControlForSetlist('transpose', value)
+    else handleSaveControlAsDefault('transpose', value)
+  }
 
   const handleToggleTransposeSpelling = useCallback(() => {
     player.setTransposePreferFlats(!effectiveUseFlats)
@@ -1001,7 +1017,7 @@ export function SongPlayerContent({
         onTabChange={setPanelTab}
         onClose={closePanel}
         content={{
-          adjust: (
+          view: (
             <PlayerAdjustments
               autoScrollSpeed={player.state.autoScrollSpeed}
               onAutoScrollSpeedChange={player.setAutoScrollSpeed}
@@ -1011,13 +1027,6 @@ export function SongPlayerContent({
               onLinesPerBlockChange={player.setLinesPerBlock}
               contentWidth={player.state.contentWidth}
               onContentWidthChange={player.setContentWidth}
-              transpose={player.state.transpose}
-              onTranspose={player.transpose}
-              onResetTranspose={player.resetTranspose}
-              transposeDisplay={transposeDisplay}
-              transposePreferFlats={effectiveUseFlats}
-              isTransposeSpellingFlexible={isTransposeSpellingFlexible}
-              onToggleTransposeSpelling={handleToggleTransposeSpelling}
               smartScrollContextWindow={smartScrollContextWindowPercent}
               onSmartScrollContextWindowChange={handleContextWindowChange}
               smartScrollSmoothness={smartScrollSmoothness}
@@ -1055,6 +1064,48 @@ export function SongPlayerContent({
               onLyricsTextColorChange={player.setLyricsTextColor}
               textAlign={player.state.textAlign}
               onTextAlignChange={player.setTextAlign}
+              theme={settings?.theme}
+              onThemeChange={(theme) => updateSettings({ theme })}
+            />
+          ),
+          sound: (
+            <PlayerSoundSettings
+              metronome={{
+                enabled: player.state.metronomeSoundEnabled,
+                onToggle: player.toggleMetronomeSound,
+                volume: playbackPrefs.metronomeVolume,
+                onVolumeChange: (metronomeVolume) => void updatePlayerSettings({ metronomeVolume }),
+              }}
+              chords={{
+                enabled: player.state.chordSoundEnabled,
+                onToggle: player.toggleChordSound,
+                volume: playbackPrefs.chordVolume,
+                onVolumeChange: (chordVolume) => void updatePlayerSettings({ chordVolume }),
+              }}
+              soundUnavailableReason={soundUnavailableReason}
+              countIn={{
+                enabled: isCountInOn,
+                onToggle: handleToggleCountIn,
+                bars: playbackPrefs.countInBars,
+                onBarsChange: (countInBars) => void updatePlayerSettings({ countInBars }),
+              }}
+              transpose={{
+                transpose: player.state.transpose,
+                onTranspose: player.transpose,
+                onResetTranspose: player.resetTranspose,
+                transposeDisplay,
+                transposePreferFlats: effectiveUseFlats,
+                isTransposeSpellingFlexible,
+                onToggleTransposeSpelling: handleToggleTransposeSpelling,
+                onSaveTranspose: saveTranspose,
+                canSaveForSetlist,
+              }}
+              setlist={{
+                autoAdvance: playbackPrefs.autoAdvance,
+                onAutoAdvanceChange: (autoAdvance) => void updatePlayerSettings({ autoAdvance }),
+                delaySeconds: playbackPrefs.autoAdvanceDelaySeconds,
+                onDelaySecondsChange: (autoAdvanceDelaySeconds) => void updatePlayerSettings({ autoAdvanceDelaySeconds }),
+              }}
             />
           ),
           edit: (
@@ -1067,18 +1118,12 @@ export function SongPlayerContent({
                 player.state.showChords && !player.state.isPlaying ? player.toggleEditMode : undefined
               }
               onDelete={onDelete}
+              chordGrid={{
+                value: settings?.player.gridResolution ?? 0.25,
+                onChange: (gridResolution) => void updatePlayerSettings({ gridResolution }),
+              }}
             />
-          ),
-          config: settings ? (
-            <div className="space-y-8">
-              <PlayerSettings settings={settings.player} onUpdate={updatePlayerSettings} />
-              <AppearanceSettings
-                settings={settings}
-                onThemeChange={(theme) => updateSettings({ theme })}
-                onLanguageChange={(language) => updateSettings({ language })}
-              />
-            </div>
-          ) : null
+          )
         }}
       />
     </div>

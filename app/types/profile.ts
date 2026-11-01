@@ -73,6 +73,10 @@ export interface PlayerPreferences extends PlayerOverrides {
   countInBars?: number
   /** Count-in toggle (⏱ in the player): when on, every Play starts with the count-in. Default off. */
   countInEnabled?: boolean
+  /** Volume of the player's click and count-in, 0–100. Default 60. */
+  metronomeVolume?: number
+  /** Volume of the chords played along («Escuchar acordes»), 0–100. Default 50. */
+  chordVolume?: number
   /** Set once the old 33 % Smart Scroll default was moved to the centered 50 %. */
   contextWindowCentered?: boolean
   // Global defaults for the per-session player controls (Scroll Speed, Font

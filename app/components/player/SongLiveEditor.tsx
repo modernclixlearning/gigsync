@@ -62,7 +62,15 @@ interface SongLiveEditorProps {
   onToggleChordEditMode?: () => void
   /** Deletes the song (after confirming); omitted where deleting doesn't apply (e.g. inside a setlist). */
   onDelete?: () => void | Promise<void>
+  /** Snap step (in beats) when stretching or splitting chords on the sheet. */
+  chordGrid?: { value: number; onChange: (value: number) => void }
 }
+
+const CHORD_GRID_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: '1/4' },
+  { value: 0.5, label: '1/8' },
+  { value: 0.25, label: '1/16' },
+]
 
 type EditorTool = 'search' | 'import' | 'audio' | 'midi'
 
@@ -80,7 +88,14 @@ const toolButtonClass = cn(
  * from audio, record from a MIDI keyboard) and deleting the song live here too
  * — also for a song just created by "Add song", which opens with the search.
  */
-export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEditMode, onDelete }: SongLiveEditorProps) {
+export function SongLiveEditor({
+  song,
+  onSave,
+  isChordEditMode,
+  onToggleChordEditMode,
+  onDelete,
+  chordGrid,
+}: SongLiveEditorProps) {
   const [draft, setDraft] = useState<CreateSongInput>(() => toFormData(song))
   /** The ChordPro text starts read-only; "Editar" unlocks it. */
   const [isLyricsLocked, setIsLyricsLocked] = useState(true)
@@ -173,30 +188,53 @@ export function SongLiveEditor({ song, onSave, isChordEditMode, onToggleChordEdi
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 px-3 py-2">
-        <div className="text-sm">
-          <p className="font-medium">Acordes sobre la letra</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {onToggleChordEditMode
-              ? 'Arrastrá y editá los acordes directamente en la canción.'
-              : 'Pausá la reproducción (con acordes visibles) para editarlos.'}
-          </p>
+      <div className="space-y-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 px-3 py-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm">
+            <p className="font-medium">Acordes sobre la letra</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {onToggleChordEditMode
+                ? 'Arrastrá y editá los acordes directamente en la canción.'
+                : 'Pausá la reproducción (con acordes visibles) para editarlos.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleChordEditMode}
+            disabled={!onToggleChordEditMode}
+            aria-pressed={isChordEditMode}
+            className={cn(
+              'shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40',
+              isChordEditMode
+                ? 'bg-indigo-500 text-white'
+                : 'bg-white dark:bg-[#232948] text-slate-600 dark:text-slate-300'
+            )}
+          >
+            <Pencil className="w-4 h-4" />
+            {isChordEditMode ? 'Editando' : 'Editar'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onToggleChordEditMode}
-          disabled={!onToggleChordEditMode}
-          aria-pressed={isChordEditMode}
-          className={cn(
-            'shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40',
-            isChordEditMode
-              ? 'bg-indigo-500 text-white'
-              : 'bg-white dark:bg-[#232948] text-slate-600 dark:text-slate-300'
-          )}
-        >
-          <Pencil className="w-4 h-4" />
-          {isChordEditMode ? 'Editando' : 'Editar'}
-        </button>
+        {chordGrid && (
+          <div role="group" aria-label="Grilla de los acordes" className="flex items-center gap-1 text-xs">
+            <span className="mr-1 text-slate-500 dark:text-slate-400">Grilla al estirar o dividir</span>
+            {CHORD_GRID_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={chordGrid.value === option.value}
+                onClick={() => chordGrid.onChange(option.value)}
+                className={cn(
+                  'px-2 py-1 rounded-lg font-medium',
+                  chordGrid.value === option.value
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-white dark:bg-[#232948] text-slate-600 dark:text-slate-300'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

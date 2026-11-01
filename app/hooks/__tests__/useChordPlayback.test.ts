@@ -81,6 +81,15 @@ describe('useChordPlayback', () => {
     expect(tone.parts).toHaveLength(0)
   })
 
+  it('plays at the volume it is given, and follows changes to it', () => {
+    const { rerender } = renderHook(({ volume }) => useChordPlayback({ enabled: true, isPlaying: false, events, volume }), {
+      initialProps: { volume: 0.5 },
+    })
+    expect(tone.synths[0].volume.value).toBeCloseTo(-6.02, 1)
+    rerender({ volume: 0.1 })
+    expect(tone.synths[0].volume.value).toBeCloseTo(-20, 1)
+  })
+
   it('puts every chord on the Transport at its tick, voiced as bass + chord', () => {
     renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events }))
     const part = tone.parts[0]

@@ -10,11 +10,17 @@ export const DEFAULT_COUNT_IN_BARS = 1
 export const COUNT_IN_BARS_MIN = 1
 export const COUNT_IN_BARS_MAX = 4
 
+/** Player sound levels, 0–100 (the click also sets the count-in). */
+export const DEFAULT_METRONOME_VOLUME = 60
+export const DEFAULT_CHORD_VOLUME = 50
+
 export interface PlaybackPreferences {
   countInEnabled: boolean
   autoAdvance: boolean
   autoAdvanceDelaySeconds: number
   countInBars: number
+  metronomeVolume: number
+  chordVolume: number
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -35,6 +41,8 @@ export function resolvePlaybackPreferences(
       AUTO_ADVANCE_DELAY_MAX
     ),
     countInBars: clamp(player?.countInBars ?? DEFAULT_COUNT_IN_BARS, COUNT_IN_BARS_MIN, COUNT_IN_BARS_MAX),
+    metronomeVolume: clamp(player?.metronomeVolume ?? DEFAULT_METRONOME_VOLUME, 0, 100),
+    chordVolume: clamp(player?.chordVolume ?? DEFAULT_CHORD_VOLUME, 0, 100),
   }
 }
 
