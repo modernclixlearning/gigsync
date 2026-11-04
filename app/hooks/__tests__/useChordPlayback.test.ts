@@ -33,6 +33,13 @@ const tone = vi.hoisted(() => {
 
 vi.mock('tone', () => ({
   Synth: vi.fn(),
+  FMSynth: vi.fn(),
+  Chorus: vi.fn().mockImplementation(() => {
+    const node = { start: () => node, toDestination: () => node, dispose: vi.fn() }
+    return node
+  }),
+  Filter: vi.fn().mockImplementation(() => ({ connect: vi.fn(), dispose: vi.fn() })),
+  Mono: vi.fn().mockImplementation(() => ({ toDestination: vi.fn(), dispose: vi.fn() })),
   PolySynth: vi.fn().mockImplementation(() => {
     const synth = {
       volume: { value: 0 },
@@ -40,6 +47,7 @@ vi.mock('tone', () => ({
       toDestination() {
         return synth
       },
+      connect: vi.fn(),
       triggerAttackRelease: vi.fn(),
       releaseAll: vi.fn(),
       dispose: vi.fn(),
@@ -139,5 +147,13 @@ describe('useChordPlayback', () => {
     })
     rerender({ isPlaying: true })
     expect(tone.transport.scheduleOnce).not.toHaveBeenCalled()
+  })
+
+  it('the bass channel plays only the root note (the slash bass); the keyboard can leave it out', () => {
+    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', voice: 'sub' }))
+    expect((tone.parts[0].events as PartEvent[]).map((e) => e.pitches)).toEqual([[48], [47]])
+
+    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'keys', withBass: false }))
+    expect((tone.parts[1].events as PartEvent[]).map((e) => e.pitches)).toEqual([[60, 64, 67], [55, 59, 62]])
   })
 })

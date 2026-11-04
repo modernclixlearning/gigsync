@@ -1,4 +1,15 @@
 import type { PlayerPreferences } from '~/types/profile'
+import {
+  BASS_VOICES,
+  DEFAULT_BASS_VOICE,
+  DEFAULT_DRUM_PATTERN,
+  DEFAULT_KEYS_VOICE,
+  DRUM_PATTERNS,
+  KEYS_VOICES,
+  type BassVoice,
+  type DrumPattern,
+  type KeysVoice,
+} from '~/lib/audio/bandSound'
 
 /** Pause between songs when a setlist advances on its own. */
 export const DEFAULT_AUTO_ADVANCE_DELAY_SECONDS = 15
@@ -13,6 +24,8 @@ export const COUNT_IN_BARS_MAX = 4
 /** Player sound levels, 0–100 (the click also sets the count-in). */
 export const DEFAULT_METRONOME_VOLUME = 60
 export const DEFAULT_CHORD_VOLUME = 50
+export const DEFAULT_BASS_VOLUME = 60
+export const DEFAULT_DRUMS_VOLUME = 50
 
 export interface PlaybackPreferences {
   countInEnabled: boolean
@@ -21,7 +34,17 @@ export interface PlaybackPreferences {
   countInBars: number
   metronomeVolume: number
   chordVolume: number
+  keysVoice: KeysVoice
+  bassEnabled: boolean
+  bassVolume: number
+  bassVoice: BassVoice
+  drumsEnabled: boolean
+  drumsVolume: number
+  drumPattern: DrumPattern
 }
+
+const oneOf = <T extends string>(options: readonly T[], value: string | undefined, fallback: T): T =>
+  options.includes(value as T) ? (value as T) : fallback
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -43,6 +66,13 @@ export function resolvePlaybackPreferences(
     countInBars: clamp(player?.countInBars ?? DEFAULT_COUNT_IN_BARS, COUNT_IN_BARS_MIN, COUNT_IN_BARS_MAX),
     metronomeVolume: clamp(player?.metronomeVolume ?? DEFAULT_METRONOME_VOLUME, 0, 100),
     chordVolume: clamp(player?.chordVolume ?? DEFAULT_CHORD_VOLUME, 0, 100),
+    keysVoice: oneOf(KEYS_VOICES, player?.keysVoice, DEFAULT_KEYS_VOICE),
+    bassEnabled: player?.bassEnabled ?? false,
+    bassVolume: clamp(player?.bassVolume ?? DEFAULT_BASS_VOLUME, 0, 100),
+    bassVoice: oneOf(BASS_VOICES, player?.bassVoice, DEFAULT_BASS_VOICE),
+    drumsEnabled: player?.drumsEnabled ?? false,
+    drumsVolume: clamp(player?.drumsVolume ?? DEFAULT_DRUMS_VOLUME, 0, 100),
+    drumPattern: oneOf(DRUM_PATTERNS, player?.drumPattern, DEFAULT_DRUM_PATTERN),
   }
 }
 

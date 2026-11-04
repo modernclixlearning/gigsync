@@ -1,7 +1,28 @@
 import { describe, it, expect } from 'vitest'
 import { countInBeats, isSongFinished, resolvePlaybackPreferences } from '../playback'
 
+const BAND_DEFAULTS = {
+  keysVoice: 'piano',
+  bassEnabled: false,
+  bassVolume: 60,
+  bassVoice: 'electric',
+  drumsEnabled: false,
+  drumsVolume: 50,
+  drumPattern: 'rock',
+}
+
 describe('resolvePlaybackPreferences', () => {
+  it('falls back on unknown band sounds and clamps their volumes', () => {
+    const prefs = resolvePlaybackPreferences({
+      keysVoice: 'kazoo' as never,
+      bassVoice: 'sub',
+      drumPattern: 'bossa',
+      bassVolume: 300,
+      drumsVolume: -1,
+    })
+    expect(prefs).toMatchObject({ keysVoice: 'piano', bassVoice: 'sub', drumPattern: 'bossa', bassVolume: 100, drumsVolume: 0 })
+  })
+
   it('defaults settings saved before these options existed', () => {
     expect(resolvePlaybackPreferences(undefined)).toEqual({
       countInEnabled: false,
@@ -10,6 +31,7 @@ describe('resolvePlaybackPreferences', () => {
       countInBars: 1,
       metronomeVolume: 60,
       chordVolume: 50,
+      ...BAND_DEFAULTS,
     })
     expect(resolvePlaybackPreferences({ gridResolution: 0.25 })).toEqual({
       countInEnabled: false,
@@ -18,6 +40,7 @@ describe('resolvePlaybackPreferences', () => {
       countInBars: 1,
       metronomeVolume: 60,
       chordVolume: 50,
+      ...BAND_DEFAULTS,
     })
   })
 
@@ -29,6 +52,7 @@ describe('resolvePlaybackPreferences', () => {
       countInBars: 2,
       metronomeVolume: 60,
       chordVolume: 50,
+      ...BAND_DEFAULTS,
     })
     const clamped = resolvePlaybackPreferences({
       autoAdvanceDelaySeconds: 999,

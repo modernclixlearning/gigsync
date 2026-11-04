@@ -10,6 +10,17 @@ import {
   type SaveTier,
 } from '~/components/profile/SettingsSection'
 import {
+  BASS_VOICES,
+  BASS_VOICE_LABELS,
+  DRUM_PATTERNS,
+  DRUM_PATTERN_LABELS,
+  KEYS_VOICES,
+  KEYS_VOICE_LABELS,
+  type BassVoice,
+  type DrumPattern,
+  type KeysVoice,
+} from '~/lib/audio/bandSound'
+import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
   COUNT_IN_BARS_MAX,
@@ -133,9 +144,57 @@ function SoundSourceRow({ label, description, source }: { label: string; descrip
   )
 }
 
+/** A small set of exclusive choices (sound, rhythm), shown as pills. */
+function ChoiceRow<T extends string>({
+  label,
+  options,
+  labels,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  options: readonly T[]
+  labels: Record<T, string>
+  value: T
+  onChange: (value: T) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="px-4 py-2">
+      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={value === option}
+            disabled={disabled}
+            onClick={() => onChange(option)}
+            className={cn(
+              'px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40',
+              value === option
+                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            )}
+          >
+            {labels[option]}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export interface PlayerSoundSettingsProps {
   metronome: SoundSource
+  /** Keyboard: the full chord, in stereo. */
   chords: SoundSource
+  keys?: { voice: KeysVoice; onVoiceChange: (voice: KeysVoice) => void }
+  /** Bass: the root note only, in mono. */
+  bass?: SoundSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
+  /** Mini drum machine. */
+  drums?: SoundSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
   /** Set when the click and the chords can't sound right now, saying why. */
   soundUnavailableReason?: string
   countIn: {
@@ -161,6 +220,9 @@ export interface PlayerSoundSettingsProps {
 export function PlayerSoundSettings({
   metronome,
   chords,
+  keys,
+  bass,
+  drums,
   soundUnavailableReason,
   countIn,
   transpose,
@@ -175,7 +237,43 @@ export function PlayerSoundSettings({
           </p>
         )}
         <SoundSourceRow label="Metrónomo" description="El click y la precuenta." source={metronome} />
-        <SoundSourceRow label="Acordes" description="Los acordes de la canción, con un piano simple." source={chords} />
+        <SoundSourceRow label="Acordes" description="Teclado: el acorde completo, en estéreo." source={chords} />
+        {keys && (
+          <ChoiceRow
+            label="Sonido del teclado"
+            options={KEYS_VOICES}
+            labels={KEYS_VOICE_LABELS}
+            value={keys.voice}
+            onChange={keys.onVoiceChange}
+            disabled={!chords.enabled}
+          />
+        )}
+        {bass && (
+          <>
+            <SoundSourceRow label="Bajo" description="Solo la nota raíz de cada acorde, en mono." source={bass} />
+            <ChoiceRow
+              label="Sonido del bajo"
+              options={BASS_VOICES}
+              labels={BASS_VOICE_LABELS}
+              value={bass.voice}
+              onChange={bass.onVoiceChange}
+              disabled={!bass.enabled}
+            />
+          </>
+        )}
+        {drums && (
+          <>
+            <SoundSourceRow label="Batería" description="Mini caja de ritmos con el tempo de la canción." source={drums} />
+            <ChoiceRow
+              label="Patrón de batería"
+              options={DRUM_PATTERNS}
+              labels={DRUM_PATTERN_LABELS}
+              value={drums.pattern}
+              onChange={drums.onPatternChange}
+              disabled={!drums.enabled}
+            />
+          </>
+        )}
       </PanelSection>
 
       <PanelSection title="Precuenta">

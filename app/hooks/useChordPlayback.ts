@@ -13,6 +13,13 @@
 import { useEffect, useRef } from 'react'
 import * as Tone from 'tone'
 import { voiceChord } from '~/lib/audio/chordVoicing'
+import {
+  DEFAULT_BASS_VOICE,
+  DEFAULT_KEYS_VOICE,
+  type BassVoice,
+  type KeysVoice,
+} from '~/lib/audio/bandSound'
+import { createBassInstrument, createKeysInstrument } from '~/lib/audio/instruments'
 import { chordEventAt, type ChordEvent } from '~/lib/timeline/chordEvents'
 
 export interface UseChordPlaybackOptions {
@@ -22,6 +29,15 @@ export interface UseChordPlaybackOptions {
   events: ChordEvent[]
   /** 0..1 */
   volume?: number
+  /**
+   * Which band channel this is: the keyboard plays the chord (stereo), the
+   * bass only the root note (mono). Default keyboard.
+   */
+  role?: 'keys' | 'bass'
+  /** Sound of the channel (a KeysVoice for the keyboard, a BassVoice for the bass). */
+  voice?: KeysVoice | BassVoice
+  /** Keyboard only: also play the bass note under the chord (when there's no bass channel). Default true. */
+  withBass?: boolean
 }
 
 interface ScheduledChord {
@@ -37,32 +53,43 @@ function frequencies(pitches: number[]): number[] {
   return pitches.map((pitch) => Tone.Frequency(pitch, 'midi').toFrequency())
 }
 
-export function useChordPlayback({ enabled, isPlaying, events, volume = 0.5 }: UseChordPlaybackOptions): void {
+function pitchesFor(voicing: { bass: number; chord: number[] }, role: 'keys' | 'bass', withBass: boolean): number[] {
+  if (role === 'bass') return [voicing.bass]
+  return withBass ? [voicing.bass, ...voicing.chord] : voicing.chord
+}
+
+export function useChordPlayback({
+  enabled,
+  isPlaying,
+  events,
+  volume = 0.5,
+  role = 'keys',
+  voice,
+  withBass = true,
+}: UseChordPlaybackOptions): void {
   const synthRef = useRef<Tone.PolySynth | null>(null)
   const eventsRef = useRef(events)
   eventsRef.current = events
   const playingRef = useRef(isPlaying)
   playingRef.current = isPlaying
 
-  // Synth, alive while chord sound is on.
+  // Synth, alive while the channel is on (rebuilt when its sound changes).
   useEffect(() => {
     if (!enabled) return
-    const synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.01, decay: 0.4, sustain: 0.35, release: 0.5 },
-    }).toDestination()
-    synth.maxPolyphony = 24
-    synthRef.current = synth
+    const instrument =
+      role === 'bass'
+        ? createBassInstrument((voice as BassVoice | undefined) ?? DEFAULT_BASS_VOICE)
+        : createKeysInstrument((voice as KeysVoice | undefined) ?? DEFAULT_KEYS_VOICE)
+    synthRef.current = instrument.synth
     return () => {
-      synth.releaseAll()
-      synth.dispose()
+      instrument.dispose()
       synthRef.current = null
     }
-  }, [enabled])
+  }, [enabled, role, voice])
 
   useEffect(() => {
     if (synthRef.current) synthRef.current.volume.value = Tone.gainToDb(Math.max(0.0001, volume))
-  }, [volume, enabled])
+  }, [volume, enabled, role, voice])
 
   // One Part event per chord, at its tick on the Transport.
   useEffect(() => {
@@ -81,7 +108,7 @@ export function useChordPlayback({ enabled, isPlaying, events, volume = 0.5 }: U
         return [
           {
             time: `${Math.round(event.startBeat * ppq)}i`,
-            pitches: [voicing.bass, ...voicing.chord],
+            pitches: pitchesFor(voicing, role, withBass),
             ticks: Math.round(event.durationBeats * ppq),
           },
         ]
@@ -91,7 +118,7 @@ export function useChordPlayback({ enabled, isPlaying, events, volume = 0.5 }: U
     return () => {
       part.dispose()
     }
-  }, [enabled, events])
+  }, [enabled, events, role, withBass])
 
   // Play/pause: on pause the chord stops; on play from the middle of a chord,
   // that chord sounds as soon as the Transport moves (after any count-in).
@@ -113,7 +140,7 @@ export function useChordPlayback({ enabled, isPlaying, events, volume = 0.5 }: U
     const id = transport.scheduleOnce((time) => {
       if (!playingRef.current) return
       synthRef.current?.triggerAttackRelease(
-        frequencies([voicing.bass, ...voicing.chord]),
+        frequencies(pitchesFor(voicing, role, withBass)),
         Tone.Ticks(Math.max(1, remaining) * LEGATO).toSeconds(),
         time,
         0.7,
@@ -122,5 +149,5 @@ export function useChordPlayback({ enabled, isPlaying, events, volume = 0.5 }: U
     return () => {
       transport.clear(id)
     }
-  }, [enabled, isPlaying])
+  }, [enabled, isPlaying, role, withBass])
 }
