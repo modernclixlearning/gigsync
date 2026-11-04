@@ -18,6 +18,7 @@ import { useSmartAutoScroll } from '~/hooks/useSmartAutoScroll'
 import { useMIDITransportSync } from '~/hooks/useMIDITransportSync'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useChordPlayback } from '~/hooks/useChordPlayback'
+import { useDrumPlayback } from '~/hooks/useDrumPlayback'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
@@ -479,18 +480,41 @@ export function SongPlayerContent({
       })),
     [autoScroll.timeline, player.state.transpose, effectiveUseFlats]
   )
+  const bandCanSound = player.state.isAutoScrollEnabled && !autoScroll.hasFallback
+  // Keyboard: the full chord, stereo (it carries its own bass note only when
+  // there's no bass channel).
   useChordPlayback({
-    enabled: player.state.chordSoundEnabled && player.state.isAutoScrollEnabled && !autoScroll.hasFallback,
+    enabled: player.state.chordSoundEnabled && bandCanSound,
     isPlaying: metronomeIsPlaying,
     events: songChordEvents,
     volume: playbackPrefs.chordVolume / 100,
+    role: 'keys',
+    voice: playbackPrefs.keysVoice,
+    withBass: !playbackPrefs.bassEnabled,
+  })
+  // Bass: the root note only, mono.
+  useChordPlayback({
+    enabled: playbackPrefs.bassEnabled && bandCanSound,
+    isPlaying: metronomeIsPlaying,
+    events: songChordEvents,
+    volume: playbackPrefs.bassVolume / 100,
+    role: 'bass',
+    voice: playbackPrefs.bassVoice,
+  })
+  // Mini drum machine.
+  useDrumPlayback({
+    enabled: playbackPrefs.drumsEnabled && bandCanSound,
+    isPlaying: metronomeIsPlaying,
+    pattern: playbackPrefs.drumPattern,
+    beatsPerBar,
+    volume: playbackPrefs.drumsVolume / 100,
   })
 
   // The click and the chords play along the smart autoscroll's timeline only.
   const soundUnavailableReason = !player.state.isAutoScrollEnabled
-    ? 'El metrónomo y los acordes suenan con el scroll activado (botón de scroll en la barra de abajo).'
+    ? 'La banda (metrónomo, acordes, bajo y batería) suena con el scroll activado (botón de scroll en la barra de abajo).'
     : autoScroll.hasFallback
-      ? 'Esta canción no tiene compases para seguir el tempo: el metrónomo y los acordes no suenan.'
+      ? 'Esta canción no tiene compases para seguir el tempo: el metrónomo, los acordes y la batería no suenan.'
       : undefined
   const saveTranspose = (tier: SaveTier) => {
     const value = player.state.transpose
@@ -1081,6 +1105,26 @@ export function SongPlayerContent({
                 onToggle: player.toggleChordSound,
                 volume: playbackPrefs.chordVolume,
                 onVolumeChange: (chordVolume) => void updatePlayerSettings({ chordVolume }),
+              }}
+              keys={{
+                voice: playbackPrefs.keysVoice,
+                onVoiceChange: (keysVoice) => void updatePlayerSettings({ keysVoice }),
+              }}
+              bass={{
+                enabled: playbackPrefs.bassEnabled,
+                onToggle: () => void updatePlayerSettings({ bassEnabled: !playbackPrefs.bassEnabled }),
+                volume: playbackPrefs.bassVolume,
+                onVolumeChange: (bassVolume) => void updatePlayerSettings({ bassVolume }),
+                voice: playbackPrefs.bassVoice,
+                onVoiceChange: (bassVoice) => void updatePlayerSettings({ bassVoice }),
+              }}
+              drums={{
+                enabled: playbackPrefs.drumsEnabled,
+                onToggle: () => void updatePlayerSettings({ drumsEnabled: !playbackPrefs.drumsEnabled }),
+                volume: playbackPrefs.drumsVolume,
+                onVolumeChange: (drumsVolume) => void updatePlayerSettings({ drumsVolume }),
+                pattern: playbackPrefs.drumPattern,
+                onPatternChange: (drumPattern) => void updatePlayerSettings({ drumPattern }),
               }}
               soundUnavailableReason={soundUnavailableReason}
               countIn={{

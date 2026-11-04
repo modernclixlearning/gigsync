@@ -77,6 +77,16 @@ export interface PlayerPreferences extends PlayerOverrides {
   metronomeVolume?: number
   /** Volume of the chords played along («Escuchar acordes»), 0–100. Default 50. */
   chordVolume?: number
+  /** Sound of the keyboard channel (full chord, stereo). Default 'piano'. */
+  keysVoice?: 'piano' | 'epiano' | 'organ' | 'pad'
+  /** Bass channel (root note only, mono): on/off, volume 0–100 (default 60) and sound (default 'electric'). */
+  bassEnabled?: boolean
+  bassVolume?: number
+  bassVoice?: 'sub' | 'electric' | 'synth'
+  /** Mini drum machine: on/off, volume 0–100 (default 50) and rhythm pattern (default 'rock'). */
+  drumsEnabled?: boolean
+  drumsVolume?: number
+  drumPattern?: 'rock' | 'pop' | 'ballad' | 'bossa'
   /** Set once the old 33 % Smart Scroll default was moved to the centered 50 %. */
   contextWindowCentered?: boolean
   // Global defaults for the per-session player controls (Scroll Speed, Font

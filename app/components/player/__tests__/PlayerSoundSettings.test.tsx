@@ -66,4 +66,34 @@ describe('PlayerSoundSettings', () => {
     await user.click(within(setlist).getByRole('switch', { name: 'Avanzar solo' }))
     expect(p.setlist.onAutoAdvanceChange).toHaveBeenCalledWith(true)
   })
+
+  it('picks the keyboard sound, the bass (mono root) and the drum pattern', async () => {
+    const user = userEvent.setup()
+    const keys = { voice: 'piano' as const, onVoiceChange: vi.fn() }
+    const bass = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
+    const drums = { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn(), pattern: 'rock' as const, onPatternChange: vi.fn() }
+    render(<PlayerSoundSettings {...props({ chords: { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn() }, keys, bass, drums })} />)
+
+    const keysGroup = screen.getByRole('radiogroup', { name: 'Sonido del teclado' })
+    expect(within(keysGroup).getAllByRole('radio')).toHaveLength(4)
+    expect(within(keysGroup).getByRole('radio', { name: 'Piano' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(within(keysGroup).getByRole('radio', { name: 'Órgano' }))
+    expect(keys.onVoiceChange).toHaveBeenCalledWith('organ')
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Sub (redondo)' }))
+    expect(bass.onVoiceChange).toHaveBeenCalledWith('sub')
+    fireEvent.change(screen.getByRole('slider', { name: 'Volumen: bajo' }), { target: { value: '30' } })
+    expect(bass.onVolumeChange).toHaveBeenCalledWith(30)
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Patrón de batería' })).getByRole('radio', { name: 'Bossa nova' }))
+    expect(drums.onPatternChange).toHaveBeenCalledWith('bossa')
+    await user.click(screen.getByRole('switch', { name: 'Batería' }))
+    expect(drums.onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the sound choices of a channel that is off', () => {
+    const bass = { enabled: false, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
+    render(<PlayerSoundSettings {...props({ bass })} />)
+    expect(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Sub (redondo)' })).toBeDisabled()
+  })
 })
