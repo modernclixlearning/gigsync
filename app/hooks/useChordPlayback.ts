@@ -19,7 +19,7 @@ import {
   type BassVoice,
   type KeysVoice,
 } from '~/lib/audio/bandSound'
-import { createBassInstrument, createKeysInstrument } from '~/lib/audio/instruments'
+import { createBassInstrument, createKeysInstrument, type PlayableVoice } from '~/lib/audio/instruments'
 import { chordEventAt, type ChordEvent } from '~/lib/timeline/chordEvents'
 
 export interface UseChordPlaybackOptions {
@@ -67,7 +67,7 @@ export function useChordPlayback({
   voice,
   withBass = true,
 }: UseChordPlaybackOptions): void {
-  const synthRef = useRef<Tone.PolySynth | null>(null)
+  const synthRef = useRef<PlayableVoice | null>(null)
   const eventsRef = useRef(events)
   eventsRef.current = events
   const playingRef = useRef(isPlaying)

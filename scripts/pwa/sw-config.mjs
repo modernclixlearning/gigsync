@@ -44,6 +44,15 @@ export const isModelFile = ({ url, sameOrigin }) =>
   sameOrigin && url.pathname.startsWith('/models/')
 
 /**
+ * Muestras de audio de la banda (piano, órgano, bajo, batería) servidas desde
+ * /samples/. Fuera del precache (pesan ~1,7 MB); quedan en caché la primera vez
+ * que suena la banda.
+ * @param {{ url: URL, sameOrigin: boolean }} ctx
+ */
+export const isSampleFile = ({ url, sameOrigin }) =>
+  sameOrigin && url.pathname.startsWith('/samples/')
+
+/**
  * Hojas de estilo de Google Fonts (incluye Material Symbols, que usa la UI).
  * @param {{ url: URL }} ctx
  */
@@ -85,6 +94,7 @@ export function createSwConfig(globDirectory, buildId) {
       '**/*.worker-*.js',
       '**/*worker*.js',
       'models/**',
+      'samples/**',
       'sw.js',
       'workbox-*.js',
     ],
@@ -129,6 +139,16 @@ export function createSwConfig(globDirectory, buildId) {
         options: {
           cacheName: `${CACHE_PREFIX}-models`,
           expiration: { maxEntries: 20 },
+          cacheableResponse: { statuses: [200] },
+        },
+      },
+      {
+        urlPattern: isSampleFile,
+        // Los ficheros no cambian (si se reemplaza uno, cambia su nombre).
+        handler: 'CacheFirst',
+        options: {
+          cacheName: `${CACHE_PREFIX}-samples`,
+          expiration: { maxEntries: 60 },
           cacheableResponse: { statuses: [200] },
         },
       },

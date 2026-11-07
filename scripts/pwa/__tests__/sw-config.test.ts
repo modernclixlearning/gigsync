@@ -7,6 +7,7 @@ import {
   isGoogleFontsStylesheet,
   isHashedAsset,
   isModelFile,
+  isSampleFile,
 } from '../sw-config.mjs'
 
 const ORIGIN = 'https://playgigsync.vercel.app'
@@ -78,6 +79,14 @@ describe('sw-config (#39)', () => {
     expect(worker.options?.cacheName).toBe('gigsync-assets')
   })
 
+  it('muestras de la banda: CacheFirst en runtime, fuera del precache', () => {
+    const [sample] = matching(ctx(`${ORIGIN}/samples/piano/C4.mp3`))
+    expect(sample.handler).toBe('CacheFirst')
+    expect(sample.options?.cacheName).toBe('gigsync-samples')
+    expect(config.globIgnores).toContain('samples/**')
+    expect(matching(ctx('https://evil.example/samples/piano/C4.mp3'))).toHaveLength(0)
+  })
+
   it('YouTube, LRCLIB y otros cross-origin no pasan por ningún cache', () => {
     for (const href of [
       'https://www.youtube.com/iframe_api',
@@ -98,7 +107,7 @@ describe('sw-config (#39)', () => {
   })
 
   it('los matchers son autocontenidos (se serializan con toString en sw.js)', () => {
-    for (const fn of [isAppNavigation, isHashedAsset, isModelFile, isGoogleFontsFile, isGoogleFontsStylesheet]) {
+    for (const fn of [isAppNavigation, isHashedAsset, isModelFile, isSampleFile, isGoogleFontsFile, isGoogleFontsStylesheet]) {
       // eslint-disable-next-line no-new-func
       const rebuilt = new Function(`return (${fn.toString()})`)() as Matcher
       expect(typeof rebuilt).toBe('function')
