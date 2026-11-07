@@ -28,14 +28,16 @@ type Icon = ComponentType<LucideProps>
 
 /** One look per channel: the icon bubble and the volume slider share its color. */
 const LOOKS = {
-  metronome: { icon: Timer, bubble: 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400', accent: 'accent-amber-500' },
-  keys: { icon: Piano, bubble: 'bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400', accent: 'accent-sky-500' },
-  bass: { icon: Guitar, bubble: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400', accent: 'accent-emerald-500' },
-  drums: { icon: Drum, bubble: 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400', accent: 'accent-rose-500' },
+  metronome: { icon: Timer, bubble: 'bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300', accent: 'accent-amber-500' },
+  keys: { icon: Piano, bubble: 'bg-sky-100 text-sky-700 dark:bg-sky-500/25 dark:text-sky-300', accent: 'accent-sky-500' },
+  bass: { icon: Guitar, bubble: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-300', accent: 'accent-emerald-500' },
+  drums: { icon: Drum, bubble: 'bg-rose-100 text-rose-700 dark:bg-rose-500/25 dark:text-rose-300', accent: 'accent-rose-500' },
 } as const
 
 const KEYS_ICONS: Record<KeysVoice, Icon> = { piano: Piano, epiano: Zap, organ: Church, pad: Waves }
 const BASS_ICONS: Record<BassVoice, Icon> = { electric: Guitar, upright: Music2 }
+
+const PATTERN_SHORT: Record<DrumPattern, string> = { rock: 'Rock', pop: 'Pop', ballad: 'Balada', bossa: 'Bossa' }
 
 const STATUS_SHORT: Record<Exclude<SoundSourceStatus, 'idle'>, string> = {
   loading: 'Cargando…',
@@ -59,7 +61,7 @@ function SourceBadge({ channel }: { channel: BandChannel }) {
     <p
       data-testid={`sound-status-${channel}`}
       title={`Suena: ${SOUND_STATUS_LABELS[status]}`}
-      className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+      className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300"
     >
       <span aria-hidden className={cn('w-2 h-2 rounded-full', STATUS_DOT[status])} />
       <span aria-hidden>{STATUS_SHORT[status]}</span>
@@ -107,13 +109,13 @@ function IconChoices<T extends string>({
             disabled={disabled}
             onClick={() => onChange(option)}
             className={cn(
-              'h-9 w-full rounded-xl flex items-center justify-center transition-colors disabled:opacity-40',
+              'h-10 w-full rounded-xl flex items-center justify-center transition-colors disabled:opacity-60',
               selected
-                ? 'bg-indigo-500 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
             )}
           >
-            <OptionIcon className="w-4 h-4" aria-hidden />
+            <OptionIcon className="w-5 h-5" aria-hidden />
           </button>
         )
       })}
@@ -133,9 +135,9 @@ export function PatternGlyph({ pattern }: { pattern: DrumPattern }) {
             key={`${row}-${step}`}
             cx={2 + step * 4}
             cy={3 + row * 7}
-            r={velocity > 0 ? 1.5 : 0.6}
+            r={velocity > 0 ? 1.6 : 0.7}
             fill="currentColor"
-            opacity={velocity > 0 ? 0.35 + velocity * 0.65 : 0.25}
+            opacity={velocity > 0 ? 0.55 + velocity * 0.45 : 0.3}
             data-beat={step % STEPS_PER_BEAT === 0 ? '' : undefined}
           />
         ))
@@ -168,15 +170,15 @@ function PatternChoices({
             disabled={disabled}
             onClick={() => onChange(pattern)}
             className={cn(
-              'rounded-xl px-1.5 pt-1.5 pb-1 flex flex-col items-stretch gap-0.5 transition-colors disabled:opacity-40',
+              'rounded-xl px-1.5 pt-1.5 pb-1 flex flex-col items-stretch gap-0.5 transition-colors disabled:opacity-60',
               selected
-                ? 'bg-rose-500 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
             )}
           >
             <PatternGlyph pattern={pattern} />
             <span aria-hidden className="text-[10px] font-medium leading-tight text-center truncate">
-              {DRUM_PATTERN_LABELS[pattern].replace(' (bombo a negras)', '')}
+              {PATTERN_SHORT[pattern]}
             </span>
           </button>
         )
@@ -201,9 +203,8 @@ function ChannelTile({
   return (
     <div
       className={cn(
-        'rounded-2xl p-3 flex flex-col gap-3 border transition-colors',
-        'bg-white dark:bg-[#1a1f36] border-slate-200 dark:border-slate-700',
-        !source.enabled && 'opacity-80'
+        'h-full rounded-2xl p-3 flex flex-col gap-3 border shadow-sm transition-colors',
+        'bg-slate-50 dark:bg-[#1a1f36] border-slate-300 dark:border-slate-600'
       )}
     >
       <div className="flex flex-col items-center gap-2 text-center">
@@ -215,27 +216,30 @@ function ChannelTile({
           onClick={source.onToggle}
           className={cn(
             'w-14 h-14 shrink-0 rounded-full flex items-center justify-center transition-all',
-            source.enabled ? look.bubble : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-            source.enabled && 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#1a1f36] ring-current'
+            source.enabled ? look.bubble : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300',
+            source.enabled && 'ring-2 ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#1a1f36] ring-current'
           )}
         >
           <TileIcon className="w-6 h-6" aria-hidden />
         </button>
         <div className="min-w-0 space-y-0.5 flex flex-col items-center">
           <p className="font-semibold text-sm text-slate-900 dark:text-white">{label}</p>
-          {channel === 'metronome' ? (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Click</p>
-          ) : (
-            <SourceBadge channel={channel} />
-          )}
+          {/* The line is always there so the volume sliders line up across tiles. */}
+          <div className="h-4 flex items-center">
+            {channel === 'metronome' ? (
+              <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Click</p>
+            ) : (
+              <SourceBadge channel={channel} />
+            )}
+          </div>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         {source.volume === 0 ? (
-          <VolumeX className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />
+          <VolumeX className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
         ) : (
-          <Volume2 className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />
+          <Volume2 className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
         )}
         <input
           type="range"
@@ -247,10 +251,10 @@ function ChannelTile({
           onChange={(event) => source.onVolumeChange(Number(event.target.value))}
           className={cn('w-full h-1.5 cursor-pointer', look.accent)}
         />
-        <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-slate-500 dark:text-slate-400">{source.volume}%</span>
+        <span className="w-9 shrink-0 text-right text-[11px] font-medium tabular-nums text-slate-600 dark:text-slate-300">{source.volume}%</span>
       </div>
 
-      {children}
+      {children && <div className="mt-auto">{children}</div>}
     </div>
   )
 }
@@ -271,7 +275,7 @@ export interface BandChannelTilesProps {
  */
 export function BandChannelTiles({ metronome, chords, keys, bass, drums }: BandChannelTilesProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 px-4 pt-3 items-start">
+    <div className="grid grid-cols-2 gap-3 px-4 pt-3 items-stretch">
       <ChannelTile channel="metronome" label="Metrónomo" source={metronome} />
       <ChannelTile channel="keys" label="Acordes" source={chords}>
         {keys && (
