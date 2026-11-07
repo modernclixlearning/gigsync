@@ -9,6 +9,7 @@
 
 import * as Tone from 'tone'
 import { DRUM_PAN, type BassVoice, type DrumPart, type KeysVoice } from './bandSound'
+import { setSoundStatus, type BandChannel } from './soundStatus'
 
 /** What the chord hook needs from a channel: play notes, silence them, set the level. */
 export interface PlayableVoice {
@@ -40,6 +41,7 @@ const KEYS_SAMPLES: Partial<Record<KeysVoice, { dir: string; notes: string[]; re
 
 const BASS_SAMPLES: Partial<Record<BassVoice, { dir: string; notes: string[]; release: number }>> = {
   electric: { dir: 'bass', notes: ['E1', 'As1', 'E2', 'As2', 'E3'], release: 0.3 },
+  upright: { dir: 'upright', notes: ['Fs1', 'C2', 'E2', 'Gs2', 'E3'], release: 0.3 },
 }
 
 /** A plain synth channel, its level on the shared volume node. */
@@ -62,17 +64,25 @@ function sampledVoice(
   spec: { dir: string; notes: string[]; release: number },
   output: Tone.ToneAudioNode,
   volume: Tone.Volume,
-): { voice: PlayableVoice; sampler: Tone.Sampler } {
+  channel: BandChannel,
+): { voice: PlayableVoice; sampler: Tone.Sampler; stop: () => void } {
+  let alive = true
+  setSoundStatus(channel, 'loading')
   const sampler = new Tone.Sampler({
     urls: sampleUrls(spec.notes),
     baseUrl: `${SAMPLE_BASE}/${spec.dir}/`,
     release: spec.release,
-    onerror: () => undefined, // stays on the synth fallback
+    onload: () => alive && setSoundStatus(channel, 'samples'),
+    onerror: () => alive && setSoundStatus(channel, 'failed'), // stays on the synth fallback
   })
   sampler.connect(output)
   const active = () => (sampler.loaded ? sampler : synth)
   return {
     sampler,
+    stop: () => {
+      alive = false
+      setSoundStatus(channel, 'idle')
+    },
     voice: {
       triggerAttackRelease: (notes, duration, time, velocity) => active().triggerAttackRelease(notes, duration, time, velocity),
       releaseAll: () => {
@@ -113,9 +123,9 @@ const KEYS_SETTINGS: Record<KeysVoice, { voice: typeof Tone.Synth | typeof Tone.
 }
 
 const BASS_SETTINGS: Record<BassVoice, object> = {
-  sub: { oscillator: { type: 'sine' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.9, release: 0.25 } },
+  // Stand-ins while the recorded bass loads (or if it cannot).
   electric: { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.5, sustain: 0.45, release: 0.3 } },
-  synth: { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.2 } },
+  upright: { oscillator: { type: 'sine' }, envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 0.3 } },
 }
 
 /** Keyboard: the whole chord, spread over the stereo field by a chorus. */
@@ -124,18 +134,20 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
   const synth = new Tone.PolySynth(Voice as typeof Tone.Synth, options)
   synth.maxPolyphony = 24
   const sampled = KEYS_SAMPLES[voice]
-  // Recorded keys are already full; the chorus only widens them a little.
+  // The chorus only dresses the synthesised voices (and the synth standing in while samples load).
   const chorus = new Tone.Chorus({
     frequency: 1.2,
     delayTime: 3.5,
     depth: 0.7,
-    wet: voice === 'pad' ? 0.7 : sampled ? 0.25 : 0.5,
+    wet: voice === 'pad' ? 0.7 : 0.5,
   }).start()
   const level = new Tone.Volume(0)
   synth.connect(chorus)
   chorus.connect(level)
   level.toDestination()
-  const playable = sampled ? sampledVoice(synth, sampled, chorus, level) : null
+  // Recorded keys skip the chorus: it modulates the pitch and a piano sounds out of tune.
+  const playable = sampled ? sampledVoice(synth, sampled, level, level, 'keys') : null
+  if (!sampled) setSoundStatus('keys', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -143,6 +155,8 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
       playable?.sampler.releaseAll()
       synth.dispose()
       playable?.sampler.dispose()
+      playable?.stop()
+      if (!playable) setSoundStatus('keys', 'idle')
       chorus.dispose()
       level.dispose()
     },
@@ -153,7 +167,7 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
 export function createBassInstrument(voice: BassVoice): ChordInstrument {
   const synth = new Tone.PolySynth(Tone.Synth, BASS_SETTINGS[voice])
   synth.maxPolyphony = 4
-  const filter = new Tone.Filter({ type: 'lowpass', frequency: voice === 'synth' ? 900 : 2000, rolloff: -12 })
+  const filter = new Tone.Filter({ type: 'lowpass', frequency: 2000, rolloff: -12 })
   const mono = new Tone.Mono()
   const level = new Tone.Volume(0)
   synth.connect(filter)
@@ -162,7 +176,8 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
   level.toDestination()
   const sampled = BASS_SAMPLES[voice]
   // The recorded bass skips the synth's low-pass: it is already a bass.
-  const playable = sampled ? sampledVoice(synth, sampled, mono, level) : null
+  const playable = sampled ? sampledVoice(synth, sampled, mono, level, 'bass') : null
+  if (!sampled) setSoundStatus('bass', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -170,6 +185,8 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
       playable?.sampler.releaseAll()
       synth.dispose()
       playable?.sampler.dispose()
+      playable?.stop()
+      if (!playable) setSoundStatus('bass', 'idle')
       filter.dispose()
       mono.dispose()
       level.dispose()
@@ -218,9 +235,19 @@ export function createDrumKit(): DrumKit {
   hatFilter.connect(panners.hat)
   Object.values(panners).forEach((panner) => panner.connect(bus))
 
+  let alive = true
+  let pending = Object.keys(DRUM_FILES).length
+  setSoundStatus('drums', 'loading')
   const players = Object.fromEntries(
     (Object.keys(DRUM_FILES) as DrumPart[]).map((part) => {
-      const player = new Tone.Player({ url: `${SAMPLE_BASE}/drums/${DRUM_FILES[part]}`, onerror: () => undefined })
+      const player = new Tone.Player({
+        url: `${SAMPLE_BASE}/drums/${DRUM_FILES[part]}`,
+        onload: () => {
+          pending -= 1
+          if (alive && pending === 0) setSoundStatus('drums', 'samples')
+        },
+        onerror: () => alive && setSoundStatus('drums', 'failed'),
+      })
       player.connect(panners[part])
       return [part, player]
     }),
@@ -240,6 +267,8 @@ export function createDrumKit(): DrumKit {
       bus.gain.value = Math.max(0, gain)
     },
     dispose() {
+      alive = false
+      setSoundStatus('drums', 'idle')
       ;[
         kick, snare, hat, snareFilter, hatFilter, bus,
         ...Object.values(panners),

@@ -12,7 +12,7 @@
 export const KEYS_VOICES = ['piano', 'epiano', 'organ', 'pad'] as const
 export type KeysVoice = (typeof KEYS_VOICES)[number]
 
-export const BASS_VOICES = ['sub', 'electric', 'synth'] as const
+export const BASS_VOICES = ['electric', 'upright'] as const
 export type BassVoice = (typeof BASS_VOICES)[number]
 
 export const DRUM_PATTERNS = ['rock', 'pop', 'ballad', 'bossa'] as const
@@ -30,9 +30,8 @@ export const KEYS_VOICE_LABELS: Record<KeysVoice, string> = {
 }
 
 export const BASS_VOICE_LABELS: Record<BassVoice, string> = {
-  sub: 'Sub (redondo)',
   electric: 'Eléctrico',
-  synth: 'Sintetizador',
+  upright: 'Contrabajo',
 }
 
 export const DRUM_PATTERN_LABELS: Record<DrumPattern, string> = {

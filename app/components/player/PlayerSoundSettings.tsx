@@ -9,17 +9,8 @@ import {
   SettingsToggle,
   type SaveTier,
 } from '~/components/profile/SettingsSection'
-import {
-  BASS_VOICES,
-  BASS_VOICE_LABELS,
-  DRUM_PATTERNS,
-  DRUM_PATTERN_LABELS,
-  KEYS_VOICES,
-  KEYS_VOICE_LABELS,
-  type BassVoice,
-  type DrumPattern,
-  type KeysVoice,
-} from '~/lib/audio/bandSound'
+import type { BassVoice, DrumPattern, KeysVoice } from '~/lib/audio/bandSound'
+import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
 import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
@@ -116,85 +107,15 @@ export function TransposeControl({
   )
 }
 
-interface SoundSource {
-  enabled: boolean
-  onToggle: () => void
-  /** 0–100 */
-  volume: number
-  onVolumeChange: (volume: number) => void
-}
-
-/** On/off switch plus its volume, side by side. */
-function SoundSourceRow({ label, description, source }: { label: string; description: string; source: SoundSource }) {
-  return (
-    <SettingsRow label={label} description={description}>
-      <div className="flex items-center gap-3">
-        <SettingsToggle checked={source.enabled} onChange={source.onToggle} ariaLabel={label} />
-        <SettingsSlider
-          value={source.volume}
-          min={0}
-          max={100}
-          step={5}
-          onChange={source.onVolumeChange}
-          suffix="%"
-          ariaLabel={`Volumen: ${label.toLowerCase()}`}
-        />
-      </div>
-    </SettingsRow>
-  )
-}
-
-/** A small set of exclusive choices (sound, rhythm), shown as pills. */
-function ChoiceRow<T extends string>({
-  label,
-  options,
-  labels,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string
-  options: readonly T[]
-  labels: Record<T, string>
-  value: T
-  onChange: (value: T) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="px-4 py-2">
-      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-        {options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={value === option}
-            disabled={disabled}
-            onClick={() => onChange(option)}
-            className={cn(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40',
-              value === option
-                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            )}
-          >
-            {labels[option]}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export interface PlayerSoundSettingsProps {
-  metronome: SoundSource
+  metronome: ChannelSource
   /** Keyboard: the full chord, in stereo. */
-  chords: SoundSource
+  chords: ChannelSource
   keys?: { voice: KeysVoice; onVoiceChange: (voice: KeysVoice) => void }
   /** Bass: the root note only, in mono. */
-  bass?: SoundSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
+  bass?: ChannelSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
   /** Mini drum machine. */
-  drums?: SoundSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
+  drums?: ChannelSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
   /** Set when the click and the chords can't sound right now, saying why. */
   soundUnavailableReason?: string
   countIn: {
@@ -236,44 +157,7 @@ export function PlayerSoundSettings({
             {soundUnavailableReason}
           </p>
         )}
-        <SoundSourceRow label="Metrónomo" description="El click y la precuenta." source={metronome} />
-        <SoundSourceRow label="Acordes" description="Teclado: el acorde completo, en estéreo." source={chords} />
-        {keys && (
-          <ChoiceRow
-            label="Sonido del teclado"
-            options={KEYS_VOICES}
-            labels={KEYS_VOICE_LABELS}
-            value={keys.voice}
-            onChange={keys.onVoiceChange}
-            disabled={!chords.enabled}
-          />
-        )}
-        {bass && (
-          <>
-            <SoundSourceRow label="Bajo" description="Solo la nota raíz de cada acorde, en mono." source={bass} />
-            <ChoiceRow
-              label="Sonido del bajo"
-              options={BASS_VOICES}
-              labels={BASS_VOICE_LABELS}
-              value={bass.voice}
-              onChange={bass.onVoiceChange}
-              disabled={!bass.enabled}
-            />
-          </>
-        )}
-        {drums && (
-          <>
-            <SoundSourceRow label="Batería" description="Mini caja de ritmos con el tempo de la canción." source={drums} />
-            <ChoiceRow
-              label="Patrón de batería"
-              options={DRUM_PATTERNS}
-              labels={DRUM_PATTERN_LABELS}
-              value={drums.pattern}
-              onChange={drums.onPatternChange}
-              disabled={!drums.enabled}
-            />
-          </>
-        )}
+        <BandChannelTiles metronome={metronome} chords={chords} keys={keys} bass={bass} drums={drums} />
       </PanelSection>
 
       <PanelSection title="Precuenta">
