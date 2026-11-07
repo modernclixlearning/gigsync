@@ -124,18 +124,19 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
   const synth = new Tone.PolySynth(Voice as typeof Tone.Synth, options)
   synth.maxPolyphony = 24
   const sampled = KEYS_SAMPLES[voice]
-  // Recorded keys are already full; the chorus only widens them a little.
+  // The chorus only dresses the synthesised voices (and the synth standing in while samples load).
   const chorus = new Tone.Chorus({
     frequency: 1.2,
     delayTime: 3.5,
     depth: 0.7,
-    wet: voice === 'pad' ? 0.7 : sampled ? 0.25 : 0.5,
+    wet: voice === 'pad' ? 0.7 : 0.5,
   }).start()
   const level = new Tone.Volume(0)
   synth.connect(chorus)
   chorus.connect(level)
   level.toDestination()
-  const playable = sampled ? sampledVoice(synth, sampled, chorus, level) : null
+  // Recorded keys skip the chorus: it modulates the pitch and a piano sounds out of tune.
+  const playable = sampled ? sampledVoice(synth, sampled, level, level) : null
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
