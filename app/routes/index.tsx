@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Plus, Music2 } from 'lucide-react'
+import { Plus, Music2, Share2, Upload, CheckSquare, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useDiscardUntouchedNewSongs, useSongLibrary } from '~/hooks/useSongs'
 import { SongCard } from '~/components/library/SongCard'
 import { SongFilters } from '~/components/library/SongFilters'
 import { SongSearch } from '~/components/library/SongSearch'
 import { BottomNav } from '~/components/navigation'
+import { ShareSheet } from '~/components/share/ShareSheet'
+import { useGigsyncImport } from '~/components/share/useGigsyncImport'
+import { selectionFile } from '~/lib/gigsyncFile'
 import { routeHelpers } from '~/lib/routes'
 import type { Song } from '~/types'
 
@@ -16,12 +19,29 @@ export const Route = createFileRoute('/')({
 
 function SongsLibraryPage() {
   const {
+    songs: allSongs,
     filteredSongs,
     isLoading,
     filterOptions,
     setFilterOptions
   } = useSongLibrary()
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
+  // «Seleccionar»: tick the songs to send (one, a few, or all of them).
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [showShare, setShowShare] = useState(false)
+  const { openPicker, node: importNode } = useGigsyncImport()
+  const togglePicked = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const stopPicking = () => {
+    setPicking(false)
+    setPicked(new Set())
+  }
 
   // Back in the library, blank songs from "Add song" that were never filled in go away.
   const discardUntouchedNewSongs = useDiscardUntouchedNewSongs()
@@ -49,6 +69,29 @@ function SongsLibraryPage() {
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">
             Song Library
           </h1>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={openPicker}
+              title="Importar un fichero .gigsync"
+              aria-label="Importar"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => (picking ? stopPicking() : setPicking(true))}
+              title={picking ? 'Salir de la selección' : 'Seleccionar canciones para compartir'}
+              aria-label={picking ? 'Salir de la selección' : 'Seleccionar'}
+              aria-pressed={picking}
+              className={cn(
+                'p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800',
+                picking ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-300'
+              )}
+            >
+              {picking ? <X className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
+            </button>
           <Link
             {...routeHelpers.songNew()}
             className={cn(
@@ -61,6 +104,7 @@ function SongsLibraryPage() {
             <Plus className="w-4 h-4" />
             <span className="text-sm font-medium">Add Song</span>
           </Link>
+          </div>
         </div>
       </header>
 
@@ -113,21 +157,64 @@ function SongsLibraryPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredSongs.map((song) => (
-              <Link
-                key={song.id}
-                {...routeHelpers.song(song.id)}
-              >
+            {picking && (
+              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                <span>{picked.size} seleccionada{picked.size === 1 ? '' : 's'}</span>
+                <button
+                  type="button"
+                  className="text-indigo-500 font-medium"
+                  onClick={() => setPicked(picked.size === filteredSongs.length ? new Set() : new Set(filteredSongs.map((s) => s.id)))}
+                >
+                  {picked.size === filteredSongs.length ? 'Quitar todas' : 'Todas'}
+                </button>
+              </div>
+            )}
+            {filteredSongs.map((song) =>
+              picking ? (
                 <SongCard
+                  key={song.id}
                   song={song}
-                  isSelected={selectedSongId === song.id}
-                  onClick={() => handleSongSelect(song)}
+                  isSelected={picked.has(song.id)}
+                  onClick={() => togglePicked(song.id)}
                 />
-              </Link>
-            ))}
+              ) : (
+                <Link key={song.id} {...routeHelpers.song(song.id)}>
+                  <SongCard
+                    song={song}
+                    isSelected={selectedSongId === song.id}
+                    onClick={() => handleSongSelect(song)}
+                  />
+                </Link>
+              )
+            )}
           </div>
         )}
       </main>
+
+      {picking && picked.size > 0 && (
+        <div className="fixed bottom-20 inset-x-0 z-30 flex justify-center px-4">
+          <button
+            type="button"
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-2 px-5 py-3 rounded-full bg-indigo-500 text-white font-medium shadow-lg"
+          >
+            <Share2 className="w-4 h-4" />
+            Compartir {picked.size}
+          </button>
+        </div>
+      )}
+      {showShare && (
+        <ShareSheet
+          name="Selección"
+          songs={allSongs.filter((song) => picked.has(song.id))}
+          file={selectionFile(picked, allSongs)}
+          onClose={() => {
+            setShowShare(false)
+            stopPicking()
+          }}
+        />
+      )}
+      {importNode}
 
       {/* Bottom Navigation */}
       <BottomNav />

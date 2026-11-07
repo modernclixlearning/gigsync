@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AudioLines, FileUp, Pencil, Piano, Search, Trash2 } from 'lucide-react'
+import { AudioLines, FileUp, Pencil, Piano, Search, Share2, Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { SongForm } from '~/components/songs/SongForm'
 import { ChordProImporter } from '~/components/songs/ChordProImporter'
 import { AudioAnalysisPanel, type AudioAnalysisApply } from '~/components/songs/AudioAnalysisPanel'
 import { MIDIRecordPanel } from '~/components/songs/MIDIRecordPanel'
+import { ShareSheet } from '~/components/share/ShareSheet'
+import { songFile } from '~/lib/gigsyncFile'
 import { SongSearchPanel } from '~/components/songs/SongSearchPanel'
 import { ChordSheetPaste } from '~/components/songs/ChordSheetPaste'
 import type { LyricsSearchResult } from '~/lib/lyrics/lrclib'
@@ -28,11 +30,12 @@ const toFormData = (song: Song): CreateSongInput => ({
   notes: song.notes ?? '',
   youtubeUrl: song.youtubeUrl,
   youtubeStartSeconds: song.youtubeStartSeconds,
+  midiTake: song.midiTake,
 })
 
 const FIELDS: (keyof CreateSongInput)[] = [
   'title', 'artist', 'bpm', 'key', 'timeSignature', 'duration',
-  'lyrics', 'tags', 'notes', 'youtubeUrl', 'youtubeStartSeconds',
+  'lyrics', 'tags', 'notes', 'youtubeUrl', 'youtubeStartSeconds', 'midiTake',
 ]
 
 /** Only the fields that differ from the stored song; title/artist are never blanked. */
@@ -44,7 +47,9 @@ function diffFromSong(song: Song, draft: CreateSongInput): UpdateSongInput {
     const prev = stored[field]
     const same = Array.isArray(next) && Array.isArray(prev)
       ? next.join('\u0000') === prev.join('\u0000')
-      : next === prev
+      : field === 'midiTake'
+        ? JSON.stringify(next) === JSON.stringify(prev)
+        : next === prev
     if (same) continue
     if ((field === 'title' || field === 'artist') && !String(next ?? '').trim()) continue
     // Half-typed BPM ("9" on the way to "95") would retime the song for a moment.
@@ -99,6 +104,7 @@ export function SongLiveEditor({
   const [draft, setDraft] = useState<CreateSongInput>(() => toFormData(song))
   /** The ChordPro text starts read-only; "Editar" unlocks it. */
   const [isLyricsLocked, setIsLyricsLocked] = useState(true)
+  const [showShare, setShowShare] = useState(false)
   const songRef = useRef(song)
   songRef.current = song
   const pendingRef = useRef<CreateSongInput | null>(null)
@@ -172,9 +178,10 @@ export function SongLiveEditor({
   }
 
   // Detected or recorded chords are appended as their own section; the lyrics aren't rewritten.
-  const handleApplyChords = ({ bpm, key, section }: AudioAnalysisApply) => {
+  const handleApplyChords = ({ bpm, key, section, midiTake }: AudioAnalysisApply) => {
     handleChange({
       ...draft,
+      midiTake: midiTake ?? draft.midiTake,
       bpm: bpm ?? draft.bpm,
       key: key ?? draft.key,
       lyrics: section ? appendSection(draft.lyrics ?? '', section) : draft.lyrics,
@@ -305,6 +312,12 @@ export function SongLiveEditor({
         onChange={handleChange}
         lyricsLock={{ locked: isLyricsLocked, onToggle: () => setIsLyricsLocked((locked) => !locked) }}
       />
+
+      <button type="button" onClick={() => setShowShare(true)} className={toolButtonClass}>
+        <Share2 className="w-4 h-4" />
+        Compartir canción (.gigsync / .mid)
+      </button>
+      {showShare && <ShareSheet name={song.title} songs={[song]} file={songFile(song)} onClose={() => setShowShare(false)} />}
 
       {onDelete && (
         <button

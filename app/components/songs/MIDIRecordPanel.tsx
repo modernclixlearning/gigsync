@@ -249,6 +249,17 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
       bpm: bpmChanged ? takeBpm : undefined,
       key: keyChanged ? songKey : undefined,
       section: buildDetectedSection(parsedBars.lines, parsedBars.barCount, cleanSectionName(sectionName)),
+      midiTake: {
+        bpm: takeBpm,
+        beatsPerBar,
+        durationSeconds: take?.durationSeconds ?? 0,
+        notes: (take?.notes ?? []).map((n) => ({
+          startTimeSeconds: n.startTimeSeconds,
+          durationSeconds: n.durationSeconds,
+          pitchMidi: n.pitchMidi,
+          amplitude: n.amplitude,
+        })),
+      },
     })
   }
 
