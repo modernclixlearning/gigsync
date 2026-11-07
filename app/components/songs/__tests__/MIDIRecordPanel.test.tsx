@@ -27,11 +27,24 @@ describe('MIDIRecordPanel', () => {
     else delete (navigator as unknown as Record<string, unknown>).requestMIDIAccess
   })
 
-  it('explains when the browser has no Web MIDI', () => {
+  it('explains when the browser has no Web MIDI, and still lets you record with the on-screen keyboard', () => {
     delete (navigator as unknown as Record<string, unknown>).requestMIDIAccess
     render(<MIDIRecordPanel timeSignature="4/4" currentBpm={120} onApply={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByRole('alert')).toHaveTextContent('Chrome o Edge')
-    expect(screen.queryByRole('button', { name: /grabar/i })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Teclado en pantalla' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: 'Octava 3' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Octava 4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /grabar/i })).toBeEnabled()
+  })
+
+  it('the on-screen keyboard can be turned off and on', async () => {
+    delete (navigator as unknown as Record<string, unknown>).requestMIDIAccess
+    const user = userEvent.setup()
+    render(<MIDIRecordPanel timeSignature="4/4" currentBpm={120} onApply={vi.fn()} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Teclado en pantalla' }))
+    expect(screen.queryByRole('group', { name: 'Octava 3' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Teclado en pantalla' }))
+    expect(screen.getByRole('group', { name: 'Octava 3' })).toBeInTheDocument()
   })
 
   it('lets the BPM be typed digit by digit (90, not clamped to 20 on the way)', async () => {

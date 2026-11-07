@@ -14,6 +14,9 @@ import { setSoundStatus, type BandChannel } from './soundStatus'
 /** What the chord hook needs from a channel: play notes, silence them, set the level. */
 export interface PlayableVoice {
   triggerAttackRelease: (notes: number[], duration: number, time?: number, velocity?: number) => void
+  /** Key down / key up, for instruments played live. */
+  triggerAttack: (notes: number[], time?: number, velocity?: number) => void
+  triggerRelease: (notes: number[], time?: number) => void
   releaseAll: () => void
   volume: { value: number }
 }
@@ -48,6 +51,8 @@ const BASS_SAMPLES: Partial<Record<BassVoice, { dir: string; notes: string[]; re
 function synthVoice(synth: Tone.PolySynth, volume: Tone.Volume): PlayableVoice {
   return {
     triggerAttackRelease: (notes, duration, time, velocity) => synth.triggerAttackRelease(notes, duration, time, velocity),
+    triggerAttack: (notes, time, velocity) => synth.triggerAttack(notes, time, velocity),
+    triggerRelease: (notes, time) => synth.triggerRelease(notes, time),
     releaseAll: () => synth.releaseAll(),
     get volume() {
       return volume.volume
@@ -65,15 +70,17 @@ function sampledVoice(
   output: Tone.ToneAudioNode,
   volume: Tone.Volume,
   channel: BandChannel,
+  report = true,
 ): { voice: PlayableVoice; sampler: Tone.Sampler; stop: () => void } {
   let alive = true
-  setSoundStatus(channel, 'loading')
+  const status = (value: Parameters<typeof setSoundStatus>[1]) => report && setSoundStatus(channel, value)
+  status('loading')
   const sampler = new Tone.Sampler({
     urls: sampleUrls(spec.notes),
     baseUrl: `${SAMPLE_BASE}/${spec.dir}/`,
     release: spec.release,
-    onload: () => alive && setSoundStatus(channel, 'samples'),
-    onerror: () => alive && setSoundStatus(channel, 'failed'), // stays on the synth fallback
+    onload: () => alive && status('samples'),
+    onerror: () => alive && status('failed'), // stays on the synth fallback
   })
   sampler.connect(output)
   const active = () => (sampler.loaded ? sampler : synth)
@@ -81,10 +88,16 @@ function sampledVoice(
     sampler,
     stop: () => {
       alive = false
-      setSoundStatus(channel, 'idle')
+      status('idle')
     },
     voice: {
       triggerAttackRelease: (notes, duration, time, velocity) => active().triggerAttackRelease(notes, duration, time, velocity),
+      triggerAttack: (notes, time, velocity) => active().triggerAttack(notes, time, velocity),
+      // Release on both: the key may have been struck while the other one was active.
+      triggerRelease: (notes, time) => {
+        sampler.triggerRelease(notes, time)
+        synth.triggerRelease(notes, time)
+      },
       releaseAll: () => {
         sampler.releaseAll()
         synth.releaseAll()
@@ -129,7 +142,7 @@ const BASS_SETTINGS: Record<BassVoice, object> = {
 }
 
 /** Keyboard: the whole chord, spread over the stereo field by a chorus. */
-export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
+export function createKeysInstrument(voice: KeysVoice, { reportStatus = true }: { reportStatus?: boolean } = {}): ChordInstrument {
   const { voice: Voice, options } = KEYS_SETTINGS[voice]
   const synth = new Tone.PolySynth(Voice as typeof Tone.Synth, options)
   synth.maxPolyphony = 24
@@ -146,8 +159,8 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
   chorus.connect(level)
   level.toDestination()
   // Recorded keys skip the chorus: it modulates the pitch and a piano sounds out of tune.
-  const playable = sampled ? sampledVoice(synth, sampled, level, level, 'keys') : null
-  if (!sampled) setSoundStatus('keys', 'synth')
+  const playable = sampled ? sampledVoice(synth, sampled, level, level, 'keys', reportStatus) : null
+  if (!sampled && reportStatus) setSoundStatus('keys', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -156,7 +169,7 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
       synth.dispose()
       playable?.sampler.dispose()
       playable?.stop()
-      if (!playable) setSoundStatus('keys', 'idle')
+      if (!playable && reportStatus) setSoundStatus('keys', 'idle')
       chorus.dispose()
       level.dispose()
     },

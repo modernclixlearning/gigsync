@@ -32,21 +32,8 @@ vi.mock('tone', () => {
     }
     dispose() {}
   }
-  class PolySynth {
-    volume = { value: 0 }
-    toDestination() {
-      return this
-    }
-    triggerAttack(freq: number) {
-      tone.attacks.push(freq)
-    }
-    triggerRelease() {}
-    releaseAll() {}
-    dispose() {}
-  }
   return {
     Synth,
-    PolySynth,
     getContext: () => tone.context,
     now: () => tone.context.currentTime + 0.1,
     immediate: () => tone.context.currentTime,
@@ -54,6 +41,19 @@ vi.mock('tone', () => {
     Frequency: (midi: number) => ({ toFrequency: () => 440 * 2 ** ((midi - 69) / 12) }),
   }
 })
+
+vi.mock('~/lib/audio/instruments', () => ({
+  createKeysInstrument: () => ({
+    synth: {
+      volume: { value: 0 },
+      triggerAttack: (freqs: number[]) => tone.attacks.push(...freqs),
+      triggerRelease: () => undefined,
+      triggerAttackRelease: () => undefined,
+      releaseAll: () => undefined,
+    },
+    dispose: () => undefined,
+  }),
+}))
 
 import { useMIDIRecorder } from '../useMIDIRecorder'
 
@@ -98,6 +98,20 @@ describe('useMIDIRecorder', () => {
       useMIDIRecorder({ access, inputId: keys.id, bpm: 120, beatsPerBar: 4, countInBars: 1, monitor }),
     )
   }
+
+  it('plays and records virtual keys like a controller (no MIDI input needed)', async () => {
+    const { result } = renderHook(() =>
+      useMIDIRecorder({ access: null, inputId: null, bpm: 120, beatsPerBar: 4, countInBars: 1, monitor: true }),
+    )
+    act(() => {
+      for (const p of [57, 60, 64]) result.current.noteOn(p, 100)
+    })
+    expect(result.current.held).toEqual([57, 60, 64])
+    expect(result.current.sounding).toBe('Am')
+    expect(tone.attacks).toHaveLength(3)
+    act(() => result.current.noteOff(64))
+    expect(result.current.held).toEqual([57, 60])
+  })
 
   it('shows what is being held before recording, and plays it when monitoring', () => {
     const { result } = renderRecorder(true)
