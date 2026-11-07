@@ -4,6 +4,7 @@ import { useSetlists } from '~/hooks/useSetlists'
 import { SetlistCard } from '~/components/setlists/SetlistCard'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
 import { BottomNav } from '~/components/navigation'
+import { useGigsyncImport } from '~/components/share/useGigsyncImport'
 import { routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput } from '~/types'
 
@@ -15,6 +16,7 @@ function SetlistsPage() {
   const { setlists, isLoading, createSetlist } = useSetlists()
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { openPicker, node: importNode } = useGigsyncImport()
 
   const handleCreateSetlist = async (data: CreateSetlistInput) => {
     try {
@@ -42,6 +44,13 @@ function SetlistsPage() {
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">
             Setlists
           </h1>
+          <button
+            onClick={openPicker}
+            className="px-3 py-2 text-slate-600 dark:text-slate-300 rounded-xl font-medium"
+            title="Importar un fichero .gigsync"
+          >
+            Importar
+          </button>
           <button
             onClick={() => setShowForm(true)}
             className="px-4 py-2 bg-primary text-white rounded-xl font-medium shadow-lg shadow-primary/20"
@@ -102,6 +111,7 @@ function SetlistsPage() {
       )}
 
       {/* Bottom Navigation */}
+      {importNode}
       <BottomNav />
     </div>
   )

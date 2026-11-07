@@ -13,6 +13,8 @@ import type { AnalysisRunResult } from '~/lib/audioAnalysis/workerProtocol'
 // dynamic import when the user starts an analysis.
 import type { AnalyzeProgress } from '~/lib/audioAnalysis/analyzeAudioFile'
 
+import type { MidiTake } from '~/types/setlist'
+
 export interface AudioAnalysisApply {
   /** New BPM, when the user chose to apply it. */
   bpm?: number
@@ -20,6 +22,8 @@ export interface AudioAnalysisApply {
   key?: string
   /** ChordPro section to append to the lyrics, when chosen. */
   section?: string
+  /** The keyboard take behind the chords (MIDI recording), kept for the .mid export. */
+  midiTake?: MidiTake
 }
 
 interface AudioAnalysisPanelProps {

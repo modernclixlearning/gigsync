@@ -35,6 +35,7 @@ const SONG_CONTENT_FIELDS = [
   'playerOverrides',
   'youtubeUrl',
   'youtubeStartSeconds',
+  'midiTake',
 ] as const
 
 export type SongContentField = (typeof SONG_CONTENT_FIELDS)[number]

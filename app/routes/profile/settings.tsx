@@ -10,45 +10,10 @@ import { PerformanceSettings } from '~/components/profile/PerformanceSettings'
 import { PlayerSettings } from '~/components/profile/PlayerSettings'
 import { MidiClockSyncSettings } from '~/components/profile/MidiClockSyncSettings'
 import { DataSettings } from '~/components/profile/DataSettings'
-import { ImportConflictModal } from '~/components/profile/ImportConflictModal'
 import { BottomNav } from '~/components/navigation'
 import { ROUTES } from '~/lib/routes'
-import {
-  planSongImport,
-  planSetlistImport,
-  resolveSongsToWrite,
-  type ConflictResolution,
-  type SongConflict,
-} from '~/lib/importMerge'
-import type { Song, Setlist } from '~/types/setlist'
+import { useGigsyncImport } from '~/components/share/useGigsyncImport'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
-
-interface PendingImportData {
-  newSongs: Song[]
-  newSetlists: Setlist[]
-  profile: string | null
-  settings: string | null
-  stats: string | null
-}
-
-const RELOAD_DELAY_MS = 1400
-
-function summarizeImport(newSongsCount: number, newSetlistsCount: number, overwrittenCount: number): string {
-  const parts: string[] = []
-  if (newSongsCount > 0) {
-    parts.push(`${newSongsCount} canción${newSongsCount === 1 ? '' : 'es'} nueva${newSongsCount === 1 ? '' : 's'}`)
-  }
-  if (overwrittenCount > 0) {
-    parts.push(`${overwrittenCount} actualizada${overwrittenCount === 1 ? '' : 's'}`)
-  }
-  if (newSetlistsCount > 0) {
-    parts.push(`${newSetlistsCount} setlist${newSetlistsCount === 1 ? '' : 's'}`)
-  }
-  if (parts.length === 0) {
-    return 'Ya estaba todo al día — nada nuevo para importar.'
-  }
-  return `Importado: ${parts.join(', ')}.`
-}
 
 export const Route = createFileRoute('/profile/settings')({
   component: SettingsPage,
@@ -68,9 +33,7 @@ function SettingsPage() {
     resetSettings,
   } = useSettings()
 
-  const [importConflicts, setImportConflicts] = useState<SongConflict[] | null>(null)
-  const [pendingImport, setPendingImport] = useState<PendingImportData | null>(null)
-  const [importToast, setImportToast] = useState<string | null>(null)
+  const { openPicker: handleImportData, node: importNode } = useGigsyncImport()
 
   const handleExportData = useCallback(async () => {
     const songs = await db.songs.toArray()
@@ -97,101 +60,6 @@ function SettingsPage() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }, [])
-
-  const applyNonConflictingImport = useCallback(
-    async (newSongs: Song[], newSetlists: Setlist[], localData: Omit<PendingImportData, 'newSongs' | 'newSetlists'>) => {
-      if (newSongs.length > 0) {
-        await db.songs.bulkAdd(newSongs)
-      }
-      if (newSetlists.length > 0) {
-        await db.setlists.bulkAdd(newSetlists)
-      }
-      if (localData.profile) {
-        localStorage.setItem('gigsync_profile', localData.profile)
-      }
-      if (localData.settings) {
-        localStorage.setItem('gigsync_settings', localData.settings)
-      }
-      if (localData.stats) {
-        localStorage.setItem('gigsync_stats', localData.stats)
-      }
-    },
-    []
-  )
-
-  const handleImportData = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-
-      try {
-        const text = await file.text()
-        const data = JSON.parse(text)
-
-        const importedSongs: Song[] = Array.isArray(data.songs) ? data.songs : []
-        const importedSetlists: Setlist[] = Array.isArray(data.setlists) ? data.setlists : []
-
-        const [existingSongs, existingSetlists] = await Promise.all([
-          db.songs.toArray(),
-          db.setlists.toArray(),
-        ])
-
-        const { newSongs, conflicts } = planSongImport(existingSongs, importedSongs)
-        const { newSetlists } = planSetlistImport(existingSetlists, importedSetlists)
-
-        const localData = {
-          profile: data.profile ?? null,
-          settings: data.settings ?? null,
-          stats: data.stats ?? null,
-        }
-
-        if (conflicts.length === 0) {
-          await applyNonConflictingImport(newSongs, newSetlists, localData)
-          setImportToast(summarizeImport(newSongs.length, newSetlists.length, 0))
-          setTimeout(() => window.location.reload(), RELOAD_DELAY_MS)
-          return
-        }
-
-        // Hold off applying anything until the user resolves every conflict —
-        // nothing is written to Dexie/localStorage yet at this point.
-        setImportConflicts(conflicts)
-        setPendingImport({ newSongs, newSetlists, ...localData })
-      } catch (error) {
-        console.error('Failed to import data:', error)
-        alert('Failed to import data. Please check the file format.')
-      }
-    }
-    input.click()
-  }, [applyNonConflictingImport])
-
-  const handleApplyImport = useCallback(
-    async (resolutions: Record<string, ConflictResolution>) => {
-      if (!importConflicts || !pendingImport) return
-
-      await applyNonConflictingImport(pendingImport.newSongs, pendingImport.newSetlists, pendingImport)
-
-      const songsToOverwrite = resolveSongsToWrite(importConflicts, resolutions)
-      if (songsToOverwrite.length > 0) {
-        await db.songs.bulkPut(songsToOverwrite)
-      }
-
-      setImportToast(
-        summarizeImport(pendingImport.newSongs.length, pendingImport.newSetlists.length, songsToOverwrite.length)
-      )
-      setImportConflicts(null)
-      setPendingImport(null)
-      setTimeout(() => window.location.reload(), RELOAD_DELAY_MS)
-    },
-    [importConflicts, pendingImport, applyNonConflictingImport]
-  )
-
-  const handleCancelImport = useCallback(() => {
-    setImportConflicts(null)
-    setPendingImport(null)
   }, [])
 
   const handleDeleteAllData = useCallback(async () => {
@@ -378,29 +246,7 @@ function SettingsPage() {
       {/* Bottom Navigation */}
       <BottomNav />
 
-      {importConflicts && importConflicts.length > 0 && (
-        <ImportConflictModal
-          conflicts={importConflicts}
-          onCancel={handleCancelImport}
-          onApply={handleApplyImport}
-        />
-      )}
-
-      {importToast && (
-        <div
-          role="status"
-          className={cn(
-            'fixed bottom-24 left-1/2 -translate-x-1/2 z-50',
-            'px-4 py-3 rounded-xl shadow-lg',
-            'bg-slate-900 dark:bg-white text-white dark:text-slate-900',
-            'flex items-center gap-2 text-sm font-medium',
-            'max-w-[calc(100%-2rem)]'
-          )}
-        >
-          <span>✅</span>
-          <span>{importToast}</span>
-        </div>
-      )}
+      {importNode}
     </div>
   )
 }

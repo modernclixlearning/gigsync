@@ -8,6 +8,8 @@ import { SongItem } from '~/components/setlists/SongItem'
 import { SetlistStats } from '~/components/setlists/SetlistStats'
 import { SongForm } from '~/components/setlists/SongForm'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
+import { ShareSheet } from '~/components/share/ShareSheet'
+import { setlistFile } from '~/lib/gigsyncFile'
 import { ROUTES, routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput, UpdateSetlistInput } from '~/types'
 
@@ -33,6 +35,7 @@ function SetlistDetailPage() {
   const [showAddSong, setShowAddSong] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const sensors = useSensors(
@@ -142,6 +145,13 @@ function SetlistDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowShare(true)}
+              className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg font-medium transition-colors"
+              title="Compartir setlist"
+            >
+              <span className="material-symbols-outlined">ios_share</span>
+            </button>
+            <button
               onClick={() => setShowEditForm(true)}
               className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg font-medium transition-colors"
               title="Edit setlist"
@@ -166,6 +176,10 @@ function SetlistDetailPage() {
           </div>
         </div>
       </header>
+
+      {showShare && (
+        <ShareSheet name={setlist.name} songs={songs} file={setlistFile(setlist, songs)} onClose={() => setShowShare(false)} />
+      )}
 
       {/* Error Message */}
       {error && (

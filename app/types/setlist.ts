@@ -45,6 +45,15 @@ export interface PlayerOverrides {
 export type PlayerOverrideKey = keyof PlayerOverrides
 export type PlayerOverrideValue<K extends PlayerOverrideKey> = Required<PlayerOverrides>[K]
 
+/** What was played on the keyboard (MIDI recording) — kept so it can be exported as .mid. */
+export interface MidiTake {
+  /** Tempo the take was played at. */
+  bpm: number
+  beatsPerBar: number
+  durationSeconds: number
+  notes: { startTimeSeconds: number; durationSeconds: number; pitchMidi: number; amplitude: number }[]
+}
+
 export interface Song {
   id: string
   title: string
@@ -65,6 +74,8 @@ export interface Song {
   youtubeUrl?: string
   /** Second of the video where play-along starts (default 0). */
   youtubeStartSeconds?: number
+  /** Last keyboard take applied to the song (notes as played, after the corrections). */
+  midiTake?: MidiTake
 }
 
 export interface Setlist {
