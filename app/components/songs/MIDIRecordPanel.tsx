@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Magnet, Minus, Piano, Play, Plus, Square, Trash2, Undo2, X } from 'lucide-react'
+import { Circle, Keyboard, Magnet, Minus, Piano, Play, Plus, Square, Trash2, Undo2, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useMIDIAccess, type MIDIInputInfo } from '~/hooks/useMIDIAccess'
 import { useMIDIRecorder, type LiveTake } from '~/hooks/useMIDIRecorder'
@@ -15,6 +15,7 @@ import {
 import type { NoteEvent } from '~/lib/audioAnalysis/types'
 import type { AudioAnalysisApply } from './AudioAnalysisPanel'
 import { PianoRoll } from './PianoRoll'
+import { VirtualKeyboard } from './VirtualKeyboard'
 import { SONG_KEYS } from './SongForm'
 
 export const RECORDED_SECTION_NAME = 'Grabación'
@@ -100,6 +101,8 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
   const [songKey, setSongKey] = useState(currentKey || 'C')
   const [countInBars, setCountInBars] = useState(1)
   const [monitor, setMonitor] = useState(true)
+  /** On-screen keyboard: the user's choice, or null = automatic (on when there is no controller or on a touch screen). */
+  const [virtualChoice, setVirtualChoice] = useState<boolean | null>(null)
 
   const [barText, setBarText] = useState('')
   const [sectionName, setSectionName] = useState(RECORDED_SECTION_NAME)
@@ -118,7 +121,11 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
     setInputId(defaultKeyboardInput(inputs)?.id ?? null)
   }, [inputs, inputId])
 
-  const recorder = useMIDIRecorder({ access, inputId, bpm, beatsPerBar, countInBars, monitor })
+  const noController = accessStatus === 'unsupported' || accessStatus === 'denied' || (accessStatus === 'granted' && inputs.length === 0)
+  const touchScreen = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+  const virtualOn = virtualChoice ?? (noController || touchScreen)
+  // The on-screen keys are heard through the same monitor as a controller's.
+  const recorder = useMIDIRecorder({ access, inputId, bpm, beatsPerBar, countInBars, monitor: monitor || virtualOn })
   const playback = useTakePlayback()
   const { phase, recording, peek, reset } = recorder
   const stopPlayback = playback.stop
@@ -321,9 +328,25 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
         </div>
         <button
           type="button"
+          onClick={() => setVirtualChoice(!virtualOn)}
+          aria-pressed={virtualOn}
+          aria-label="Teclado en pantalla"
+          title="Teclado en pantalla (táctil y teclas del ordenador)"
+          className={cn(
+            'ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors',
+            virtualOn
+              ? 'bg-indigo-500 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700',
+          )}
+        >
+          <Keyboard className="w-4 h-4" />
+          <span className="hidden sm:inline">Teclado</span>
+        </button>
+        <button
+          type="button"
           onClick={close}
           aria-label="Cerrar"
-          className="ml-auto p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
         >
           <X className="w-5 h-5" />
         </button>
@@ -340,8 +363,9 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
           </p>
         )}
 
-        {inputs.length > 0 && (
+        {(inputs.length > 0 || virtualOn) && (
           <div className="flex flex-wrap items-end gap-3 px-4 py-3">
+            {inputs.length > 0 && (
             <label className="text-sm text-slate-700 dark:text-slate-300 w-48">
               <span className="block mb-1 font-medium">Teclado</span>
               <select
@@ -358,6 +382,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
                 ))}
               </select>
             </label>
+            )}
             <label className="text-sm text-slate-700 dark:text-slate-300 w-24">
               <span className="block mb-1 font-medium">BPM</span>
               <input
@@ -410,13 +435,15 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
                 <option value={2}>2 compases</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 pb-2 text-sm text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={monitor} onChange={(e) => setMonitor(e.target.checked)} />
-              Escuchar el teclado en el navegador
-            </label>
+            {inputs.length > 0 && (
+              <label className="flex items-center gap-2 pb-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" checked={monitor} onChange={(e) => setMonitor(e.target.checked)} />
+                Escuchar el teclado en el navegador
+              </label>
+            )}
 
-            {inputId && (
-              <div className="ml-auto flex items-stretch gap-3">
+            {(inputId || virtualOn) && (
+              <div className="w-full md:w-auto md:ml-auto flex flex-wrap items-stretch gap-3">
                 <div
                   aria-live="polite"
                   className="min-w-[9rem] px-4 py-1 rounded-xl bg-white dark:bg-[#1a1f36] border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center"
@@ -432,7 +459,7 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
                         : `${songKey} · ${timeSignature} · ${bpm} BPM`}
                   </span>
                 </div>
-                <div role="group" aria-label="Transporte" className="flex items-stretch gap-1.5">
+                <div role="group" aria-label="Transporte" className="flex flex-wrap items-stretch gap-1.5">
                   <button
                     type="button"
                     onClick={playTake}
@@ -612,6 +639,12 @@ export function MIDIRecordPanel({ timeSignature, currentBpm, currentKey, onApply
           </div>
         )}
       </div>
+
+      {virtualOn && (
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1f36]">
+          <VirtualKeyboard held={recorder.held} onNoteOn={recorder.noteOn} onNoteOff={recorder.noteOff} />
+        </div>
+      )}
     </section>
   )
 }

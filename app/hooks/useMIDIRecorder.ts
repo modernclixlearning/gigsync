@@ -10,12 +10,22 @@
  * MIDI controllers like the MiniLab make no sound of their own.
  *
  * Drum pads (channel 10) are ignored. Does not touch Tone.Transport.
+ *
+ * The on-screen / computer keyboard plays through the same path as a MIDI
+ * controller: `noteOn` / `noteOff` below stand in for its Note On / Note Off.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Tone from 'tone'
 import { createAudioTimeMapper, type AudioClockLike } from '~/lib/midi/audioTime'
-import { createNoteRecorder, MIDI_DRUM_CHANNEL, parseMIDINoteMessage, type NoteRecorder } from '~/lib/midi/notes'
+import { createKeysInstrument, type ChordInstrument } from '~/lib/audio/instruments'
+import {
+  createNoteRecorder,
+  MIDI_DRUM_CHANNEL,
+  parseMIDINoteMessage,
+  type MIDINoteMessage,
+  type NoteRecorder,
+} from '~/lib/midi/notes'
 import {
   beatSeconds,
   describeSounding,
@@ -70,6 +80,11 @@ export interface UseMIDIRecorderReturn {
   position: { bar: number; beat: number } | null
   /** Chord (or notes) of the keys held right now. */
   sounding: string | null
+  /** MIDI pitches held right now (from the controller or the virtual keyboard). */
+  held: number[]
+  /** A key pressed on a virtual keyboard (touch / computer keys). */
+  noteOn: (pitch: number, velocity?: number) => void
+  noteOff: (pitch: number) => void
   /** Progression so far, refreshed on every downbeat while recording. */
   liveLines: string[]
   /** Same, as the detected progression (for drawing chords over a piano roll). */
@@ -114,6 +129,7 @@ export function useMIDIRecorder({
   const [countIn, setCountIn] = useState<number | null>(null)
   const [position, setPosition] = useState<{ bar: number; beat: number } | null>(null)
   const [sounding, setSounding] = useState<string | null>(null)
+  const [held, setHeld] = useState<number[]>([])
   const [liveProgression, setLiveProgression] = useState<ChordProgression | null>(null)
   const liveLines = liveProgression ? progressionToBarLines(liveProgression) : []
   const [recording, setRecording] = useState<MIDIRecording | null>(null)
@@ -122,7 +138,7 @@ export function useMIDIRecorder({
   /** Holds the keys while not recording, for the "sounding" display. */
   const idleRef = useRef<NoteRecorder>(createNoteRecorder())
   const sessionRef = useRef<Session | null>(null)
-  const monitorSynthRef = useRef<Tone.PolySynth | null>(null)
+  const monitorSynthRef = useRef<ChordInstrument | null>(null)
   const monitorPlayingRef = useRef(new Set<number>())
   const gridRef = useRef({ bpm, beatsPerBar })
   gridRef.current = { bpm, beatsPerBar }
@@ -143,11 +159,11 @@ export function useMIDIRecorder({
   // and freed when monitoring is switched off or the hook unmounts.
   useEffect(() => {
     if (monitor) return
-    const synth = monitorSynthRef.current
+    const instrument = monitorSynthRef.current
     monitorSynthRef.current = null
     monitorPlayingRef.current.clear()
-    synth?.releaseAll()
-    synth?.dispose()
+    instrument?.synth.releaseAll()
+    instrument?.dispose()
   }, [monitor])
   useEffect(
     () => () => {
@@ -161,36 +177,32 @@ export function useMIDIRecorder({
   const syncMonitor = useCallback((sound: number[], struck?: { pitch: number; velocity: number }) => {
     if (!monitorRef.current) return
     if (!monitorSynthRef.current) {
-      const created = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.005, decay: 0.3, sustain: 0.4, release: 0.6 },
-      }).toDestination()
-      created.volume.value = -10
+      // The band's piano (recorded samples; a synth until they load), not reported as a band channel.
+      const created = createKeysInstrument('piano', { reportStatus: false })
+      created.synth.volume.value = -4
       monitorSynthRef.current = created
     }
-    const synth = monitorSynthRef.current
+    const synth = monitorSynthRef.current.synth
     const playing = monitorPlayingRef.current
     if (Tone.getContext().state !== 'running') void Tone.start().catch(() => undefined)
     const now = Tone.immediate()
     const keep = new Set(sound)
     for (const pitch of [...playing]) {
       if (!keep.has(pitch) || pitch === struck?.pitch) {
-        synth.triggerRelease(Tone.Frequency(pitch, 'midi').toFrequency(), now)
+        synth.triggerRelease([Tone.Frequency(pitch, 'midi').toFrequency()], now)
         playing.delete(pitch)
       }
     }
     if (struck) {
-      synth.triggerAttack(Tone.Frequency(struck.pitch, 'midi').toFrequency(), now, struck.velocity / 127)
+      synth.triggerAttack([Tone.Frequency(struck.pitch, 'midi').toFrequency()], now, struck.velocity / 127)
       playing.add(struck.pitch)
     }
   }, [])
 
-  const handleMessage = useCallback(
-    (event: Event) => {
-      const midiEvent = event as MIDIMessageEvent
-      const message = parseMIDINoteMessage(midiEvent.data)
-      if (!message || message.channel === MIDI_DRUM_CHANNEL) return
-      const time = timeOf(midiEvent.timeStamp || performance.now())
+  /** One note message heard at `timestampMs` (the DOM clock): a controller's or the virtual keyboard's. */
+  const applyMessage = useCallback(
+    (message: MIDINoteMessage, timestampMs: number) => {
+      const time = timeOf(timestampMs)
       const recorder = activeRecorder()
       let struck: { pitch: number; velocity: number } | undefined
       if (message.type === 'note-on') {
@@ -204,8 +216,29 @@ export function useMIDIRecorder({
       const sound = recorder.sounding()
       syncMonitor(sound, struck)
       setSounding(describeSounding(sound))
+      setHeld(sound)
     },
     [timeOf, syncMonitor],
+  )
+
+  const handleMessage = useCallback(
+    (event: Event) => {
+      const midiEvent = event as MIDIMessageEvent
+      const message = parseMIDINoteMessage(midiEvent.data)
+      if (!message || message.channel === MIDI_DRUM_CHANNEL) return
+      applyMessage(message, midiEvent.timeStamp || performance.now())
+    },
+    [applyMessage],
+  )
+
+  const noteOn = useCallback(
+    (pitch: number, velocity = 90) =>
+      applyMessage({ type: 'note-on', channel: 0, pitch, velocity: Math.min(127, Math.max(1, Math.round(velocity))) }, performance.now()),
+    [applyMessage],
+  )
+  const noteOff = useCallback(
+    (pitch: number) => applyMessage({ type: 'note-off', channel: 0, pitch }, performance.now()),
+    [applyMessage],
   )
 
   useEffect(() => {
@@ -219,7 +252,8 @@ export function useMIDIRecorder({
       input.removeEventListener('midimessage', handleMessage)
       idleRef.current = createNoteRecorder()
       setSounding(null)
-      monitorSynthRef.current?.releaseAll()
+      setHeld([])
+      monitorSynthRef.current?.synth.releaseAll()
       monitorPlayingRef.current.clear()
     }
   }, [access, inputId, handleMessage])
@@ -342,5 +376,5 @@ export function useMIDIRecorder({
 
   useEffect(() => () => void endSession(), [endSession])
 
-  return { phase, countIn, position, sounding, liveLines, liveProgression, recording, peek, start, stop, reset }
+  return { phase, countIn, position, sounding, held, noteOn, noteOff, liveLines, liveProgression, recording, peek, start, stop, reset }
 }
