@@ -12,9 +12,7 @@ const tone = vi.hoisted(() => {
   const synths: {
     triggerAttackRelease: ReturnType<typeof vi.fn>
     releaseAll: ReturnType<typeof vi.fn>
-    dispose: ReturnType<typeof vi.fn>
     volume: { value: number }
-    maxPolyphony: number
   }[] = []
   const parts: {
     callback: (time: number, event: unknown) => void
@@ -32,29 +30,6 @@ const tone = vi.hoisted(() => {
 })
 
 vi.mock('tone', () => ({
-  Synth: vi.fn(),
-  FMSynth: vi.fn(),
-  Chorus: vi.fn().mockImplementation(() => {
-    const node = { start: () => node, toDestination: () => node, dispose: vi.fn() }
-    return node
-  }),
-  Filter: vi.fn().mockImplementation(() => ({ connect: vi.fn(), dispose: vi.fn() })),
-  Mono: vi.fn().mockImplementation(() => ({ toDestination: vi.fn(), dispose: vi.fn() })),
-  PolySynth: vi.fn().mockImplementation(() => {
-    const synth = {
-      volume: { value: 0 },
-      maxPolyphony: 32,
-      toDestination() {
-        return synth
-      },
-      connect: vi.fn(),
-      triggerAttackRelease: vi.fn(),
-      releaseAll: vi.fn(),
-      dispose: vi.fn(),
-    }
-    tone.synths.push(synth)
-    return synth
-  }),
   Part: vi.fn().mockImplementation((callback: (time: number, event: unknown) => void, events: unknown[]) => {
     const part = { callback, events, start: vi.fn(), dispose: vi.fn() }
     tone.parts.push(part)
@@ -65,6 +40,19 @@ vi.mock('tone', () => ({
   Frequency: vi.fn((pitch: number) => ({ toFrequency: () => pitch })),
   gainToDb: vi.fn((gain: number) => 20 * Math.log10(gain)),
 }))
+
+vi.mock('~/lib/audio/instruments', () => {
+  const instrument = () => {
+    const synth = {
+      volume: { value: 0 },
+      triggerAttackRelease: vi.fn(),
+      releaseAll: vi.fn(),
+    }
+    tone.synths.push(synth)
+    return { synth, dispose: vi.fn() }
+  }
+  return { createKeysInstrument: vi.fn(instrument), createBassInstrument: vi.fn(instrument) }
+})
 
 import { useChordPlayback } from '../useChordPlayback'
 
