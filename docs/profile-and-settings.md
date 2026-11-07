@@ -51,9 +51,6 @@ interface PerformancePreferences {
 }
 
 interface PlayerPreferences {
-  scrollBehavior: 'auto' | 'manual'
-  scrollSensitivity: number     // 1-10, default 5
-  defaultZoom: number           // 100-200%, default 100
   smartScrollContextWindow: number  // 0-100%, default 33 (posición de la línea actual en el viewport)
   smartScrollSmoothness: number     // 0-100, default 70 (suavidad/duración del scroll)
   showBeatIndicatorDebug: boolean   // default false (overlay de beat/bar en modo debug)

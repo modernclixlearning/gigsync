@@ -157,8 +157,6 @@ business_rules:
       - "Smart autoscroll sincronizado con BPM de la cancion"
       - "Timeline engine calcula posicion por beats y barras"
       - "Velocidad ajustable: 1-10"
-      - "Scroll behavior: auto o manual"
-      - "Scroll sensitivity: 1-10"
       - "Pausar autoscroll cuando usuario interactua manualmente"
 
   profile:
