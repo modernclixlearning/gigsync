@@ -36,9 +36,6 @@ export interface PerformancePreferences {
 }
 
 export interface PlayerPreferences extends PlayerOverrides {
-  scrollBehavior: 'auto' | 'manual'
-  scrollSensitivity: number // 1-10
-  defaultZoom: number // 100-200%
   /**
    * Position of the current line within the viewport for Smart Autoscroll.
    * Expressed as a percentage of the container height (0-100).
@@ -178,9 +175,6 @@ export const DEFAULT_SETTINGS: Omit<AppSettings, 'id' | 'updatedAt'> = {
     showMetronome: true,
   },
   player: {
-    scrollBehavior: 'auto',
-    scrollSensitivity: 5,
-    defaultZoom: 100,
     smartScrollContextWindow: 50,
     contextWindowCentered: true,
     smartScrollSmoothness: 70,

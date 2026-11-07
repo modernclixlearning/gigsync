@@ -90,9 +90,6 @@ models:
 
   PlayerPreferences:
     fields:
-      scrollBehavior: { type: "enum", values: ["auto", "manual"], default: "auto" }
-      scrollSensitivity: { type: "number", default: 5, range: "1-10" }
-      defaultZoom: { type: "number", default: 100, range: "100-200", unit: "%" }
 
   SyncPreferences:
     fields:
@@ -183,7 +180,7 @@ routes:
       - "Metronome defaults: BPM, time signature, sound, volume"
       - "Tuner: calibration, default tuning"
       - "Performance mode: theme, font size, autoscroll, chords"
-      - "Player: scroll behavior, sensitivity, zoom"
+      - "Player: grid, precuenta, avance en setlist"
       - "Data: export, backup (TODO)"
     note: "Settings page is very large (~9400 lines) - candidate for refactoring"
 
