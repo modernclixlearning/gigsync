@@ -79,7 +79,7 @@ export interface PlayerPreferences extends PlayerOverrides {
   /** Bass channel (root note only, mono): on/off, volume 0–100 (default 60) and sound (default 'electric'). */
   bassEnabled?: boolean
   bassVolume?: number
-  bassVoice?: 'sub' | 'electric' | 'synth'
+  bassVoice?: 'electric' | 'upright'
   /** Mini drum machine: on/off, volume 0–100 (default 50) and rhythm pattern (default 'rock'). */
   drumsEnabled?: boolean
   drumsVolume?: number

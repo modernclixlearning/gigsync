@@ -80,8 +80,8 @@ describe('PlayerSoundSettings', () => {
     await user.click(within(keysGroup).getByRole('radio', { name: 'Órgano' }))
     expect(keys.onVoiceChange).toHaveBeenCalledWith('organ')
 
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Sub (redondo)' }))
-    expect(bass.onVoiceChange).toHaveBeenCalledWith('sub')
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Contrabajo' }))
+    expect(bass.onVoiceChange).toHaveBeenCalledWith('upright')
     fireEvent.change(screen.getByRole('slider', { name: 'Volumen: bajo' }), { target: { value: '30' } })
     expect(bass.onVolumeChange).toHaveBeenCalledWith(30)
 
@@ -94,6 +94,6 @@ describe('PlayerSoundSettings', () => {
   it('disables the sound choices of a channel that is off', () => {
     const bass = { enabled: false, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
     render(<PlayerSoundSettings {...props({ bass })} />)
-    expect(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Sub (redondo)' })).toBeDisabled()
+    expect(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Contrabajo' })).toBeDisabled()
   })
 })

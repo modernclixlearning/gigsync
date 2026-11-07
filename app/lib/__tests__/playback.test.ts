@@ -15,12 +15,12 @@ describe('resolvePlaybackPreferences', () => {
   it('falls back on unknown band sounds and clamps their volumes', () => {
     const prefs = resolvePlaybackPreferences({
       keysVoice: 'kazoo' as never,
-      bassVoice: 'sub',
+      bassVoice: 'upright',
       drumPattern: 'bossa',
       bassVolume: 300,
       drumsVolume: -1,
     })
-    expect(prefs).toMatchObject({ keysVoice: 'piano', bassVoice: 'sub', drumPattern: 'bossa', bassVolume: 100, drumsVolume: 0 })
+    expect(prefs).toMatchObject({ keysVoice: 'piano', bassVoice: 'upright', drumPattern: 'bossa', bassVolume: 100, drumsVolume: 0 })
   })
 
   it('defaults settings saved before these options existed', () => {

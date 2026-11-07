@@ -40,6 +40,7 @@ const KEYS_SAMPLES: Partial<Record<KeysVoice, { dir: string; notes: string[]; re
 
 const BASS_SAMPLES: Partial<Record<BassVoice, { dir: string; notes: string[]; release: number }>> = {
   electric: { dir: 'bass', notes: ['E1', 'As1', 'E2', 'As2', 'E3'], release: 0.3 },
+  upright: { dir: 'upright', notes: ['Fs1', 'C2', 'E2', 'Gs2', 'E3'], release: 0.3 },
 }
 
 /** A plain synth channel, its level on the shared volume node. */
@@ -113,9 +114,9 @@ const KEYS_SETTINGS: Record<KeysVoice, { voice: typeof Tone.Synth | typeof Tone.
 }
 
 const BASS_SETTINGS: Record<BassVoice, object> = {
-  sub: { oscillator: { type: 'sine' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.9, release: 0.25 } },
+  // Stand-ins while the recorded bass loads (or if it cannot).
   electric: { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.5, sustain: 0.45, release: 0.3 } },
-  synth: { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.2 } },
+  upright: { oscillator: { type: 'sine' }, envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 0.3 } },
 }
 
 /** Keyboard: the whole chord, spread over the stereo field by a chorus. */
@@ -154,7 +155,7 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
 export function createBassInstrument(voice: BassVoice): ChordInstrument {
   const synth = new Tone.PolySynth(Tone.Synth, BASS_SETTINGS[voice])
   synth.maxPolyphony = 4
-  const filter = new Tone.Filter({ type: 'lowpass', frequency: voice === 'synth' ? 900 : 2000, rolloff: -12 })
+  const filter = new Tone.Filter({ type: 'lowpass', frequency: 2000, rolloff: -12 })
   const mono = new Tone.Mono()
   const level = new Tone.Volume(0)
   synth.connect(filter)

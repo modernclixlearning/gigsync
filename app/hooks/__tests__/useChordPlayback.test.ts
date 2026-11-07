@@ -138,7 +138,7 @@ describe('useChordPlayback', () => {
   })
 
   it('the bass channel plays only the root note (the slash bass); the keyboard can leave it out', () => {
-    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', voice: 'sub' }))
+    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', voice: 'upright' }))
     expect((tone.parts[0].events as PartEvent[]).map((e) => e.pitches)).toEqual([[48], [47]])
 
     renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'keys', withBass: false }))
