@@ -9,6 +9,7 @@
 
 import * as Tone from 'tone'
 import { DRUM_PAN, type BassVoice, type DrumPart, type KeysVoice } from './bandSound'
+import { setSoundStatus, type BandChannel } from './soundStatus'
 
 /** What the chord hook needs from a channel: play notes, silence them, set the level. */
 export interface PlayableVoice {
@@ -63,17 +64,25 @@ function sampledVoice(
   spec: { dir: string; notes: string[]; release: number },
   output: Tone.ToneAudioNode,
   volume: Tone.Volume,
-): { voice: PlayableVoice; sampler: Tone.Sampler } {
+  channel: BandChannel,
+): { voice: PlayableVoice; sampler: Tone.Sampler; stop: () => void } {
+  let alive = true
+  setSoundStatus(channel, 'loading')
   const sampler = new Tone.Sampler({
     urls: sampleUrls(spec.notes),
     baseUrl: `${SAMPLE_BASE}/${spec.dir}/`,
     release: spec.release,
-    onerror: () => undefined, // stays on the synth fallback
+    onload: () => alive && setSoundStatus(channel, 'samples'),
+    onerror: () => alive && setSoundStatus(channel, 'failed'), // stays on the synth fallback
   })
   sampler.connect(output)
   const active = () => (sampler.loaded ? sampler : synth)
   return {
     sampler,
+    stop: () => {
+      alive = false
+      setSoundStatus(channel, 'idle')
+    },
     voice: {
       triggerAttackRelease: (notes, duration, time, velocity) => active().triggerAttackRelease(notes, duration, time, velocity),
       releaseAll: () => {
@@ -137,7 +146,8 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
   chorus.connect(level)
   level.toDestination()
   // Recorded keys skip the chorus: it modulates the pitch and a piano sounds out of tune.
-  const playable = sampled ? sampledVoice(synth, sampled, level, level) : null
+  const playable = sampled ? sampledVoice(synth, sampled, level, level, 'keys') : null
+  if (!sampled) setSoundStatus('keys', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -145,6 +155,8 @@ export function createKeysInstrument(voice: KeysVoice): ChordInstrument {
       playable?.sampler.releaseAll()
       synth.dispose()
       playable?.sampler.dispose()
+      playable?.stop()
+      if (!playable) setSoundStatus('keys', 'idle')
       chorus.dispose()
       level.dispose()
     },
@@ -164,7 +176,8 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
   level.toDestination()
   const sampled = BASS_SAMPLES[voice]
   // The recorded bass skips the synth's low-pass: it is already a bass.
-  const playable = sampled ? sampledVoice(synth, sampled, mono, level) : null
+  const playable = sampled ? sampledVoice(synth, sampled, mono, level, 'bass') : null
+  if (!sampled) setSoundStatus('bass', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -172,6 +185,8 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
       playable?.sampler.releaseAll()
       synth.dispose()
       playable?.sampler.dispose()
+      playable?.stop()
+      if (!playable) setSoundStatus('bass', 'idle')
       filter.dispose()
       mono.dispose()
       level.dispose()
@@ -220,9 +235,19 @@ export function createDrumKit(): DrumKit {
   hatFilter.connect(panners.hat)
   Object.values(panners).forEach((panner) => panner.connect(bus))
 
+  let alive = true
+  let pending = Object.keys(DRUM_FILES).length
+  setSoundStatus('drums', 'loading')
   const players = Object.fromEntries(
     (Object.keys(DRUM_FILES) as DrumPart[]).map((part) => {
-      const player = new Tone.Player({ url: `${SAMPLE_BASE}/drums/${DRUM_FILES[part]}`, onerror: () => undefined })
+      const player = new Tone.Player({
+        url: `${SAMPLE_BASE}/drums/${DRUM_FILES[part]}`,
+        onload: () => {
+          pending -= 1
+          if (alive && pending === 0) setSoundStatus('drums', 'samples')
+        },
+        onerror: () => alive && setSoundStatus('drums', 'failed'),
+      })
       player.connect(panners[part])
       return [part, player]
     }),
@@ -242,6 +267,8 @@ export function createDrumKit(): DrumKit {
       bus.gain.value = Math.max(0, gain)
     },
     dispose() {
+      alive = false
+      setSoundStatus('drums', 'idle')
       ;[
         kick, snare, hat, snareFilter, hatFilter, bus,
         ...Object.values(panners),

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
+import { setSoundStatus } from '~/lib/audio/soundStatus'
 import { PlayerSoundSettings, type PlayerSoundSettingsProps } from '../PlayerSoundSettings'
 
 const props = (overrides: Partial<PlayerSoundSettingsProps> = {}): PlayerSoundSettingsProps => ({
@@ -95,5 +97,36 @@ describe('PlayerSoundSettings', () => {
     const bass = { enabled: false, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
     render(<PlayerSoundSettings {...props({ bass })} />)
     expect(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Contrabajo' })).toBeDisabled()
+  })
+
+  it('says whether each channel sounds from samples or from the synth', () => {
+    const bass = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
+    const drums = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), pattern: 'rock' as const, onPatternChange: vi.fn() }
+    const keys = { voice: 'piano' as const, onVoiceChange: vi.fn() }
+    const chords = { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn() }
+    render(<PlayerSoundSettings {...props({ bass, drums, keys, chords })} />)
+    expect(screen.queryByTestId('sound-status-bass')).toBeNull() // nothing built yet
+
+    act(() => {
+      setSoundStatus('bass', 'loading')
+      setSoundStatus('keys', 'samples')
+      setSoundStatus('drums', 'failed')
+    })
+    expect(screen.getByTestId('sound-status-bass')).toHaveTextContent('Cargando muestras')
+    expect(screen.getByTestId('sound-status-keys')).toHaveTextContent('Suena: Muestras reales')
+    expect(screen.getByTestId('sound-status-drums')).toHaveTextContent('no cargaron')
+
+    act(() => {
+      setSoundStatus('bass', 'samples')
+      setSoundStatus('keys', 'synth')
+      setSoundStatus('drums', 'idle')
+    })
+    expect(screen.getByTestId('sound-status-bass')).toHaveTextContent('Muestras reales')
+    expect(screen.getByTestId('sound-status-keys')).toHaveTextContent('Sintético')
+    expect(screen.queryByTestId('sound-status-drums')).toBeNull()
+    act(() => {
+      setSoundStatus('bass', 'idle')
+      setSoundStatus('keys', 'idle')
+    })
   })
 })

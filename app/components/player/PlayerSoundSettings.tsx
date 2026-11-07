@@ -20,6 +20,7 @@ import {
   type DrumPattern,
   type KeysVoice,
 } from '~/lib/audio/bandSound'
+import { SOUND_STATUS_LABELS, useSoundStatuses, type BandChannel } from '~/lib/audio/soundStatus'
 import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
@@ -152,6 +153,7 @@ function ChoiceRow<T extends string>({
   value,
   onChange,
   disabled,
+  channel,
 }: {
   label: string
   options: readonly T[]
@@ -159,7 +161,10 @@ function ChoiceRow<T extends string>({
   value: T
   onChange: (value: T) => void
   disabled?: boolean
+  /** The band channel these choices belong to: shows whether samples or synth are sounding. */
+  channel?: BandChannel
 }) {
+  const status = useSoundStatuses()[channel ?? 'keys']
   return (
     <div className="px-4 py-2">
       <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
@@ -182,6 +187,20 @@ function ChoiceRow<T extends string>({
           </button>
         ))}
       </div>
+      {channel && !disabled && status !== 'idle' && (
+        <p
+          data-testid={`sound-status-${channel}`}
+          className={cn(
+            'mt-1.5 text-xs font-medium',
+            status === 'samples' && 'text-emerald-600 dark:text-emerald-400',
+            status === 'synth' && 'text-slate-500 dark:text-slate-400',
+            status === 'loading' && 'text-amber-600 dark:text-amber-400',
+            status === 'failed' && 'text-red-500'
+          )}
+        >
+          Suena: {SOUND_STATUS_LABELS[status]}
+        </p>
+      )}
     </div>
   )
 }
@@ -246,6 +265,7 @@ export function PlayerSoundSettings({
             value={keys.voice}
             onChange={keys.onVoiceChange}
             disabled={!chords.enabled}
+            channel="keys"
           />
         )}
         {bass && (
@@ -258,6 +278,7 @@ export function PlayerSoundSettings({
               value={bass.voice}
               onChange={bass.onVoiceChange}
               disabled={!bass.enabled}
+              channel="bass"
             />
           </>
         )}
@@ -271,6 +292,7 @@ export function PlayerSoundSettings({
               value={drums.pattern}
               onChange={drums.onPatternChange}
               disabled={!drums.enabled}
+              channel="drums"
             />
           </>
         )}
