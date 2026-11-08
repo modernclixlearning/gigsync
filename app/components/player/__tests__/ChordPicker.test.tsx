@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
+import { previewChord } from '~/lib/audio/previewChord'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChordPicker, isMinorSuffix } from '../ChordPicker'
+
+vi.mock('~/lib/audio/previewChord', () => ({ previewChord: vi.fn() }))
 
 const setup = (currentChord: string) => {
   const onSelect = vi.fn()
@@ -83,5 +86,16 @@ describe('isMinorSuffix', () => {
   it('tells minor-family suffixes from major ones', () => {
     for (const s of ['m', 'm7', 'm7b5', 'dim']) expect(isMinorSuffix(s)).toBe(true)
     for (const s of ['', '7', 'maj7', 'sus4', 'add9', '6', 'aug']) expect(isMinorSuffix(s)).toBe(false)
+  })
+})
+
+describe('ChordPicker — audition', () => {
+  it('sounds the chord when a key on the circle or a quality is clicked', async () => {
+    const { user } = setup('C')
+    vi.mocked(previewChord).mockClear()
+    await user.click(screen.getByRole('button', { name: 'Em' }))
+    expect(previewChord).toHaveBeenLastCalledWith('Em')
+    await user.click(screen.getByRole('button', { name: 'm7' }))
+    expect(previewChord).toHaveBeenLastCalledWith('Em7')
   })
 })

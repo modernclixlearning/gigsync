@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { cn } from '~/lib/utils'
+import { previewChord } from '~/lib/audio/previewChord'
 
 const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 const ROOTS_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
@@ -192,14 +193,17 @@ export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProp
   const handlePick = useCallback(
     (pitchClass: number, minor: boolean) => {
       setRoot(roots[pitchClass])
-      setSuffix((current) => (isMinorSuffix(current) === minor ? current : minor ? 'm' : ''))
+      const nextSuffix = isMinorSuffix(suffix) === minor ? suffix : minor ? 'm' : ''
+      setSuffix(nextSuffix)
+      void previewChord(roots[pitchClass] + nextSuffix)
     },
-    [roots]
+    [roots, suffix]
   )
 
   const handleSuffixSelect = useCallback(
     (s: string) => {
       setSuffix(s)
+      void previewChord(root + s)
       onSelect(root + s)
     },
     [root, onSelect]
