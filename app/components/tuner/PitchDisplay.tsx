@@ -137,7 +137,7 @@ export function PitchDisplay({
       {/* Status indicator */}
       {isActive && !note && (
         <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
-          Listening for pitch...
+          Esperando una nota…
         </p>
       )}
     </div>

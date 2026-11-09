@@ -84,9 +84,9 @@ describe('PlayerControls', () => {
   it('should render main controls', () => {
     render(<PlayerControls {...defaultProps} />)
 
-    expect(screen.getByTitle('Hide chords')).toBeInTheDocument()
-    expect(screen.getByTitle('Start auto-scroll')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument()
+    expect(screen.getByTitle('Ocultar acordes')).toBeInTheDocument()
+    expect(screen.getByTitle('Activar autoscroll')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^(reproducir|pausar)$/i })).toBeInTheDocument()
   })
 
   it('offers "Escuchar acordes" next to the metronome, only with smart autoscroll', async () => {
@@ -120,7 +120,7 @@ describe('PlayerControls', () => {
     const onPlayPause = vi.fn()
     render(<PlayerControls {...defaultProps} onPlayPause={onPlayPause} />)
 
-    const playButton = screen.getByRole('button', { name: /^(play|pause)$/i })
+    const playButton = screen.getByRole('button', { name: /^(reproducir|pausar)$/i })
     await user.click(playButton)
 
     expect(onPlayPause).toHaveBeenCalledTimes(1)
@@ -129,14 +129,14 @@ describe('PlayerControls', () => {
   it('should show pause icon when playing', () => {
     render(<PlayerControls {...defaultProps} isPlaying={true} />)
 
-    const pauseIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
+    const pauseIcon = screen.getByRole('button', { name: /^(reproducir|pausar)$/i })
     expect(pauseIcon).toBeInTheDocument()
   })
 
   it('should show play icon when paused', () => {
     render(<PlayerControls {...defaultProps} isPlaying={false} />)
 
-    const playIcon = screen.getByRole('button', { name: /^(play|pause)$/i })
+    const playIcon = screen.getByRole('button', { name: /^(reproducir|pausar)$/i })
     expect(playIcon).toBeInTheDocument()
   })
 
@@ -145,7 +145,7 @@ describe('PlayerControls', () => {
     const onToggleChords = vi.fn()
     render(<PlayerControls {...defaultProps} onToggleChords={onToggleChords} />)
 
-    const chordsButton = screen.getByTitle('Hide chords')
+    const chordsButton = screen.getByTitle('Ocultar acordes')
     await user.click(chordsButton)
 
     expect(onToggleChords).toHaveBeenCalledTimes(1)
@@ -156,11 +156,11 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} showChords={true} />
     )
 
-    expect(screen.getByTitle('Hide chords')).toBeInTheDocument()
+    expect(screen.getByTitle('Ocultar acordes')).toBeInTheDocument()
 
     rerender(<PlayerControls {...defaultProps} showChords={false} />)
 
-    expect(screen.getByTitle('Show chords')).toBeInTheDocument()
+    expect(screen.getByTitle('Mostrar acordes')).toBeInTheDocument()
   })
 
   it('should toggle auto-scroll', async () => {
@@ -170,7 +170,7 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} onToggleAutoScroll={onToggleAutoScroll} />
     )
 
-    const autoScrollButton = screen.getByTitle('Start auto-scroll')
+    const autoScrollButton = screen.getByTitle('Activar autoscroll')
     await user.click(autoScrollButton)
 
     expect(onToggleAutoScroll).toHaveBeenCalledTimes(1)
@@ -181,11 +181,11 @@ describe('PlayerControls', () => {
       <PlayerControls {...defaultProps} autoScrollEnabled={false} />
     )
 
-    expect(screen.getByTitle('Start auto-scroll')).toBeInTheDocument()
+    expect(screen.getByTitle('Activar autoscroll')).toBeInTheDocument()
 
     rerender(<PlayerControls {...defaultProps} autoScrollEnabled={true} />)
 
-    expect(screen.getByTitle('Stop auto-scroll')).toBeInTheDocument()
+    expect(screen.getByTitle('Detener autoscroll')).toBeInTheDocument()
   })
 
   it('should toggle the side panel from the settings button', async () => {
@@ -524,13 +524,13 @@ describe('PlayerControls', () => {
   it('should show transpose reset button when transpose is not zero', () => {
     render(<PlayerControls {...defaultProps} transpose={3} />)
 
-    expect(screen.getByTitle('Reset transpose')).toBeInTheDocument()
+    expect(screen.getByTitle('Restablecer transposición')).toBeInTheDocument()
   })
 
   it('should not show transpose reset button when transpose is zero', () => {
     render(<PlayerControls {...defaultProps} transpose={0} />)
 
-    expect(screen.queryByTitle('Reset transpose')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Restablecer transposición')).not.toBeInTheDocument()
   })
 
   it('should display the transpose target key name, not a raw semitone count', async () => {

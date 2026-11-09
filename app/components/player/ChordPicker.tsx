@@ -1,13 +1,16 @@
 /**
  * ChordPicker Component
  *
- * A tablet-friendly chord selector: the circle of fifths for the root (major
- * keys on the outer ring, their relative minors inside — clockwise goes up a
- * fifth, counter-clockwise up a fourth) plus a grid of qualities.
- * Appears as a popover near the tapped chord cell.
+ * Chord selector: the circle of fifths for the root (major keys on the outer
+ * ring, their relative minors inside — clockwise goes up a fifth,
+ * counter-clockwise up a fourth) plus a grid of qualities.
+ * A popover next to the tapped chord cell from `sm:` up; a bottom sheet on
+ * phones, where a 300px popover never fits next to the cell.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { previewChord } from '~/lib/audio/previewChord'
 
@@ -93,17 +96,16 @@ function CircleOfFifths({ names, selectedPitchClass, selectedMinor, preview, onP
           }}
           className="cursor-pointer outline-none group"
         >
+          {/* One selection color for the whole picker; the rings differ only in tone. */}
           <path
             d={sectorPath(outer, inner, i * 30)}
             strokeWidth={2}
             className={cn(
               'stroke-white dark:stroke-slate-800 transition-colors',
               selected
-                ? minor
-                  ? 'fill-amber-500'
-                  : 'fill-indigo-600'
+                ? 'fill-indigo-600'
                 : minor
-                  ? 'fill-slate-100 dark:fill-slate-700/70 group-hover:fill-amber-100 dark:group-hover:fill-amber-900/40'
+                  ? 'fill-slate-100 dark:fill-slate-700/60 group-hover:fill-indigo-100 dark:group-hover:fill-indigo-900/40'
                   : 'fill-slate-200 dark:fill-slate-700 group-hover:fill-indigo-100 dark:group-hover:fill-indigo-900/40',
               'group-focus-visible:stroke-indigo-500'
             )}
@@ -126,7 +128,12 @@ function CircleOfFifths({ names, selectedPitchClass, selectedMinor, preview, onP
     })
 
   return (
-    <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} className="mx-auto block" role="group" aria-label="Círculo de quintas">
+    <svg
+      viewBox={`0 0 ${SIZE} ${SIZE}`}
+      className="mx-auto block h-auto w-full max-w-[300px]"
+      role="group"
+      aria-label="Círculo de quintas"
+    >
       {ring(false, 118, 82, 100, 15)}
       {ring(true, 80, 48, 64, 12)}
       <text
@@ -156,19 +163,33 @@ function parseCurrentChord(chord: string): { root: string; suffix: string } {
   return { root: match[1], suffix: match[2] }
 }
 
+const PHONE_QUERY = '(max-width: 639px)'
+
+/** Phones get the bottom sheet. Decided once on open — the picker is short-lived. */
+function isPhoneViewport(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_QUERY).matches
+}
+
 export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProps) {
   const parsed = parseCurrentChord(currentChord)
   const [root, setRoot] = useState(parsed.root)
   const [suffix, setSuffix] = useState(parsed.suffix)
   const [useFlats, setUseFlats] = useState(parsed.root.includes('b'))
+  const [isSheet] = useState(isPhoneViewport)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const roots = useFlats ? ROOTS_FLAT : ROOTS
 
-  // Opened near the bottom of the screen, the picker would hide behind the controls bar.
-  useEffect(() => {
-    containerRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
-  }, [])
+  // Popover: keep it on screen. Opened next to a cell near the right edge it
+  // would run off the viewport, and near the bottom it would hide behind the
+  // controls bar.
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el || isSheet) return
+    const overflowRight = el.getBoundingClientRect().right - (window.innerWidth - 8)
+    if (overflowRight > 0) el.style.transform = `translateX(${-overflowRight}px)`
+    el.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  }, [isSheet])
 
   // Close on outside click
   useEffect(() => {
@@ -211,42 +232,56 @@ export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProp
 
   const currentChordPreview = root + suffix
 
-  return (
+  const picker = (
     <div
       ref={containerRef}
+      role="dialog"
+      aria-label="Elegir acorde"
       className={cn(
-        'bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700',
-        'p-3 w-[280px] select-none z-50'
+        'bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 select-none z-50',
+        isSheet
+          ? 'fixed inset-x-0 bottom-0 rounded-t-2xl px-4 pt-3 pb-4 safe-area-pb'
+          : 'w-[296px] rounded-2xl p-3'
       )}
-      style={{ scrollMarginBottom: 112 }}
+      style={isSheet ? undefined : { scrollMarginBottom: 112 }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Sharps/flats, apply, close */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Title, sharps/flats, close */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="flex-1 text-sm font-semibold text-slate-900 dark:text-white">Acorde</span>
         <button
+          type="button"
           onClick={() => setUseFlats(!useFlats)}
-          className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+          aria-label={useFlats ? '♭→♯' : '♯→♭'}
+          title={useFlats ? 'Escribir con sostenidos' : 'Escribir con bemoles'}
+          className="flex h-9 items-center gap-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 p-1 text-sm font-bold"
         >
-          {useFlats ? '♭→♯' : '♯→♭'}
+          {(['♯', '♭'] as const).map((sign, i) => (
+            <span
+              key={sign}
+              aria-hidden="true"
+              className={cn(
+                'flex h-7 w-7 items-center justify-center rounded-md',
+                (i === 1) === useFlats
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+              )}
+            >
+              {sign}
+            </span>
+          ))}
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onSelect(currentChordPreview)}
-            className="text-xs px-2 py-1 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-500"
-          >
-            Aplicar
-          </button>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-            aria-label="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+          aria-label="Cerrar"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Root: circle of fifths. Picking only updates the preview (see handleRootSelect). */}
+      {/* Root: circle of fifths. Picking only updates the preview (see handlePick). */}
       <CircleOfFifths
         names={roots}
         selectedPitchClass={pitchClassOf(root)}
@@ -255,27 +290,54 @@ export function ChordPicker({ currentChord, onSelect, onClose }: ChordPickerProp
         onPick={handlePick}
       />
 
-      {/* Separator */}
-      <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
-
-      {/* Qualities */}
-      <div className="grid grid-cols-5 gap-1">
+      {/* Qualities: five per row, the last row centered */}
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5 border-t border-slate-200 dark:border-slate-700 pt-3">
         {QUALITIES.map((q) => (
           <button
             key={q.suffix}
+            type="button"
             onClick={() => handleSuffixSelect(q.suffix)}
+            aria-pressed={q.suffix === suffix}
             className={cn(
-              'py-2 rounded-lg text-xs font-semibold transition-colors',
-              'min-h-[34px]',
+              'w-[calc((100%-1.5rem)/5)] rounded-lg text-xs font-semibold transition-colors',
+              isSheet ? 'h-11 text-sm' : 'h-9',
               q.suffix === suffix
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
             )}
           >
             {q.label}
           </button>
         ))}
       </div>
+
+      {/* Apply: keeps the current quality on the chosen root, and you're done.
+          (A quality applies too but leaves the picker open, to keep trying chords.) */}
+      <button
+        type="button"
+        onClick={() => {
+          onSelect(currentChordPreview)
+          onClose()
+        }}
+        className={cn(
+          'mt-3 w-full rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-500',
+          isSheet ? 'h-12' : 'h-10'
+        )}
+      >
+        Aplicar
+      </button>
     </div>
+  )
+
+  if (!isSheet) return picker
+
+  // Phone: bottom sheet over a dimmed song. In a portal so no ancestor's
+  // overflow or transform clips it or re-anchors `fixed`.
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" aria-hidden="true" />
+      {picker}
+    </>,
+    document.body
   )
 }

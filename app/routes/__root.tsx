@@ -17,10 +17,10 @@ export const Route = createRootRouteWithContext<{
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "GigSync - App para Músicos" },
       { name: "description", content: "Metrónomo, afinador, setlists offline-first" },
-      { name: "theme-color", content: "#1337ec" },
+      { name: "theme-color", content: "#4f46e5" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
     ],

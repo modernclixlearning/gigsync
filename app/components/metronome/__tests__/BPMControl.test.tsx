@@ -17,7 +17,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={120} onChange={onChange} />)
 
-    const incrementButton = screen.getByLabelText('Increase BPM')
+    const incrementButton = screen.getByLabelText('Subir 1 BPM')
     await user.click(incrementButton)
 
     expect(onChange).toHaveBeenCalledWith(121)
@@ -28,7 +28,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={120} onChange={onChange} />)
 
-    const decrementButton = screen.getByLabelText('Decrease BPM')
+    const decrementButton = screen.getByLabelText('Bajar 1 BPM')
     await user.click(decrementButton)
 
     expect(onChange).toHaveBeenCalledWith(119)
@@ -39,7 +39,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={120} onChange={onChange} />)
 
-    const fineIncrementButton = screen.getByLabelText('Increase BPM by 5')
+    const fineIncrementButton = screen.getByLabelText('Subir 5 BPM')
     await user.click(fineIncrementButton)
 
     expect(onChange).toHaveBeenCalledWith(125)
@@ -50,7 +50,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={120} onChange={onChange} />)
 
-    const fineDecrementButton = screen.getByLabelText('Decrease BPM by 5')
+    const fineDecrementButton = screen.getByLabelText('Bajar 5 BPM')
     await user.click(fineDecrementButton)
 
     expect(onChange).toHaveBeenCalledWith(115)
@@ -61,7 +61,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={300} max={300} onChange={onChange} />)
 
-    const incrementButton = screen.getByLabelText('Increase BPM')
+    const incrementButton = screen.getByLabelText('Subir 1 BPM')
     await user.click(incrementButton)
 
     expect(onChange).not.toHaveBeenCalled()
@@ -72,7 +72,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={20} min={20} onChange={onChange} />)
 
-    const decrementButton = screen.getByLabelText('Decrease BPM')
+    const decrementButton = screen.getByLabelText('Bajar 1 BPM')
     await user.click(decrementButton)
 
     expect(onChange).not.toHaveBeenCalled()
@@ -83,7 +83,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={298} max={300} onChange={onChange} />)
 
-    const fineIncrementButton = screen.getByLabelText('Increase BPM by 5')
+    const fineIncrementButton = screen.getByLabelText('Subir 5 BPM')
     await user.click(fineIncrementButton)
 
     expect(onChange).toHaveBeenCalledWith(300)
@@ -94,7 +94,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={22} min={20} onChange={onChange} />)
 
-    const fineDecrementButton = screen.getByLabelText('Decrease BPM by 5')
+    const fineDecrementButton = screen.getByLabelText('Bajar 5 BPM')
     await user.click(fineDecrementButton)
 
     expect(onChange).toHaveBeenCalledWith(20)
@@ -107,14 +107,14 @@ describe('BPMControl', () => {
       <BPMControl value={50} min={40} max={200} onChange={onChange} />
     )
 
-    const incrementButton = screen.getByLabelText('Increase BPM')
+    const incrementButton = screen.getByLabelText('Subir 1 BPM')
     await user.click(incrementButton)
 
     expect(onChange).toHaveBeenCalledWith(51)
 
     rerender(<BPMControl value={200} min={40} max={200} onChange={onChange} />)
 
-    await user.click(screen.getByLabelText('Increase BPM'))
+    await user.click(screen.getByLabelText('Subir 1 BPM'))
     expect(onChange).not.toHaveBeenCalledWith(201)
   })
 
@@ -167,7 +167,7 @@ describe('BPMControl', () => {
     const onChange = vi.fn()
     render(<BPMControl value={120} onChange={onChange} />)
 
-    const incrementButton = screen.getByLabelText('Increase BPM')
+    const incrementButton = screen.getByLabelText('Subir 1 BPM')
     await user.click(incrementButton)
     await user.click(incrementButton)
     await user.click(incrementButton)

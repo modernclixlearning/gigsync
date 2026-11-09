@@ -17,31 +17,30 @@ const PERFORMANCE_THEMES: AppSettings['performance']['theme'][] = ['dark', 'extr
 export function PerformanceSettings({ settings, onUpdate }: PerformanceSettingsProps) {
   return (
     <SettingsSection
-      title="Performance Mode"
-      icon="🎤"
-      description="Stage display settings"
+      title="Modo escenario"
+      description="Cómo se ve la app en directo"
     >
-      <SettingsRow label="Theme" description="Performance mode color scheme">
+      <SettingsRow label="Tema" description="Colores del modo escenario">
         <div className="flex gap-2">
           {PERFORMANCE_THEMES.map((theme) => (
             <button
               key={theme}
               onClick={() => onUpdate({ theme })}
               className={cn(
-                'px-3 py-2 rounded-lg text-sm font-medium',
+                'h-9 px-3 rounded-lg text-sm font-medium',
                 'transition-colors',
                 settings.theme === theme
                   ? 'bg-primary text-white'
                   : 'bg-slate-100 dark:bg-[#232948] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#2a3158]'
               )}
             >
-              {theme === 'extreme-dark' ? '⬛ Extreme' : '🌙 Dark'}
+              {theme === 'extreme-dark' ? 'Negro total' : 'Oscuro'}
             </button>
           ))}
         </div>
       </SettingsRow>
 
-      <SettingsRow label="Font Size" description="Text size during performance">
+      <SettingsRow label="Tamaño de letra" description="Tamaño del texto en directo">
         <SettingsSlider
           value={settings.fontSize}
           min={100}
@@ -52,7 +51,7 @@ export function PerformanceSettings({ settings, onUpdate }: PerformanceSettingsP
         />
       </SettingsRow>
 
-      <SettingsRow label="Auto Scroll Speed" description="Automatic scroll velocity">
+      <SettingsRow label="Velocidad del autoscroll" description="Velocidad del desplazamiento automático">
         <SettingsSlider
           value={settings.autoScrollSpeed}
           min={1}
@@ -61,14 +60,14 @@ export function PerformanceSettings({ settings, onUpdate }: PerformanceSettingsP
         />
       </SettingsRow>
 
-      <SettingsRow label="Show Chords" description="Display chord diagrams">
+      <SettingsRow label="Mostrar acordes" description="Enseña los acordes sobre la letra">
         <SettingsToggle
           checked={settings.showChords}
           onChange={(checked) => onUpdate({ showChords: checked })}
         />
       </SettingsRow>
 
-      <SettingsRow label="Show Metronome" description="Visual metronome overlay">
+      <SettingsRow label="Mostrar metrónomo" description="Metrónomo visual sobre la canción">
         <SettingsToggle
           checked={settings.showMetronome}
           onChange={(checked) => onUpdate({ showMetronome: checked })}

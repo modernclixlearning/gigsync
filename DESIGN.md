@@ -27,6 +27,36 @@ utility classes (`bg-slate-50 dark:bg-[#101322]`, `text-indigo-600`, etc.)
 rather than the CSS vars directly — that's the established pattern here,
 follow it rather than introducing a third way to express the same colors.
 
+`--color-primary` **is** indigo-600 (`-dark` = 700, `-light` = 500): there is
+one brand color, so `bg-primary` and `bg-indigo-600` render the same. Don't
+reintroduce a second blue.
+
+## Layout — every main screen uses `Page`
+
+`app/components/layout` is the frame all main screens share (library,
+setlists, metronome, tuner, profile, settings). Don't hand-roll a header, a
+`min-h-screen` wrapper or a navigation bar in a route.
+
+- `Page` — title (+ optional `subtitle`, `backTo`, `actions`), the content
+  column and the app navigation. `width="wide"` (lists) or `"narrow"` (forms,
+  settings).
+- Navigation adapts by itself: bottom bar on phones (`< md`), icon rail on
+  tablets (`md`), labelled sidebar on desktop (`lg+`). The song player is the
+  only full-screen view without it.
+- Lists are one column on phones and a card grid from `md:` up
+  (`grid gap-3 md:grid-cols-2 xl:grid-cols-3`). A tool with settings
+  (metronome, tuner) stacks on phone/tablet and puts the settings in a right
+  column from `lg:` up.
+- `buttonClass(variant)` / `iconButtonClass()` — the buttons. 44px targets;
+  one `primary` per screen. `cardClass` — the card surface. `SectionTitle` —
+  the small uppercase heading.
+- `Dialog` — the modal: bottom sheet on phones, centered card from `sm:` up.
+  `fieldClass` / `fieldLabelClass` for its inputs.
+- `EmptyState`, `ErrorBanner`, `PageLoading` — the three states every list
+  screen has.
+- Icons are `lucide-react`. No emoji and no Material Symbols as UI icons.
+- UI copy is Spanish.
+
 ## Shared settings primitives
 
 `app/components/profile/SettingsSection.tsx` is the one settings UI kit —

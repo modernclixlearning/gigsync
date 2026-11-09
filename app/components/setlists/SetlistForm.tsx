@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { cn } from '~/lib/utils'
 import { createSetlistSchema } from '~/lib/schemas'
+import { Dialog, buttonClass, fieldClass, fieldLabelClass } from '~/components/layout'
 import type { CreateSetlistInput, Setlist } from '~/types'
 
 interface SetlistFormProps {
@@ -15,6 +15,7 @@ export function SetlistForm({ setlist, onSubmit, onCancel }: SetlistFormProps) {
   const [date, setDate] = useState(
     setlist?.date ? new Date(setlist.date).toISOString().split('T')[0] : ''
   )
+  const [formError, setFormError] = useState<string | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,7 +28,7 @@ export function SetlistForm({ setlist, onSubmit, onCancel }: SetlistFormProps) {
 
     const result = createSetlistSchema.safeParse(raw)
     if (!result.success) {
-      alert(result.error.issues[0].message)
+      setFormError(result.error.issues[0].message)
       return
     }
 
@@ -35,84 +36,66 @@ export function SetlistForm({ setlist, onSubmit, onCancel }: SetlistFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 p-6 rounded-2xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">
-          {setlist ? 'Edit Setlist' : 'New Setlist'}
-        </h2>
+    <Dialog title={setlist ? 'Editar setlist' : 'Nuevo setlist'} onClose={onCancel}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="setlist-name" className={fieldLabelClass}>
+            Nombre *
+          </label>
+          <input
+            id="setlist-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="p. ej. Concierto del viernes"
+            className={fieldClass}
+            autoFocus
+            required
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Friday Night Gig"
-              className={cn(
-                'w-full px-4 py-3 rounded-xl border-none',
-                'bg-slate-100 dark:bg-[#282b39]',
-                'text-slate-900 dark:text-white',
-                'placeholder:text-slate-400 dark:placeholder:text-[#9da1b9]',
-                'focus:outline-none focus:ring-2 focus:ring-primary'
-              )}
-              required
-            />
-          </div>
+        <div>
+          <label htmlFor="setlist-venue" className={fieldLabelClass}>
+            Lugar
+          </label>
+          <input
+            id="setlist-venue"
+            type="text"
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            placeholder="p. ej. Sala Apolo"
+            className={fieldClass}
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Venue
-            </label>
-            <input
-              type="text"
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g., Blue Note Jazz Club"
-              className={cn(
-                'w-full px-4 py-3 rounded-xl border-none',
-                'bg-slate-100 dark:bg-[#282b39]',
-                'text-slate-900 dark:text-white',
-                'placeholder:text-slate-400'
-              )}
-            />
-          </div>
+        <div>
+          <label htmlFor="setlist-date" className={fieldLabelClass}>
+            Fecha
+          </label>
+          <input
+            id="setlist-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={fieldClass}
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Date
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={cn(
-                'w-full px-4 py-3 rounded-xl border-none',
-                'bg-slate-100 dark:bg-[#282b39]',
-                'text-slate-900 dark:text-white'
-              )}
-            />
-          </div>
+        {formError && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {formError}
+          </p>
+        )}
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-3 rounded-xl bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-medium shadow-lg shadow-primary/20"
-            >
-              {setlist ? 'Save' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onCancel} className={buttonClass('secondary', 'flex-1')}>
+            Cancelar
+          </button>
+          <button type="submit" className={buttonClass('primary', 'flex-1')}>
+            {setlist ? 'Guardar' : 'Crear'}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   )
 }

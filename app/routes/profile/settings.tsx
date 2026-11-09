@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useCallback, useState } from 'react'
-import { cn } from '~/lib/utils'
+import { createFileRoute } from '@tanstack/react-router'
+import { useCallback } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { db } from '~/lib/db'
 import { useSettings } from '~/hooks/useSettings'
 import { AppearanceSettings } from '~/components/profile/AppearanceSettings'
@@ -10,7 +10,8 @@ import { PerformanceSettings } from '~/components/profile/PerformanceSettings'
 import { PlayerSettings } from '~/components/profile/PlayerSettings'
 import { MidiClockSyncSettings } from '~/components/profile/MidiClockSyncSettings'
 import { DataSettings } from '~/components/profile/DataSettings'
-import { BottomNav } from '~/components/navigation'
+import { SettingsSection } from '~/components/profile/SettingsSection'
+import { Page, PageLoading, buttonClass } from '~/components/layout'
 import { ROUTES } from '~/lib/routes'
 import { useGigsyncImport } from '~/components/share/useGigsyncImport'
 import { DEFAULT_MIDI_CLOCK_SYNC } from '~/types/profile'
@@ -71,182 +72,75 @@ function SettingsPage() {
     window.location.reload()
   }, [])
 
-  if (isLoading || !settings) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#101322] flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    )
-  }
+  if (isLoading || !settings) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#101322]">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              to={ROUTES.PROFILE}
-              className="p-2 -ml-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </Link>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-              Settings
-            </h1>
+    <Page
+      title="Ajustes"
+      width="narrow"
+      backTo={ROUTES.PROFILE}
+      actions={
+        <button
+          type="button"
+          onClick={() => resetSettings()}
+          title="Volver a los valores de fábrica"
+          className={buttonClass('ghost', 'px-3')}
+        >
+          <RotateCcw className="w-4 h-4" />
+          Restablecer
+        </button>
+      }
+    >
+      <div className="space-y-8">
+        <AppearanceSettings
+          settings={settings}
+          onThemeChange={(theme) => updateSettings({ theme })}
+          onLanguageChange={(language) => updateSettings({ language })}
+        />
+
+        <MetronomeSettings
+          settings={settings.metronome}
+          onUpdate={updateMetronomeSettings}
+        />
+
+        <TunerSettings
+          settings={settings.tuner}
+          onUpdate={updateTunerSettings}
+        />
+
+        <PerformanceSettings
+          settings={settings.performance}
+          onUpdate={updatePerformanceSettings}
+        />
+
+        <PlayerSettings
+          settings={settings.player}
+          onUpdate={updatePlayerSettings}
+        />
+
+        {/* DAW sync (MIDI Clock) */}
+        <MidiClockSyncSettings
+          settings={settings.midiClockSync ?? DEFAULT_MIDI_CLOCK_SYNC}
+          onUpdate={updateMidiClockSyncSettings}
+        />
+
+        <DataSettings
+          settings={settings.sync}
+          onUpdate={updateSyncSettings}
+          onExportData={handleExportData}
+          onImportData={handleImportData}
+          onDeleteAllData={handleDeleteAllData}
+        />
+
+        <SettingsSection title="Acerca de">
+          <div className="flex items-center justify-between p-4">
+            <span className="text-slate-900 dark:text-white">Versión</span>
+            <span className="text-slate-500 dark:text-slate-400 tabular-nums">1.0.0</span>
           </div>
-          <button
-            onClick={() => resetSettings()}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-sm font-medium',
-              'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
-              'hover:bg-slate-100 dark:hover:bg-slate-800',
-              'transition-colors'
-            )}
-          >
-            Reset
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="px-4 pb-32 max-w-lg mx-auto">
-        <div className="py-6 space-y-8">
-          {/* Appearance */}
-          <AppearanceSettings
-            settings={settings}
-            onThemeChange={(theme) => updateSettings({ theme })}
-            onLanguageChange={(language) => updateSettings({ language })}
-          />
-
-          {/* Metronome */}
-          <MetronomeSettings
-            settings={settings.metronome}
-            onUpdate={updateMetronomeSettings}
-          />
-
-          {/* Tuner */}
-          <TunerSettings
-            settings={settings.tuner}
-            onUpdate={updateTunerSettings}
-          />
-
-          {/* Performance Mode */}
-          <PerformanceSettings
-            settings={settings.performance}
-            onUpdate={updatePerformanceSettings}
-          />
-
-          {/* Player */}
-          <PlayerSettings
-            settings={settings.player}
-            onUpdate={updatePlayerSettings}
-          />
-
-          {/* DAW sync (MIDI Clock) */}
-          <MidiClockSyncSettings
-            settings={settings.midiClockSync ?? DEFAULT_MIDI_CLOCK_SYNC}
-            onUpdate={updateMidiClockSyncSettings}
-          />
-
-          {/* Data & Privacy */}
-          <DataSettings
-            settings={settings.sync}
-            onUpdate={updateSyncSettings}
-            onExportData={handleExportData}
-            onImportData={handleImportData}
-            onDeleteAllData={handleDeleteAllData}
-          />
-
-          {/* About Section */}
-          <section className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-lg">ℹ️</span>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                About
-              </h3>
-            </div>
-            <div
-              className={cn(
-                'rounded-xl overflow-hidden',
-                'bg-white dark:bg-[#111218]',
-                'border border-slate-200 dark:border-[#3b3f54]',
-                'divide-y divide-slate-100 dark:divide-[#3b3f54]'
-              )}
-            >
-              <div className="flex items-center justify-between p-4">
-                <span className="text-slate-900 dark:text-white">Version</span>
-                <span className="text-slate-500 dark:text-slate-400">1.0.0</span>
-              </div>
-              <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-[#161a2a] transition-colors">
-                <span className="text-slate-900 dark:text-white">Credits</span>
-                <svg
-                  className="w-5 h-5 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-              <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-[#161a2a] transition-colors">
-                <span className="text-slate-900 dark:text-white">Terms & Conditions</span>
-                <svg
-                  className="w-5 h-5 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-              <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-[#161a2a] transition-colors">
-                <span className="text-slate-900 dark:text-white">Privacy Policy</span>
-                <svg
-                  className="w-5 h-5 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-          </section>
-        </div>
-      </main>
-
-      {/* Bottom Navigation */}
-      <BottomNav />
+        </SettingsSection>
+      </div>
 
       {importNode}
-    </div>
+    </Page>
   )
 }

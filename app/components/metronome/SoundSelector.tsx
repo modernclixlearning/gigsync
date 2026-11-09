@@ -1,4 +1,5 @@
 import { cn } from '~/lib/utils'
+import { SectionTitle } from '~/components/layout'
 
 export type MetronomeSound = 'classic' | 'woodblock' | 'sticks' | 'electronic' | 'silent'
 
@@ -11,39 +12,13 @@ export interface SoundSelectorProps {
 const SOUNDS: Array<{
   value: MetronomeSound
   label: string
-  icon: string
   description: string
 }> = [
-  {
-    value: 'classic',
-    label: 'Classic',
-    icon: '🎵',
-    description: 'Traditional click',
-  },
-  {
-    value: 'woodblock',
-    label: 'Woodblock',
-    icon: '🪵',
-    description: 'Wooden tone',
-  },
-  {
-    value: 'sticks',
-    label: 'Sticks',
-    icon: '🥢',
-    description: 'Drumstick click',
-  },
-  {
-    value: 'electronic',
-    label: 'Electronic',
-    icon: '⚡',
-    description: 'Digital beep',
-  },
-  {
-    value: 'silent',
-    label: 'Silent',
-    icon: '🔇',
-    description: 'Visual only',
-  },
+  { value: 'classic', label: 'Clásico', description: 'Click tradicional' },
+  { value: 'woodblock', label: 'Caja china', description: 'Tono de madera' },
+  { value: 'sticks', label: 'Baquetas', description: 'Golpe de baquetas' },
+  { value: 'electronic', label: 'Electrónico', description: 'Beep digital' },
+  { value: 'silent', label: 'Silencio', description: 'Solo visual' },
 ]
 
 export function SoundSelector({
@@ -53,51 +28,36 @@ export function SoundSelector({
 }: SoundSelectorProps) {
   return (
     <div className={cn('w-full', className)}>
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        Sound
-      </h3>
-      
-      {/* Grid of sound options */}
-      <div className="grid grid-cols-2 gap-3">
+      <SectionTitle className="mb-3 px-1">Sonido</SectionTitle>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">
         {SOUNDS.map((sound) => {
           const isActive = value === sound.value
-          
+
           return (
             <button
               key={sound.value}
+              type="button"
               onClick={() => onChange(sound.value)}
               className={cn(
-                'flex flex-col items-center justify-center gap-2',
-                'p-4 rounded-xl',
-                'transition-all duration-200',
-                'active:scale-95',
-                'border-2',
+                'flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2.5 text-left',
+                'transition-colors',
                 isActive
-                  ? 'bg-primary/10 dark:bg-primary/20 border-primary text-primary'
-                  : 'bg-white dark:bg-[#111218] border-slate-200 dark:border-[#3b3f54] hover:bg-slate-50 dark:hover:bg-white/5'
+                  ? 'border-primary bg-indigo-50 dark:bg-indigo-500/10'
+                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a2e] hover:border-indigo-300 dark:hover:border-indigo-500/50'
               )}
               aria-pressed={isActive}
-              aria-label={`${sound.label} sound: ${sound.description}`}
+              aria-label={`${sound.label}: ${sound.description}`}
             >
-              <span className="text-2xl" role="img" aria-hidden="true">
-                {sound.icon}
-              </span>
-              <span 
+              <span
                 className={cn(
                   'text-sm font-semibold',
-                  isActive ? 'text-primary' : 'text-slate-700 dark:text-slate-300'
+                  isActive ? 'text-primary dark:text-indigo-300' : 'text-slate-900 dark:text-white'
                 )}
               >
                 {sound.label}
               </span>
-              <span 
-                className={cn(
-                  'text-xs',
-                  isActive ? 'text-primary/70' : 'text-slate-500 dark:text-slate-400'
-                )}
-              >
-                {sound.description}
-              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{sound.description}</span>
             </button>
           )
         })}

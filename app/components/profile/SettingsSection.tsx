@@ -21,7 +21,7 @@ export function SettingsSection({
       <div className="flex items-center gap-2 px-1">
         {icon && <span className="text-lg">{icon}</span>}
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {title}
           </h3>
           {description && (
@@ -35,10 +35,10 @@ export function SettingsSection({
       {/* Content */}
       <div
         className={cn(
-          'rounded-xl overflow-hidden',
-          'bg-white dark:bg-[#111218]',
-          'border border-slate-200 dark:border-[#3b3f54]',
-          'divide-y divide-slate-100 dark:divide-[#3b3f54]'
+          'rounded-2xl overflow-hidden',
+          'bg-white dark:bg-[#161a2e]',
+          'border border-slate-200 dark:border-slate-800',
+          'divide-y divide-slate-100 dark:divide-slate-800'
         )}
       >
         {children}
@@ -237,7 +237,7 @@ export function SettingsStepper({
         type="button"
         onClick={() => onChange(Math.max(min, value - step))}
         disabled={disabled || value <= min}
-        className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
       >
         <Minus className="w-4 h-4" />
       </button>
@@ -248,7 +248,7 @@ export function SettingsStepper({
         type="button"
         onClick={() => onChange(Math.min(max, value + step))}
         disabled={disabled || value >= max}
-        className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
       >
         <Plus className="w-4 h-4" />
       </button>

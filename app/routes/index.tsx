@@ -1,17 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Plus, Music2, Share2, Upload, CheckSquare, X } from 'lucide-react'
-import { cn } from '~/lib/utils'
 import { useDiscardUntouchedNewSongs, useSongLibrary } from '~/hooks/useSongs'
 import { SongCard } from '~/components/library/SongCard'
 import { SongFilters } from '~/components/library/SongFilters'
 import { SongSearch } from '~/components/library/SongSearch'
-import { BottomNav } from '~/components/navigation'
+import { Page, PageLoading, EmptyState, buttonClass, iconButtonClass } from '~/components/layout'
 import { ShareSheet } from '~/components/share/ShareSheet'
 import { useGigsyncImport } from '~/components/share/useGigsyncImport'
 import { selectionFile } from '~/lib/gigsyncFile'
 import { routeHelpers } from '~/lib/routes'
-import type { Song } from '~/types'
 
 export const Route = createFileRoute('/')({
   component: SongsLibraryPage
@@ -25,7 +23,6 @@ function SongsLibraryPage() {
     filterOptions,
     setFilterOptions
   } = useSongLibrary()
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
   // «Seleccionar»: tick the songs to send (one, a few, or all of them).
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -57,118 +54,89 @@ function SongsLibraryPage() {
     setFilterOptions({ filter: filter as 'all' | 'recent' | 'favorites' })
   }
 
-  const handleSongSelect = (song: Song) => {
-    setSelectedSongId(song.id)
-  }
+  const addSongLink = (
+    <Link {...routeHelpers.songNew()} className={buttonClass('primary')}>
+      <Plus className="w-4 h-4" />
+      <span>
+        Añadir<span className="hidden sm:inline"> canción</span>
+      </span>
+    </Link>
+  )
+
+  if (isLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#101322]">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between px-4 py-4">
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-            Song Library
-          </h1>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={openPicker}
-              title="Importar un fichero .gigsync"
-              aria-label="Importar"
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
-            >
-              <Upload className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => (picking ? stopPicking() : setPicking(true))}
-              title={picking ? 'Salir de la selección' : 'Seleccionar canciones para compartir'}
-              aria-label={picking ? 'Salir de la selección' : 'Seleccionar'}
-              aria-pressed={picking}
-              className={cn(
-                'p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800',
-                picking ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-300'
-              )}
-            >
-              {picking ? <X className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
-            </button>
-          <Link
-            {...routeHelpers.songNew()}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl',
-              'bg-indigo-500 text-white',
-              'hover:bg-indigo-600 active:bg-indigo-700',
-              'transition-colors'
+    <Page
+      title="Canciones"
+      subtitle={`${allSongs.length} en tu repertorio`}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={openPicker}
+            title="Importar un fichero .gigsync"
+            aria-label="Importar"
+            className={iconButtonClass()}
+          >
+            <Upload className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => (picking ? stopPicking() : setPicking(true))}
+            title={picking ? 'Salir de la selección' : 'Seleccionar canciones para compartir'}
+            aria-label={picking ? 'Salir de la selección' : 'Seleccionar'}
+            aria-pressed={picking}
+            className={iconButtonClass(
+              picking ? 'bg-indigo-100 dark:bg-indigo-500/20 text-primary dark:text-indigo-300' : undefined
             )}
           >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add Song</span>
-          </Link>
-          </div>
+            {picking ? <X className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
+          </button>
+          {addSongLink}
+        </>
+      }
+    >
+      {/* Search + filters: stacked on phones, one row from tablet up */}
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="md:w-80 md:shrink-0">
+          <SongSearch
+            value={filterOptions.searchQuery}
+            onChange={handleSearchChange}
+            placeholder="Buscar canciones…"
+          />
         </div>
-      </header>
-
-      {/* Search Bar */}
-      <div className="px-4 py-3">
-        <SongSearch
-          value={filterOptions.searchQuery}
-          onChange={handleSearchChange}
-          placeholder="Search songs..."
-        />
-      </div>
-
-      {/* Filters */}
-      <div className="px-4 pb-3">
         <SongFilters
           activeFilter={filterOptions.filter}
           onFilterChange={handleFilterChange}
         />
       </div>
 
-      {/* Song List */}
-      <main className="px-4 pb-24">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
-          </div>
-        ) : filteredSongs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Music2 className="w-12 h-12 text-slate-400 dark:text-slate-600 mb-4" />
-            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              No songs found
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              {filterOptions.searchQuery
-                ? 'Try a different search term'
-                : 'Add your first song to get started'}
-            </p>
-            <Link
-              {...routeHelpers.songNew()}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl',
-                'bg-indigo-500 text-white',
-                'hover:bg-indigo-600',
-                'transition-colors'
-              )}
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Song</span>
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {picking && (
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                <span>{picked.size} seleccionada{picked.size === 1 ? '' : 's'}</span>
-                <button
-                  type="button"
-                  className="text-indigo-500 font-medium"
-                  onClick={() => setPicked(picked.size === filteredSongs.length ? new Set() : new Set(filteredSongs.map((s) => s.id)))}
-                >
-                  {picked.size === filteredSongs.length ? 'Quitar todas' : 'Todas'}
-                </button>
-              </div>
-            )}
+      {filteredSongs.length === 0 ? (
+        <EmptyState
+          icon={<Music2 className="w-8 h-8" />}
+          title={filterOptions.searchQuery ? 'Sin resultados' : 'Tu repertorio está vacío'}
+          description={
+            filterOptions.searchQuery
+              ? 'Prueba con otro título o artista.'
+              : 'Añade tu primera canción: busca la letra, pega una hoja de acordes o impórtala.'
+          }
+          action={filterOptions.searchQuery ? undefined : addSongLink}
+        />
+      ) : (
+        <>
+          {picking && (
+            <div className="mb-3 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+              <span>{picked.size} seleccionada{picked.size === 1 ? '' : 's'}</span>
+              <button
+                type="button"
+                className="font-semibold text-primary dark:text-indigo-400"
+                onClick={() => setPicked(picked.size === filteredSongs.length ? new Set() : new Set(filteredSongs.map((s) => s.id)))}
+              >
+                {picked.size === filteredSongs.length ? 'Quitar todas' : 'Todas'}
+              </button>
+            </div>
+          )}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filteredSongs.map((song) =>
               picking ? (
                 <SongCard
@@ -178,25 +146,21 @@ function SongsLibraryPage() {
                   onClick={() => togglePicked(song.id)}
                 />
               ) : (
-                <Link key={song.id} {...routeHelpers.song(song.id)}>
-                  <SongCard
-                    song={song}
-                    isSelected={selectedSongId === song.id}
-                    onClick={() => handleSongSelect(song)}
-                  />
+                <Link key={song.id} {...routeHelpers.song(song.id)} className="block rounded-2xl">
+                  <SongCard song={song} />
                 </Link>
               )
             )}
           </div>
-        )}
-      </main>
+        </>
+      )}
 
       {picking && picked.size > 0 && (
-        <div className="fixed bottom-20 inset-x-0 z-30 flex justify-center px-4">
+        <div className="fixed bottom-20 md:bottom-8 inset-x-0 md:left-20 lg:left-60 z-30 flex justify-center px-4">
           <button
             type="button"
             onClick={() => setShowShare(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-full bg-indigo-500 text-white font-medium shadow-lg"
+            className={buttonClass('primary', 'h-12 rounded-full px-6 shadow-lg shadow-primary/30')}
           >
             <Share2 className="w-4 h-4" />
             Compartir {picked.size}
@@ -215,9 +179,6 @@ function SongsLibraryPage() {
         />
       )}
       {importNode}
-
-      {/* Bottom Navigation */}
-      <BottomNav />
-    </div>
+    </Page>
   )
 }
