@@ -1,3 +1,7 @@
+import { cn } from '~/lib/utils'
+import { cardClass } from '~/components/layout'
+import { formatSetDuration } from './SetlistCard'
+
 interface SetlistStatsProps {
   songCount: number
   totalDuration: number
@@ -5,47 +9,38 @@ interface SetlistStatsProps {
   date?: Date
 }
 
-export function SetlistStats({ songCount, totalDuration, venue, date }: SetlistStatsProps) {
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    if (hours > 0) return `${hours}h ${minutes}m`
-    return `${minutes} min`
-  }
+function Stat({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className={cn(cardClass, 'min-w-0 p-3')}>
+      <p
+        className={cn(
+          'truncate font-bold',
+          accent ? 'text-2xl text-primary dark:text-indigo-400 tabular-nums' : 'text-base leading-8 text-slate-900 dark:text-white'
+        )}
+      >
+        {value}
+      </p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</p>
+    </div>
+  )
+}
 
+export function SetlistStats({ songCount, totalDuration, venue, date }: SetlistStatsProps) {
   const formattedDate = date
-    ? new Date(date).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
+    ? new Date(date).toLocaleDateString('es', {
+        weekday: 'short',
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       })
     : null
 
   return (
-    <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-800">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-3 rounded-xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-          <p className="text-2xl font-bold text-primary">{songCount}</p>
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Songs</p>
-        </div>
-        <div className="p-3 rounded-xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-          <p className="text-2xl font-bold text-primary">{formatDuration(totalDuration)}</p>
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Duration</p>
-        </div>
-        {venue && (
-          <div className="p-3 rounded-xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-            <p className="text-lg font-medium text-slate-900 dark:text-white truncate">{venue}</p>
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Venue</p>
-          </div>
-        )}
-        {formattedDate && (
-          <div className="p-3 rounded-xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-            <p className="text-lg font-medium text-slate-900 dark:text-white">{formattedDate}</p>
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Date</p>
-          </div>
-        )}
-      </div>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Stat label="Canciones" value={songCount} accent />
+      <Stat label="Duración" value={formatSetDuration(totalDuration)} accent />
+      {venue && <Stat label="Lugar" value={venue} />}
+      {formattedDate && <Stat label="Fecha" value={formattedDate} />}
     </div>
   )
 }

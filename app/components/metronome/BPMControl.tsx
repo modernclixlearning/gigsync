@@ -66,8 +66,8 @@ export function BPMControl({
         className={cn(
           sizeClasses[size],
           'relative rounded-full',
-          'bg-slate-100 dark:bg-[#232948]',
-          'border-4 border-slate-200 dark:border-[#3b3f54]',
+          'bg-slate-50 dark:bg-[#101322]',
+          'border-4 border-slate-200 dark:border-[#2d3454]',
           showGlow && 'shadow-lg shadow-primary/10',
         )}
       >
@@ -84,24 +84,24 @@ export function BPMControl({
             className={cn(
               'absolute top-6 w-3 h-3 rounded-full',
               'bg-primary',
-              showGlow && 'shadow-[0_0_8px_rgba(19,55,236,0.8)]'
+              showGlow && 'shadow-[0_0_8px_rgba(79,70,229,0.8)]'
             )}
           />
         </motion.div>
 
         {/* Center Value Display */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-4xl font-bold text-slate-900 dark:text-white">
+          <span className="text-6xl font-bold leading-none tabular-nums text-slate-900 dark:text-white">
             {value}
           </span>
-          <span className="text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          <span className="mt-1 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
             BPM
           </span>
         </div>
       </div>
 
       {/* Control Buttons */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {/* Large Decrement */}
         <button
           onClick={handleFineDecrement}
@@ -114,7 +114,7 @@ export function BPMControl({
             'active:scale-95 transition-all',
             'text-lg font-bold'
           )}
-          aria-label="Decrease BPM by 5"
+          aria-label="Bajar 5 BPM"
         >
           -5
         </button>
@@ -124,14 +124,14 @@ export function BPMControl({
           onClick={handleDecrement}
           className={cn(
             'flex items-center justify-center',
-            'w-14 h-14 rounded-full',
+            'w-12 h-12 rounded-full',
             'bg-slate-200 dark:bg-[#232948]',
             'text-slate-700 dark:text-slate-300',
             'hover:bg-slate-300 dark:hover:bg-[#2d3454]',
             'active:scale-95 transition-all',
             'text-2xl font-bold'
           )}
-          aria-label="Decrease BPM"
+          aria-label="Bajar 1 BPM"
         >
           −
         </button>
@@ -141,14 +141,14 @@ export function BPMControl({
           onClick={handleIncrement}
           className={cn(
             'flex items-center justify-center',
-            'w-14 h-14 rounded-full',
+            'w-12 h-12 rounded-full',
             'bg-slate-200 dark:bg-[#232948]',
             'text-slate-700 dark:text-slate-300',
             'hover:bg-slate-300 dark:hover:bg-[#2d3454]',
             'active:scale-95 transition-all',
             'text-2xl font-bold'
           )}
-          aria-label="Increase BPM"
+          aria-label="Subir 1 BPM"
         >
           +
         </button>
@@ -165,7 +165,7 @@ export function BPMControl({
             'active:scale-95 transition-all',
             'text-lg font-bold'
           )}
-          aria-label="Increase BPM by 5"
+          aria-label="Subir 5 BPM"
         >
           +5
         </button>

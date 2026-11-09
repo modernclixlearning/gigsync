@@ -5,6 +5,7 @@ import {
   SettingsRow,
   SettingsToggle,
 } from './SettingsSection'
+import { Download, Trash2, Upload } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
 export interface DataSettingsProps {
@@ -34,19 +35,18 @@ export function DataSettings({
   }, [showDeleteConfirm, onDeleteAllData])
 
   const formatDate = (date?: Date) => {
-    if (!date) return 'Never'
+    if (!date) return 'Nunca'
     return new Date(date).toLocaleString()
   }
 
   return (
     <SettingsSection
-      title="Data & Privacy"
-      icon="🔐"
-      description="Manage your data and sync settings"
+      title="Datos y privacidad"
+      description="Tus datos viven en este dispositivo"
     >
       <SettingsRow
-        label="Cloud Backup"
-        description="Enable automatic cloud backup (coming soon)"
+        label="Copia en la nube"
+        description="Copia automática en la nube (próximamente)"
       >
         <SettingsToggle
           checked={settings.enableCloudBackup}
@@ -56,8 +56,8 @@ export function DataSettings({
       </SettingsRow>
 
       <SettingsRow
-        label="Auto Sync"
-        description="Automatically sync changes"
+        label="Sincronización automática"
+        description="Sincroniza los cambios sola (próximamente)"
       >
         <SettingsToggle
           checked={settings.autoSync}
@@ -67,7 +67,7 @@ export function DataSettings({
       </SettingsRow>
 
       {settings.lastSyncDate && (
-        <SettingsRow label="Last Sync" description={formatDate(settings.lastSyncDate)}>
+        <SettingsRow label="Última sincronización" description={formatDate(settings.lastSyncDate)}>
           <span className="text-sm text-slate-500 dark:text-slate-400">
             {formatDate(settings.lastSyncDate)}
           </span>
@@ -88,8 +88,8 @@ export function DataSettings({
             'flex items-center justify-center gap-2'
           )}
         >
-          <span>📤</span>
-          <span>Export All Data</span>
+          <Download className="w-4 h-4" />
+          <span>Exportar todos los datos</span>
         </button>
 
         <button
@@ -104,8 +104,8 @@ export function DataSettings({
             'flex items-center justify-center gap-2'
           )}
         >
-          <span>📥</span>
-          <span>Import Data</span>
+          <Upload className="w-4 h-4" />
+          <span>Importar datos</span>
         </button>
 
         <button
@@ -120,9 +120,9 @@ export function DataSettings({
               : 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
           )}
         >
-          <span>🗑️</span>
+          <Trash2 className="w-4 h-4" />
           <span>
-            {showDeleteConfirm ? 'Tap again to confirm deletion' : 'Delete All Data'}
+            {showDeleteConfirm ? 'Toca otra vez para confirmar' : 'Borrar todos los datos'}
           </span>
         </button>
 
@@ -131,7 +131,7 @@ export function DataSettings({
             onClick={() => setShowDeleteConfirm(false)}
             className="w-full px-4 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           >
-            Cancel
+            Cancelar
           </button>
         )}
       </div>

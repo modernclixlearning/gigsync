@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Check } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { db } from '~/lib/db'
-import type { Song } from '~/types'
+import { Dialog, buttonClass, fieldClass } from '~/components/layout'
 
 interface SongFormProps {
   excludeSongIds?: string[]
@@ -40,10 +41,6 @@ export function SongForm({ excludeSongIds = [], onSubmit, onCancel }: SongFormPr
     }
   }
 
-  const handleSongClick = (songId: string) => {
-    setSelectedSongId(songId)
-  }
-
   const formatDuration = (seconds: number) => {
     const min = Math.floor(seconds / 60)
     const sec = seconds % 60
@@ -51,51 +48,40 @@ export function SongForm({ excludeSongIds = [], onSubmit, onCancel }: SongFormPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 p-6 rounded-2xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54] max-h-[80vh] flex flex-col">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-          Add Song to Setlist
-        </h2>
+    <Dialog title="Añadir canción al setlist" size="lg" onClose={onCancel}>
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Buscar canciones…"
+        aria-label="Buscar canciones"
+        className={cn(fieldClass, 'mb-3 shrink-0')}
+      />
 
-        {/* Search Input */}
-        <div className="mb-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search songs..."
-            className={cn(
-              'w-full px-4 py-3 rounded-xl border-none',
-              'bg-slate-100 dark:bg-[#282b39]',
-              'text-slate-900 dark:text-white',
-              'placeholder:text-slate-400 dark:placeholder:text-[#9da1b9]',
-              'focus:outline-none focus:ring-2 focus:ring-primary'
-            )}
-          />
-        </div>
-
-        {/* Song List */}
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-            </div>
-          ) : availableSongs.length === 0 ? (
-            <p className="text-center text-slate-400 py-8">
-              {searchQuery ? 'No songs found' : 'No songs available'}
-            </p>
-          ) : (
-            availableSongs.map(song => (
+      <div className="min-h-32 flex-1 overflow-y-auto space-y-2 mb-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+          </div>
+        ) : availableSongs.length === 0 ? (
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">
+            {searchQuery ? 'Sin resultados' : 'No quedan canciones por añadir'}
+          </p>
+        ) : (
+          availableSongs.map(song => {
+            const selected = selectedSongId === song.id
+            return (
               <button
                 key={song.id}
                 type="button"
-                onClick={() => handleSongClick(song.id)}
+                aria-pressed={selected}
+                onClick={() => setSelectedSongId(song.id)}
                 className={cn(
                   'w-full flex items-center gap-3 p-3 rounded-xl text-left',
                   'border transition-colors',
-                  selectedSongId === song.id
-                    ? 'border-primary bg-primary/10'
-                    : 'border-slate-200 dark:border-[#3b3f54] hover:bg-slate-50 dark:hover:bg-white/5'
+                  selected
+                    ? 'border-primary bg-indigo-50 dark:bg-indigo-500/10'
+                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-white/5'
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -103,43 +89,28 @@ export function SongForm({ excludeSongIds = [], onSubmit, onCancel }: SongFormPr
                     {song.title}
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                    {song.artist}
+                    {song.artist || 'Sin artista'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex shrink-0 items-center gap-3 text-sm tabular-nums text-slate-500 dark:text-slate-400">
                   <span>{song.bpm} BPM</span>
                   <span>{formatDuration(song.duration)}</span>
+                  {selected && <Check className="w-4 h-4 text-primary dark:text-indigo-400" />}
                 </div>
               </button>
-            ))
-          )}
-        </div>
-
-        {/* Actions */}
-        <form onSubmit={handleSubmit}>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-3 rounded-xl bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!selectedSongId}
-              className={cn(
-                'flex-1 px-4 py-3 rounded-xl font-medium',
-                selectedSongId
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-              )}
-            >
-              Add Song
-            </button>
-          </div>
-        </form>
+            )
+          })
+        )}
       </div>
-    </div>
+
+      <form onSubmit={handleSubmit} className="flex shrink-0 gap-3">
+        <button type="button" onClick={onCancel} className={buttonClass('secondary', 'flex-1')}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={!selectedSongId} className={buttonClass('primary', 'flex-1')}>
+          Añadir
+        </button>
+      </form>
+    </Dialog>
   )
 }

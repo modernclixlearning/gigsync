@@ -1,6 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { GripVertical, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
+import { cardClass } from '~/components/layout'
 import type { Song } from '~/types'
 
 interface SongItemProps {
@@ -10,7 +12,7 @@ interface SongItemProps {
   onReorder: (fromIndex: number, toIndex: number) => void
 }
 
-export function SongItem({ song, index, onRemove, onReorder }: SongItemProps) {
+export function SongItem({ song, index, onRemove }: SongItemProps) {
   const {
     attributes,
     listeners,
@@ -36,24 +38,20 @@ export function SongItem({ song, index, onRemove, onReorder }: SongItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        'flex items-center gap-3 p-3 rounded-xl',
-        'border border-slate-200 dark:border-[#3b3f54]',
-        'bg-white dark:bg-[#111218]',
-        isDragging && 'shadow-lg'
-      )}
+      className={cn(cardClass, 'flex items-center gap-2 p-2 pr-1 rounded-xl', isDragging && 'shadow-lg')}
     >
       {/* Drag Handle */}
       <span
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600"
+        aria-label={`Reordenar ${song.title}`}
+        className="flex h-11 w-8 shrink-0 touch-none items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
       >
-        <span className="material-symbols-outlined">drag_indicator</span>
+        <GripVertical className="w-5 h-5" />
       </span>
 
       {/* Index */}
-      <span className="w-6 text-center text-sm font-medium text-slate-400">
+      <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-slate-400">
         {index + 1}
       </span>
 
@@ -63,26 +61,30 @@ export function SongItem({ song, index, onRemove, onReorder }: SongItemProps) {
           {song.title}
         </h4>
         <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-          {song.artist}
+          {song.artist || 'Sin artista'}
         </p>
       </div>
 
       {/* Metadata */}
-      <div className="flex items-center gap-4 text-sm text-slate-500">
+      <div className="flex shrink-0 items-center gap-3 text-sm tabular-nums text-slate-500 dark:text-slate-400">
+        <span className="hidden sm:inline rounded-md bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">
+          {song.key}
+        </span>
         <span className="hidden sm:inline">{song.bpm} BPM</span>
-        <span className="hidden sm:inline">{song.key}</span>
         <span>{formatDuration(song.duration)}</span>
       </div>
 
       {/* Remove Button */}
       <button
+        type="button"
+        aria-label={`Quitar ${song.title} del setlist`}
         onClick={(e) => {
           e.stopPropagation()
           onRemove()
         }}
-        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
       >
-        <span className="material-symbols-outlined text-xl">close</span>
+        <X className="w-5 h-5" />
       </button>
     </div>
   )

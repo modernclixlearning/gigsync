@@ -49,14 +49,14 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
           htmlFor="name"
           className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
         >
-          Name
+          Nombre
         </label>
         <input
           type="text"
           id="name"
           value={formData.name}
           onChange={handleChange('name')}
-          placeholder="Your name"
+          placeholder="Tu nombre"
           className={cn(
             'w-full px-4 py-3 rounded-xl',
             'bg-white dark:bg-[#111218]',
@@ -75,7 +75,7 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
           htmlFor="instrument"
           className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
         >
-          Instrument
+          Instrumento
         </label>
         <select
           id="instrument"
@@ -105,14 +105,14 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
           htmlFor="band"
           className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
         >
-          Band (optional)
+          Banda (opcional)
         </label>
         <input
           type="text"
           id="band"
           value={formData.band}
           onChange={handleChange('band')}
-          placeholder="Your band name"
+          placeholder="El nombre de tu banda"
           className={cn(
             'w-full px-4 py-3 rounded-xl',
             'bg-white dark:bg-[#111218]',
@@ -141,7 +141,7 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
             'transition-colors'
           )}
         >
-          Cancel
+          Cancelar
         </button>
         <button
           type="submit"
@@ -155,7 +155,7 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
             'transition-colors'
           )}
         >
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isSaving ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </div>
     </form>

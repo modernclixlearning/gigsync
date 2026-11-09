@@ -17,13 +17,13 @@ export function ProfileHeader({ profile, onEditClick }: ProfileHeaderProps) {
     : '?'
 
   return (
-    <div className="flex flex-col items-center py-8">
+    <div className="flex flex-col items-center pb-8 pt-2">
       {/* Avatar */}
       <div className="relative mb-4">
         {profile.avatar ? (
           <img
             src={profile.avatar}
-            alt={profile.name || 'Profile'}
+            alt={profile.name || 'Perfil'}
             className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-lg"
           />
         ) : (
@@ -52,7 +52,7 @@ export function ProfileHeader({ profile, onEditClick }: ProfileHeaderProps) {
               'shadow-md hover:shadow-lg',
               'transition-shadow'
             )}
-            aria-label="Edit profile"
+            aria-label="Editar perfil"
           >
             <svg
               className="w-4 h-4"
@@ -73,7 +73,7 @@ export function ProfileHeader({ profile, onEditClick }: ProfileHeaderProps) {
 
       {/* Name */}
       <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
-        {profile.name || 'Your Name'}
+        {profile.name || 'Tu nombre'}
       </h2>
 
       {/* Instrument & Band */}

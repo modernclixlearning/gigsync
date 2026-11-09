@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
+import { ListMusic, Plus, Upload } from 'lucide-react'
 import { useSetlists } from '~/hooks/useSetlists'
 import { SetlistCard } from '~/components/setlists/SetlistCard'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
-import { BottomNav } from '~/components/navigation'
+import { Page, PageLoading, EmptyState, ErrorBanner, buttonClass, iconButtonClass } from '~/components/layout'
 import { useGigsyncImport } from '~/components/share/useGigsyncImport'
 import { routeHelpers } from '~/lib/routes'
 import type { CreateSetlistInput } from '~/types'
@@ -24,85 +25,59 @@ function SetlistsPage() {
       await createSetlist(data)
       setShowForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create setlist')
+      setError(err instanceof Error ? err.message : 'No se pudo crear el setlist')
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#101322] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    )
-  }
+  if (isLoading) return <PageLoading />
+
+  const newSetlistButton = (
+    <button type="button" onClick={() => setShowForm(true)} className={buttonClass('primary')}>
+      <Plus className="w-4 h-4" />
+      <span>
+        Nuevo<span className="hidden sm:inline"> setlist</span>
+      </span>
+    </button>
+  )
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#101322]">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between px-4 py-4">
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-            Setlists
-          </h1>
+    <Page
+      title="Setlists"
+      subtitle={`${setlists.length} ${setlists.length === 1 ? 'lista' : 'listas'} para tus conciertos`}
+      actions={
+        <>
           <button
+            type="button"
             onClick={openPicker}
-            className="px-3 py-2 text-slate-600 dark:text-slate-300 rounded-xl font-medium"
             title="Importar un fichero .gigsync"
+            aria-label="Importar"
+            className={iconButtonClass()}
           >
-            Importar
+            <Upload className="w-5 h-5" />
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-primary text-white rounded-xl font-medium shadow-lg shadow-primary/20"
-          >
-            + New Setlist
-          </button>
-        </div>
-      </header>
+          {newSetlistButton}
+        </>
+      }
+    >
+      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      {/* Error Message */}
-      {error && (
-        <div className="mx-4 mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <div className="flex items-start gap-3">
-            <span className="text-red-600 dark:text-red-400 text-xl">⚠️</span>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-900 dark:text-red-100">
-                Error
-              </p>
-              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                {error}
-              </p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
+      {setlists.length === 0 ? (
+        <EmptyState
+          icon={<ListMusic className="w-8 h-8" />}
+          title="Aún no tienes setlists"
+          description="Agrupa canciones en el orden del concierto y tócalas una tras otra."
+          action={newSetlistButton}
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {setlists.map((setlist) => (
+            <Link key={setlist.id} {...routeHelpers.setlist(setlist.id)} className="block rounded-2xl">
+              <SetlistCard setlist={setlist} />
+            </Link>
+          ))}
         </div>
       )}
 
-      {/* Content */}
-      <main className="px-4 py-6 pb-24">
-        {setlists.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-500 dark:text-slate-400 mb-4">
-              No setlists yet. Create your first one!
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {setlists.map((setlist) => (
-              <Link key={setlist.id} {...routeHelpers.setlist(setlist.id)}>
-                <SetlistCard setlist={setlist} />
-              </Link>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* Create Form Modal */}
       {showForm && (
         <SetlistForm
           onSubmit={handleCreateSetlist}
@@ -110,9 +85,7 @@ function SetlistsPage() {
         />
       )}
 
-      {/* Bottom Navigation */}
       {importNode}
-      <BottomNav />
-    </div>
+    </Page>
   )
 }

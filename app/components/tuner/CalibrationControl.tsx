@@ -40,12 +40,12 @@ export function CalibrationControl({
   }
 
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-6 rounded-2xl bg-white dark:bg-[#161a2e] border border-slate-200 dark:border-slate-800 p-4', className)}>
       {/* Reference Frequency Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Reference Pitch (A4)
+            Tono de referencia (A4)
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -87,7 +87,7 @@ export function CalibrationControl({
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Standard concert pitch is A4 = 440 Hz. Some orchestras use 442 Hz.
+          El estándar de concierto es A4 = 440 Hz. Algunas orquestas usan 442 Hz.
         </p>
       </div>
 
@@ -95,7 +95,7 @@ export function CalibrationControl({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Detection Sensitivity
+            Sensibilidad de detección
           </label>
           <span className="text-sm font-mono text-slate-500 dark:text-slate-400">
             {Math.round(sensitivity * 100)}%
@@ -129,12 +129,12 @@ export function CalibrationControl({
 
         {/* Sensitivity labels */}
         <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-          <span>Less sensitive</span>
-          <span>More sensitive</span>
+          <span>Menos sensible</span>
+          <span>Más sensible</span>
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Higher sensitivity picks up quieter sounds but may detect more noise.
+          Más sensibilidad capta sonidos más suaves, pero también más ruido.
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export function CalibrationControl({
           'transition-colors duration-150'
         )}
       >
-        Reset to Defaults
+        Restablecer valores
       </button>
     </div>
   )

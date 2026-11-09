@@ -172,7 +172,7 @@ describe('PitchDisplay', () => {
       />
     )
 
-    expect(screen.getByText('Listening for pitch...')).toBeInTheDocument()
+    expect(screen.getByText('Esperando una nota…')).toBeInTheDocument()
   })
 
   it('should not show listening message when inactive', () => {
@@ -186,7 +186,7 @@ describe('PitchDisplay', () => {
       />
     )
 
-    expect(screen.queryByText('Listening for pitch...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Esperando una nota…')).not.toBeInTheDocument()
   })
 
   it('should apply custom className', () => {

@@ -14,10 +14,10 @@ export interface TunerSettingsProps {
 
 export function TunerSettings({ settings, onUpdate }: TunerSettingsProps) {
   return (
-    <SettingsSection title="Tuner" icon="🎸" description="Instrument tuner settings">
+    <SettingsSection title="Afinador" description="Referencia y afinación por defecto">
       <SettingsRow
-        label="A4 Calibration"
-        description="Reference pitch frequency (standard: 440 Hz)"
+        label="Calibración de A4"
+        description="Frecuencia de referencia (estándar: 440 Hz)"
       >
         <SettingsSlider
           value={settings.calibration}
@@ -28,7 +28,7 @@ export function TunerSettings({ settings, onUpdate }: TunerSettingsProps) {
         />
       </SettingsRow>
 
-      <SettingsRow label="Default Tuning" description="Starting tuning preset">
+      <SettingsRow label="Afinación por defecto" description="La que se carga al abrir el afinador">
         <select
           value={settings.defaultTuning}
           onChange={(e) => onUpdate({ defaultTuning: e.target.value })}
@@ -42,7 +42,7 @@ export function TunerSettings({ settings, onUpdate }: TunerSettingsProps) {
         </select>
       </SettingsRow>
 
-      <SettingsRow label="Show Frequency" description="Display Hz value while tuning">
+      <SettingsRow label="Mostrar frecuencia" description="Enseña los Hz mientras afinas">
         <SettingsToggle
           checked={settings.showFrequency}
           onChange={(checked) => onUpdate({ showFrequency: checked })}

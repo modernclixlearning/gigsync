@@ -16,8 +16,8 @@ const SOUNDS = ['classic', 'woodblock', 'sticks', 'electronic', 'silent'] as con
 
 export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps) {
   return (
-    <SettingsSection title="Metronome" icon="⏱️" description="Default metronome settings">
-      <SettingsRow label="Default BPM" description="Starting tempo for metronome">
+    <SettingsSection title="Metrónomo" description="Valores con los que arranca el metrónomo">
+      <SettingsRow label="BPM inicial" description="Tempo al abrir el metrónomo">
         <SettingsSlider
           value={settings.defaultBpm}
           min={40}
@@ -27,7 +27,7 @@ export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps
         />
       </SettingsRow>
 
-      <SettingsRow label="Time Signature" description="Default time signature">
+      <SettingsRow label="Compás" description="Compás por defecto">
         <select
           value={settings.defaultTimeSignature}
           onChange={(e) => onUpdate({ defaultTimeSignature: e.target.value })}
@@ -41,7 +41,7 @@ export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps
         </select>
       </SettingsRow>
 
-      <SettingsRow label="Click Sound" description="Metronome sound type">
+      <SettingsRow label="Sonido del click" description="Timbre del metrónomo">
         <select
           value={settings.sound}
           onChange={(e) =>
@@ -57,7 +57,7 @@ export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps
         </select>
       </SettingsRow>
 
-      <SettingsRow label="Volume" description="Default metronome volume">
+      <SettingsRow label="Volumen" description="Volumen por defecto">
         <SettingsSlider
           value={settings.volume}
           min={0}
@@ -67,14 +67,14 @@ export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps
         />
       </SettingsRow>
 
-      <SettingsRow label="Accent First Beat" description="Emphasize the downbeat">
+      <SettingsRow label="Acentuar el primer tiempo" description="Suena distinto el tiempo 1 de cada compás">
         <SettingsToggle
           checked={settings.accentFirst}
           onChange={(checked) => onUpdate({ accentFirst: checked })}
         />
       </SettingsRow>
 
-      <SettingsRow label="Subdivisions" description="Add eighth note subdivisions">
+      <SettingsRow label="Subdivisiones" description="Añade las corcheas entre tiempos">
         <SettingsToggle
           checked={settings.subdivisions}
           onChange={(checked) => onUpdate({ subdivisions: checked })}

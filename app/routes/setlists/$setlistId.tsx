@@ -1,5 +1,6 @@
-import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useChildMatches, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
+import { ListMusic, Pencil, Play, Plus, Share2, Trash2 } from 'lucide-react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSetlist } from '~/hooks/useSetlist'
@@ -8,6 +9,7 @@ import { SongItem } from '~/components/setlists/SongItem'
 import { SetlistStats } from '~/components/setlists/SetlistStats'
 import { SongForm } from '~/components/setlists/SongForm'
 import { SetlistForm } from '~/components/setlists/SetlistForm'
+import { Page, PageLoading, Dialog, EmptyState, ErrorBanner, SectionTitle, buttonClass, iconButtonClass } from '~/components/layout'
 import { ShareSheet } from '~/components/share/ShareSheet'
 import { setlistFile } from '~/lib/gigsyncFile'
 import { ROUTES, routeHelpers } from '~/lib/routes'
@@ -50,7 +52,7 @@ function SetlistDetailPage() {
       setError(null)
       await removeSong(songId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove song')
+      setError(err instanceof Error ? err.message : 'No se pudo quitar la canción')
     }
   }
 
@@ -70,7 +72,7 @@ function SetlistDetailPage() {
         newOrder.splice(newIndex, 0, moved)
         await reorderSongs(newOrder)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to reorder songs')
+        setError(err instanceof Error ? err.message : 'No se pudo reordenar')
       }
     }
   }
@@ -82,13 +84,13 @@ function SetlistDetailPage() {
       const { db } = await import('~/lib/db')
       const song = await db.songs.get(songId)
       if (!song) {
-        setError('Song not found')
+        setError('No se encontró la canción')
         return
       }
       await addSong(songId)
       setShowAddSong(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add song')
+      setError(err instanceof Error ? err.message : 'No se pudo añadir la canción')
     }
   }
 
@@ -103,7 +105,7 @@ function SetlistDetailPage() {
       await updateSetlist(updateData)
       setShowEditForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update setlist')
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el setlist')
     }
   }
 
@@ -113,7 +115,7 @@ function SetlistDetailPage() {
       await deleteSetlist(setlistId)
       navigate({ to: ROUTES.SETLISTS })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete setlist')
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el setlist')
       setShowDeleteConfirm(false)
     }
   }
@@ -122,89 +124,48 @@ function SetlistDetailPage() {
     navigate(routeHelpers.setlistPlay(setlistId))
   }
 
-  if (isLoading || !setlist) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#101322] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    )
-  }
+  if (isLoading || !setlist) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#101322]">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-slate-50/80 dark:bg-[#101322]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link to={ROUTES.SETLISTS} className="text-slate-400 hover:text-slate-600">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </Link>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-              {setlist.name}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowShare(true)}
-              className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg font-medium transition-colors"
-              title="Compartir setlist"
-            >
-              <span className="material-symbols-outlined">ios_share</span>
-            </button>
-            <button
-              onClick={() => setShowEditForm(true)}
-              className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg font-medium transition-colors"
-              title="Edit setlist"
-            >
-              <span className="material-symbols-outlined">edit</span>
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="px-3 py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 rounded-lg font-medium transition-colors"
-              title="Delete setlist"
-            >
-              <span className="material-symbols-outlined">delete</span>
-            </button>
-            <button
-              onClick={handlePlayMode}
-              disabled={songs.length === 0}
-              className="px-4 py-2 bg-primary text-white rounded-xl font-medium shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined">play_arrow</span>
-              Play
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <Page
+      title={setlist.name}
+      backTo={ROUTES.SETLISTS}
+      actions={
+        <>
+          <button type="button" onClick={() => setShowShare(true)} aria-label="Compartir setlist" title="Compartir setlist" className={iconButtonClass()}>
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button type="button" onClick={() => setShowEditForm(true)} aria-label="Editar setlist" title="Editar setlist" className={iconButtonClass()}>
+            <Pencil className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            aria-label="Eliminar setlist"
+            title="Eliminar setlist"
+            className={iconButtonClass('text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40')}
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+          {/* On phones the primary action lives in the thumb zone (see the bar below) */}
+          <button
+            type="button"
+            onClick={handlePlayMode}
+            disabled={songs.length === 0}
+            className={buttonClass('primary', 'hidden sm:inline-flex')}
+          >
+            <Play className="w-4 h-4 fill-current" />
+            Tocar
+          </button>
+        </>
+      }
+    >
       {showShare && (
         <ShareSheet name={setlist.name} songs={songs} file={setlistFile(setlist, songs)} onClose={() => setShowShare(false)} />
       )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="mx-4 mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <div className="flex items-start gap-3">
-            <span className="text-red-600 dark:text-red-400 text-xl">⚠️</span>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-900 dark:text-red-100">
-                Error
-              </p>
-              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                {error}
-              </p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      {/* Stats */}
       <SetlistStats
         songCount={songs.length}
         totalDuration={setlist.totalDuration}
@@ -212,51 +173,61 @@ function SetlistDetailPage() {
         date={setlist.date}
       />
 
-      {/* Songs List */}
-      <main className="px-4 py-4 pb-24">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Songs ({songs.length})
-          </h2>
-          <button
-            onClick={() => setShowAddSong(true)}
-            className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white rounded-lg font-medium hover:bg-slate-300 dark:hover:bg-[#2a3155] transition-colors"
+      <div className="mt-6 mb-3 flex items-center justify-between">
+        <SectionTitle>Canciones ({songs.length})</SectionTitle>
+        <button type="button" onClick={() => setShowAddSong(true)} className={buttonClass('secondary', 'h-9 px-3')}>
+          <Plus className="w-4 h-4" />
+          Añadir
+        </button>
+      </div>
+
+      {songs.length === 0 ? (
+        <EmptyState
+          icon={<ListMusic className="w-8 h-8" />}
+          title="Este setlist está vacío"
+          description="Añade canciones de tu repertorio y arrástralas para ordenarlas."
+          action={
+            <button type="button" onClick={() => setShowAddSong(true)} className={buttonClass('primary')}>
+              <Plus className="w-4 h-4" />
+              Añadir canción
+            </button>
+          }
+        />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={songs.map((song) => song.id)}
+            strategy={verticalListSortingStrategy}
           >
-            + Add Song
+            <div className="space-y-2 max-sm:pb-16">
+              {songs.map((song, index) => (
+                <SongItem
+                  key={song.id}
+                  song={song}
+                  index={index}
+                  onRemove={() => handleRemoveSong(song.id)}
+                  onReorder={() => {}}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Phone: «Tocar» as a full-width bar above the navigation */}
+      {songs.length > 0 && (
+        <div className="sm:hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 px-4 pb-2">
+          <button type="button" onClick={handlePlayMode} className={buttonClass('primary', 'w-full h-12 shadow-lg shadow-primary/30')}>
+            <Play className="w-4 h-4 fill-current" />
+            Tocar el setlist
           </button>
         </div>
-        
-        {songs.length === 0 ? (
-          <p className="text-center text-slate-400 py-8">
-            No songs in this setlist yet
-          </p>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={songs.map((song) => song.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {songs.map((song, index) => (
-                  <SongItem
-                    key={song.id}
-                    song={song}
-                    index={index}
-                    onRemove={() => handleRemoveSong(song.id)}
-                    onReorder={() => {}}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
-      </main>
+      )}
 
-      {/* Add Song Modal */}
       {showAddSong && (
         <SongForm
           excludeSongIds={setlist.songIds}
@@ -265,7 +236,6 @@ function SetlistDetailPage() {
         />
       )}
 
-      {/* Edit Setlist Modal */}
       {showEditForm && (
         <SetlistForm
           setlist={setlist}
@@ -274,35 +244,21 @@ function SetlistDetailPage() {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md mx-4 p-6 rounded-2xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-[#3b3f54]">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-              Delete Setlist
-            </h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
-              Are you sure you want to delete "{setlist.name}"? This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-3 rounded-xl bg-slate-200 dark:bg-[#232948] text-slate-900 dark:text-white font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteSetlist}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+        <Dialog title="Eliminar setlist" onClose={() => setShowDeleteConfirm(false)}>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            ¿Seguro que quieres eliminar «{setlist.name}»? Las canciones siguen en tu repertorio, pero esta acción no se puede deshacer.
+          </p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setShowDeleteConfirm(false)} className={buttonClass('secondary', 'flex-1')}>
+              Cancelar
+            </button>
+            <button type="button" onClick={handleDeleteSetlist} className={buttonClass('danger', 'flex-1')}>
+              Eliminar
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
-    </div>
+    </Page>
   )
 }

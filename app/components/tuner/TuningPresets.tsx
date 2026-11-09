@@ -36,11 +36,11 @@ export function TuningPresets({
 
   // Instrument display names and icons
   const instrumentLabels: Record<string, { label: string; icon: string }> = {
-    guitar: { label: 'Guitar', icon: '🎸' },
-    bass: { label: 'Bass', icon: '🎸' },
-    ukulele: { label: 'Ukulele', icon: '🪕' },
-    violin: { label: 'Violin', icon: '🎻' },
-    custom: { label: 'Custom', icon: '⚙️' },
+    guitar: { label: 'Guitarra', icon: '' },
+    bass: { label: 'Bajo', icon: '' },
+    ukulele: { label: 'Ukelele', icon: '' },
+    violin: { label: 'Violín', icon: '' },
+    custom: { label: 'Personalizada', icon: '' },
   }
 
   return (
@@ -50,29 +50,29 @@ export function TuningPresets({
         <button
           onClick={() => onSelect(null)}
           className={cn(
-            'px-4 py-2 rounded-full text-sm font-medium',
+            'h-9 px-4 rounded-full text-sm font-medium',
             'transition-all duration-150',
             selectedPreset === null
               ? 'bg-primary text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
           )}
         >
-          Chromatic
+          Cromático
         </button>
         <span className="text-xs text-slate-500 dark:text-slate-400">
-          Detect any note
+          Detecta cualquier nota
         </span>
       </div>
 
       {/* Grouped presets */}
       {Object.entries(groupedPresets).map(([instrument, presets]) => {
-        const { label, icon } = instrumentLabels[instrument] || { label: instrument, icon: '🎵' }
+        const { label, icon } = instrumentLabels[instrument] || { label: instrument, icon: '' }
         
         return (
           <div key={instrument} className="space-y-2">
             {/* Instrument header */}
             <div className="flex items-center gap-2">
-              <span className="text-lg">{icon}</span>
+              {icon && <span className="text-lg">{icon}</span>}
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 {label}
               </span>
@@ -89,12 +89,12 @@ export function TuningPresets({
                     key={preset.id}
                     onClick={() => onSelect(preset)}
                     className={cn(
-                      'group flex flex-col items-start px-3 py-2 rounded-lg',
+                      'group flex flex-col items-start px-3 py-2 rounded-xl',
                       'transition-all duration-150',
                       'text-left',
                       isSelected
                         ? 'bg-primary text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     )}
                   >
                     <span className="text-sm font-medium">{preset.name}</span>

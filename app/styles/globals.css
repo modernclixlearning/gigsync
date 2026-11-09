@@ -5,9 +5,11 @@
 /* GigSync Design System - Custom CSS Variables */
 @theme {
   /* Primary Colors */
-  --color-primary: #1337ec;
-  --color-primary-dark: #0d2bb3;
-  --color-primary-light: #4d5ff0;
+  /* One brand color: the same indigo the player uses (indigo-600/700/500),
+     so `bg-primary` and `bg-indigo-600` are the same thing on screen. */
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-light: #6366f1;
   --color-primary-foreground: #ffffff;
 
   /* Light Mode Backgrounds */
@@ -85,4 +87,23 @@ body {
 /* Performance mode - deeper black */
 .performance-mode {
   background-color: var(--color-background-performance) !important;
+}
+
+/* Room for the phone's home indicator under fixed bottom bars */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Horizontal chip rows scroll without showing a scrollbar */
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Keyboard focus looks the same everywhere */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
 }

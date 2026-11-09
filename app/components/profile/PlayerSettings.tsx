@@ -29,9 +29,8 @@ export function PlayerSettings({ settings, onUpdate }: PlayerSettingsProps) {
   const playback = resolvePlaybackPreferences(settings)
   return (
     <SettingsSection
-      title="Player"
-      icon="▶️"
-      description="Lyrics and chord player settings"
+      title="Reproductor"
+      description="Letra, acordes y avance entre canciones"
     >
       <SettingsRow label="Resolución de grid" description="Unidad mínima para dividir acordes">
         <div className="flex gap-2">

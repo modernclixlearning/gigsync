@@ -47,7 +47,6 @@ export function MidiClockSyncSettings({ settings, onUpdate }: MidiClockSyncSetti
   return (
     <SettingsSection
       title="Sync con DAW (MIDI Clock)"
-      icon="🎛️"
       description="Seguir el tempo y el play/stop de REAPER o Ableton Live (Chrome/Edge)"
     >
       <SettingsRow
