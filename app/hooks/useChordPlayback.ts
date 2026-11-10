@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from 'react'
 import * as Tone from 'tone'
-import { voiceChord } from '~/lib/audio/chordVoicing'
+import { bassInstrumentPitch, voiceChord } from '~/lib/audio/chordVoicing'
 import {
   DEFAULT_BASS_VOICE,
   DEFAULT_KEYS_VOICE,
@@ -54,7 +54,7 @@ function frequencies(pitches: number[]): number[] {
 }
 
 function pitchesFor(voicing: { bass: number; chord: number[] }, role: 'keys' | 'bass', withBass: boolean): number[] {
-  if (role === 'bass') return [voicing.bass]
+  if (role === 'bass') return [bassInstrumentPitch(voicing)]
   return withBass ? [voicing.bass, ...voicing.chord] : voicing.chord
 }
 

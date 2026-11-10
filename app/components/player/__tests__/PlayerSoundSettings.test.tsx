@@ -69,18 +69,13 @@ describe('PlayerSoundSettings', () => {
     expect(p.setlist.onAutoAdvanceChange).toHaveBeenCalledWith(true)
   })
 
-  it('picks the keyboard sound, the bass (mono root) and the drum pattern', async () => {
+  it('picks the bass sound (mono root) and the drum pattern; the keyboard is always a piano', async () => {
     const user = userEvent.setup()
-    const keys = { voice: 'piano' as const, onVoiceChange: vi.fn() }
     const bass = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
     const drums = { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn(), pattern: 'rock' as const, onPatternChange: vi.fn() }
-    render(<PlayerSoundSettings {...props({ chords: { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn() }, keys, bass, drums })} />)
+    render(<PlayerSoundSettings {...props({ chords: { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn() }, bass, drums })} />)
 
-    const keysGroup = screen.getByRole('radiogroup', { name: 'Sonido del teclado' })
-    expect(within(keysGroup).getAllByRole('radio')).toHaveLength(4)
-    expect(within(keysGroup).getByRole('radio', { name: 'Piano' })).toHaveAttribute('aria-checked', 'true')
-    await user.click(within(keysGroup).getByRole('radio', { name: 'Órgano' }))
-    expect(keys.onVoiceChange).toHaveBeenCalledWith('organ')
+    expect(screen.queryByRole('radiogroup', { name: 'Sonido del teclado' })).toBeNull()
 
     await user.click(within(screen.getByRole('radiogroup', { name: 'Sonido del bajo' })).getByRole('radio', { name: 'Contrabajo' }))
     expect(bass.onVoiceChange).toHaveBeenCalledWith('upright')
@@ -102,9 +97,8 @@ describe('PlayerSoundSettings', () => {
   it('says whether each channel sounds from samples or from the synth', () => {
     const bass = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), voice: 'electric' as const, onVoiceChange: vi.fn() }
     const drums = { enabled: true, onToggle: vi.fn(), volume: 60, onVolumeChange: vi.fn(), pattern: 'rock' as const, onPatternChange: vi.fn() }
-    const keys = { voice: 'piano' as const, onVoiceChange: vi.fn() }
     const chords = { enabled: true, onToggle: vi.fn(), volume: 50, onVolumeChange: vi.fn() }
-    render(<PlayerSoundSettings {...props({ bass, drums, keys, chords })} />)
+    render(<PlayerSoundSettings {...props({ bass, drums, chords })} />)
     expect(screen.queryByTestId('sound-status-bass')).toBeNull() // nothing built yet
 
     act(() => {

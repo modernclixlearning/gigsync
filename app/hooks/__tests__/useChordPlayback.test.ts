@@ -137,9 +137,9 @@ describe('useChordPlayback', () => {
     expect(tone.transport.scheduleOnce).not.toHaveBeenCalled()
   })
 
-  it('the bass channel plays only the root note (the slash bass); the keyboard can leave it out', () => {
+  it('the bass channel plays only the root note (the slash bass), in the bass guitar octave; the keyboard can leave it out', () => {
     renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', voice: 'upright' }))
-    expect((tone.parts[0].events as PartEvent[]).map((e) => e.pitches)).toEqual([[48], [47]])
+    expect((tone.parts[0].events as PartEvent[]).map((e) => e.pitches)).toEqual([[36], [35]])
 
     renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'keys', withBass: false }))
     expect((tone.parts[1].events as PartEvent[]).map((e) => e.pitches)).toEqual([[60, 64, 67], [55, 59, 62]])

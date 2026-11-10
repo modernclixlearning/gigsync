@@ -2,10 +2,22 @@ import { describe, it, expect } from 'vitest'
 import { DRUM_PATTERNS, DRUM_PATTERN_DEFS, drumVelocity } from '../bandSound'
 
 describe('drum patterns', () => {
-  it('every pattern is one 4/4 bar of 16 steps per part', () => {
+  it('every pattern is one 4/4 bar of 16 steps per part, or two bars (bossa)', () => {
     for (const name of DRUM_PATTERNS) {
-      for (const lane of Object.values(DRUM_PATTERN_DEFS[name])) expect(lane).toHaveLength(16)
+      for (const lane of Object.values(DRUM_PATTERN_DEFS[name])) expect(lane).toHaveLength(name === 'bossa' ? 32 : 16)
     }
+  })
+
+  it('bossa: the 3-2 clave on the cross-stick over two bars, the bass drum on 1, 2&, 3, 4&', () => {
+    const hits = (part: 'kick' | 'snare' | 'hat') =>
+      Array.from({ length: 32 }, (_, step) => step).filter((step) => drumVelocity('bossa', part, step, 4) > 0)
+    // Bar 1: 1, 2&, 4 — bar 2: 2, 3&
+    expect(hits('snare')).toEqual([0, 6, 12, 16 + 4, 16 + 10])
+    expect(hits('kick')).toEqual([0, 6, 8, 14, 16, 22, 24, 30])
+    expect(hits('hat')).toEqual(Array.from({ length: 16 }, (_, i) => i * 2))
+    // The two bars repeat as a pair
+    expect(drumVelocity('bossa', 'snare', 32, 4)).toBeGreaterThan(0)
+    expect(drumVelocity('bossa', 'snare', 32 + 16, 4)).toBe(0)
   })
 
   it('rock: kick on 1, snare on 2 and 4, hats on eighths', () => {

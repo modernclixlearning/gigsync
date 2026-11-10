@@ -11,8 +11,18 @@ const NOTE_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B:
 
 /** Lowest note of the chord voicing (G3); the root lands in G3–F#4. */
 const VOICING_FLOOR = 55
-/** Bass notes land in E2–D#3. */
+/** The keyboard's left-hand bass note lands in E2–D#3. */
 const BASS_FLOOR = 40
+/**
+ * The bass instrument plays an octave under that, in E1–D#2: the bottom
+ * octave of a bass guitar (open E string = E1), not a guitar's.
+ */
+const BASS_INSTRUMENT_DROP = 12
+
+/** MIDI pitch the bass channel (and the exported bass track) plays for a voicing. */
+export function bassInstrumentPitch(voicing: { bass: number }): number {
+  return voicing.bass - BASS_INSTRUMENT_DROP
+}
 
 /**
  * Intervals (semitones above the root) for a chord suffix. Unknown suffixes
@@ -52,7 +62,7 @@ export function chordIntervals(suffix: string): number[] {
 }
 
 export interface ChordVoicing {
-  /** MIDI pitch of the bass note. */
+  /** MIDI pitch of the bass note as the keyboard plays it (the bass instrument: see bassInstrumentPitch). */
   bass: number
   /** MIDI pitches of the chord, close voicing. */
   chord: number[]

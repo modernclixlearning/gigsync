@@ -1,6 +1,6 @@
 /**
- * The player's «band» (pure data): the sound choices of the keyboard and the
- * bass, and the rhythm patterns of the mini drum machine.
+ * The player's «band» (pure data): the keyboard's sound, the sound choices of
+ * the bass, and the rhythm patterns of the mini drum machine.
  *
  * Channels and where they sit in the stereo mix:
  *  - Bajo: the root note only, mono, dead centre.
@@ -9,7 +9,8 @@
  *  - Metrónomo: the click (see useMetronomeSound), centre.
  */
 
-export const KEYS_VOICES = ['piano', 'epiano', 'organ', 'pad'] as const
+/** The keyboard is a piano. Kept as a list so a saved setting naming a removed sound falls back to it. */
+export const KEYS_VOICES = ['piano'] as const
 export type KeysVoice = (typeof KEYS_VOICES)[number]
 
 export const BASS_VOICES = ['electric', 'upright'] as const
@@ -21,13 +22,6 @@ export type DrumPattern = (typeof DRUM_PATTERNS)[number]
 export const DEFAULT_KEYS_VOICE: KeysVoice = 'piano'
 export const DEFAULT_BASS_VOICE: BassVoice = 'electric'
 export const DEFAULT_DRUM_PATTERN: DrumPattern = 'rock'
-
-export const KEYS_VOICE_LABELS: Record<KeysVoice, string> = {
-  piano: 'Piano',
-  epiano: 'Piano eléctrico',
-  organ: 'Órgano',
-  pad: 'Pad',
-}
 
 export const BASS_VOICE_LABELS: Record<BassVoice, string> = {
   electric: 'Eléctrico',
@@ -46,7 +40,11 @@ export const STEPS_PER_BEAT = 4
 
 export type DrumPart = 'kick' | 'snare' | 'hat'
 
-/** One bar of 4/4 in 16th notes: 0 = rest, otherwise the hit's velocity (0–1). */
+/**
+ * A pattern in 16th notes: 0 = rest, otherwise the hit's velocity (0–1).
+ * One bar of 4/4 (16 steps), or two (32) when the rhythm only repeats every
+ * two bars — the bossa clave.
+ */
 export type DrumLane = readonly number[]
 export type DrumPatternDef = Record<DrumPart, DrumLane>
 
@@ -74,20 +72,26 @@ export const DRUM_PATTERN_DEFS: Record<DrumPattern, DrumPatternDef> = {
     snare: steps('.... x... .... x...', HIT),
     hat: steps('o... o... o... o...', HIT),
   },
-  // Bossa: steady bass-drum pulse, cross-stick on the 3-2 clave, eighth hats.
+  // Bossa nova, two bars. Bass drum on 1 and 3 with a pickup on the «and» of 2
+  // and of 4 (the surdo figure), straight eighth hats, and the cross-stick on
+  // the 3-2 bossa clave, which takes both bars: 1, 2&, 4 | 2, 3&.
+  // (The clave used to be squeezed into one bar in 16ths: twice as fast as the
+  // bass drum under it.)
   bossa: {
-    kick: steps('X... ..x. X... ..x.', HIT),
-    snare: steps('X..x ..x. ..x. x...', { ...HIT, X: 0.5, x: 0.55 }),
-    hat: steps('x.x. x.x. x.x. x.x.', HIT),
+    kick: steps('X... ..x. X... ..x.  X... ..x. X... ..x.', HIT),
+    snare: steps('x... ..x. .... x...  .... x... ..x. ....', { x: 0.55 }),
+    hat: steps('x.o. x.o. x.o. x.o.  x.o. x.o. x.o. x.o.', { x: 0.6, o: 0.4 }),
   },
 }
 
 /** Velocity (0–1) of a drum part at a 16th-note step, 0 when it rests. */
 export function drumVelocity(pattern: DrumPattern, part: DrumPart, step: number, beatsPerBar: number): number {
   const stepsPerBar = Math.max(1, Math.round(beatsPerBar)) * STEPS_PER_BEAT
-  const inBar = ((Math.round(step) % stepsPerBar) + stepsPerBar) % stepsPerBar
   const lane = DRUM_PATTERN_DEFS[pattern][part]
-  return lane[inBar % lane.length] ?? 0
+  // A pattern of several whole bars runs across them; otherwise it restarts every bar.
+  const cycle = lane.length % stepsPerBar === 0 ? lane.length : stepsPerBar
+  const position = ((Math.round(step) % cycle) + cycle) % cycle
+  return lane[position % lane.length] ?? 0
 }
 
 /** Pan (-1 left … 1 right) of each drum part. */

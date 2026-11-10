@@ -1106,10 +1106,6 @@ export function SongPlayerContent({
                 volume: playbackPrefs.chordVolume,
                 onVolumeChange: (chordVolume) => void updatePlayerSettings({ chordVolume }),
               }}
-              keys={{
-                voice: playbackPrefs.keysVoice,
-                onVoiceChange: (keysVoice) => void updatePlayerSettings({ keysVoice }),
-              }}
               bass={{
                 enabled: playbackPrefs.bassEnabled,
                 onToggle: () => void updatePlayerSettings({ bassEnabled: !playbackPrefs.bassEnabled }),
