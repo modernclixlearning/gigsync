@@ -7,7 +7,9 @@ import { registerServiceWorker } from '~/lib/pwa/registerServiceWorker'
  * cortaría el player. Si se ignora, la versión nueva entra al reabrir la app.
  */
 export function PwaUpdatePrompt() {
-  const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null)
+  const [applyUpdate, setApplyUpdate] = useState<(() => Promise<void>) | null>(null)
+  // Desde el clic hasta la recarga: que se vea que el botón hizo algo.
+  const [isApplying, setIsApplying] = useState(false)
 
   useEffect(
     () =>
@@ -29,16 +31,21 @@ export function PwaUpdatePrompt() {
       <button
         type="button"
         onClick={() => setApplyUpdate(null)}
-        className="px-2 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+        disabled={isApplying}
+        className="px-2 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50"
       >
         Más tarde
       </button>
       <button
         type="button"
-        onClick={() => applyUpdate()}
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 font-medium text-white hover:bg-indigo-700"
+        onClick={() => {
+          setIsApplying(true)
+          void applyUpdate()
+        }}
+        disabled={isApplying}
+        className="rounded-lg bg-indigo-600 px-3 py-1.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-70"
       >
-        Actualizar
+        {isApplying ? 'Actualizando…' : 'Actualizar'}
       </button>
     </div>
   )
