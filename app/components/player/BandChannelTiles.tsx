@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
-import { Church, Drum, Guitar, Music2, Piano, Timer, Volume2, VolumeX, Waves, Zap, type LucideProps } from 'lucide-react'
+import { Drum, Guitar, Music2, Piano, Timer, Volume2, VolumeX, type LucideProps } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import {
   BASS_VOICES,
@@ -7,12 +7,9 @@ import {
   DRUM_PATTERNS,
   DRUM_PATTERN_DEFS,
   DRUM_PATTERN_LABELS,
-  KEYS_VOICES,
-  KEYS_VOICE_LABELS,
   STEPS_PER_BEAT,
   type BassVoice,
   type DrumPattern,
-  type KeysVoice,
 } from '~/lib/audio/bandSound'
 import { SOUND_STATUS_LABELS, useSoundStatuses, type BandChannel, type SoundSourceStatus } from '~/lib/audio/soundStatus'
 
@@ -34,7 +31,6 @@ const LOOKS = {
   drums: { icon: Drum, bubble: 'bg-rose-100 text-rose-700 dark:bg-rose-500/25 dark:text-rose-300', accent: 'accent-rose-500' },
 } as const
 
-const KEYS_ICONS: Record<KeysVoice, Icon> = { piano: Piano, epiano: Zap, organ: Church, pad: Waves }
 const BASS_ICONS: Record<BassVoice, Icon> = { electric: Guitar, upright: Music2 }
 
 const PATTERN_SHORT: Record<DrumPattern, string> = { rock: 'Rock', pop: 'Pop', ballad: 'Balada', bossa: 'Bossa' }
@@ -123,7 +119,7 @@ function IconChoices<T extends string>({
   )
 }
 
-/** A bar of drums drawn as dots: hi-hat on top, snare, kick below; brighter = harder. */
+/** The pattern (one bar, or two) drawn as dots: hi-hat on top, snare, kick below; brighter = harder. */
 export function PatternGlyph({ pattern }: { pattern: DrumPattern }) {
   const def = DRUM_PATTERN_DEFS[pattern]
   const lanes = [def.hat, def.snare, def.kick]
@@ -133,9 +129,9 @@ export function PatternGlyph({ pattern }: { pattern: DrumPattern }) {
         lane.map((velocity, step) => (
           <circle
             key={`${row}-${step}`}
-            cx={2 + step * 4}
+            cx={(step + 0.5) * (64 / lane.length)}
             cy={3 + row * 7}
-            r={velocity > 0 ? 1.6 : 0.7}
+            r={(velocity > 0 ? 1.6 : 0.7) * (lane.length > 16 ? 0.6 : 1)}
             fill="currentColor"
             opacity={velocity > 0 ? 0.55 + velocity * 0.45 : 0.3}
             data-beat={step % STEPS_PER_BEAT === 0 ? '' : undefined}
@@ -261,9 +257,8 @@ function ChannelTile({
 
 export interface BandChannelTilesProps {
   metronome: ChannelSource
-  /** Keyboard: the full chord, in stereo. */
+  /** Keyboard (a piano): the full chord, in stereo. */
   chords: ChannelSource
-  keys?: { voice: KeysVoice; onVoiceChange: (voice: KeysVoice) => void }
   bass?: ChannelSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
   drums?: ChannelSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
 }
@@ -273,23 +268,11 @@ export interface BandChannelTilesProps {
  * off, its volume, where its sound comes from (samples or synth) and its
  * choices (sound, rhythm) as icons instead of words.
  */
-export function BandChannelTiles({ metronome, chords, keys, bass, drums }: BandChannelTilesProps) {
+export function BandChannelTiles({ metronome, chords, bass, drums }: BandChannelTilesProps) {
   return (
     <div className="grid grid-cols-2 gap-3 px-4 pt-3 items-stretch">
       <ChannelTile channel="metronome" label="Metrónomo" source={metronome} />
-      <ChannelTile channel="keys" label="Acordes" source={chords}>
-        {keys && (
-          <IconChoices
-            label="Sonido del teclado"
-            options={KEYS_VOICES}
-            labels={KEYS_VOICE_LABELS}
-            icons={KEYS_ICONS}
-            value={keys.voice}
-            onChange={keys.onVoiceChange}
-            disabled={!chords.enabled}
-          />
-        )}
-      </ChannelTile>
+      <ChannelTile channel="keys" label="Acordes" source={chords} />
       {bass && (
         <ChannelTile channel="bass" label="Bajo" source={bass}>
           <IconChoices

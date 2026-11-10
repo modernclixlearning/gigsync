@@ -39,7 +39,6 @@ const KEYS_SAMPLES: Partial<Record<KeysVoice, { dir: string; notes: string[]; re
     notes: ['A1', 'C2', 'Ds2', 'Fs2', 'A2', 'C3', 'Ds3', 'Fs3', 'A3', 'C4', 'Ds4', 'Fs4', 'A4', 'C5', 'Ds5', 'Fs5', 'A5', 'C6'],
     release: 1,
   },
-  organ: { dir: 'organ', notes: ['C2', 'Fs2', 'C3', 'Fs3', 'C4', 'Fs4', 'C5'], release: 0.15 },
 }
 
 const BASS_SAMPLES: Partial<Record<BassVoice, { dir: string; notes: string[]; release: number }>> = {
@@ -114,25 +113,6 @@ const KEYS_SETTINGS: Record<KeysVoice, { voice: typeof Tone.Synth | typeof Tone.
     voice: Tone.Synth,
     options: { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.35, release: 0.5 } },
   },
-  epiano: {
-    voice: Tone.FMSynth,
-    options: {
-      harmonicity: 3,
-      modulationIndex: 1.5,
-      oscillator: { type: 'sine' },
-      modulation: { type: 'sine' },
-      envelope: { attack: 0.005, decay: 0.6, sustain: 0.25, release: 0.6 },
-      modulationEnvelope: { attack: 0.005, decay: 0.4, sustain: 0.1, release: 0.4 },
-    },
-  },
-  organ: {
-    voice: Tone.Synth,
-    options: { oscillator: { type: 'fatsquare', count: 2, spread: 8 }, envelope: { attack: 0.02, decay: 0.05, sustain: 0.85, release: 0.12 } },
-  },
-  pad: {
-    voice: Tone.Synth,
-    options: { oscillator: { type: 'fatsawtooth', count: 3, spread: 25 }, envelope: { attack: 0.35, decay: 0.3, sustain: 0.7, release: 1.2 } },
-  },
 }
 
 const BASS_SETTINGS: Record<BassVoice, object> = {
@@ -152,7 +132,7 @@ export function createKeysInstrument(voice: KeysVoice, { reportStatus = true }: 
     frequency: 1.2,
     delayTime: 3.5,
     depth: 0.7,
-    wet: voice === 'pad' ? 0.7 : 0.5,
+    wet: 0.5,
   }).start()
   const level = new Tone.Volume(0)
   synth.connect(chorus)

@@ -6,7 +6,7 @@
  * and the arrangement follows.
  */
 
-import { voiceChord } from '~/lib/audio/chordVoicing'
+import { bassInstrumentPitch, voiceChord } from '~/lib/audio/chordVoicing'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { createSongTimeline } from '~/lib/timeline/calculator'
 import type { Song } from '~/types/setlist'
@@ -75,7 +75,7 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
       const tick = base + Math.round(event.startBeat * PPQ)
       const length = Math.round(event.durationBeats * PPQ * 0.95)
       if (options.chords) for (const pitch of voicing.chord) chords.push(...noteEvents(tick, length, CH_CHORDS, pitch, 85))
-      if (options.bass) bass.push(...noteEvents(tick, length, CH_BASS, voicing.bass, 95))
+      if (options.bass) bass.push(...noteEvents(tick, length, CH_BASS, bassInstrumentPitch(voicing), 95))
     }
 
     const take = song.midiTake

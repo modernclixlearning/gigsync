@@ -75,7 +75,7 @@ export interface PlayerPreferences extends PlayerOverrides {
   /** Volume of the chords played along («Escuchar acordes»), 0–100. Default 50. */
   chordVolume?: number
   /** Sound of the keyboard channel (full chord, stereo). Default 'piano'. */
-  keysVoice?: 'piano' | 'epiano' | 'organ' | 'pad'
+  keysVoice?: 'piano'
   /** Bass channel (root note only, mono): on/off, volume 0–100 (default 60) and sound (default 'electric'). */
   bassEnabled?: boolean
   bassVolume?: number

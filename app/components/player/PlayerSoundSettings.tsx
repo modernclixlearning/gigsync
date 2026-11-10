@@ -9,7 +9,7 @@ import {
   SettingsToggle,
   type SaveTier,
 } from '~/components/profile/SettingsSection'
-import type { BassVoice, DrumPattern, KeysVoice } from '~/lib/audio/bandSound'
+import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
 import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
 import {
   AUTO_ADVANCE_DELAY_MAX,
@@ -111,7 +111,6 @@ export interface PlayerSoundSettingsProps {
   metronome: ChannelSource
   /** Keyboard: the full chord, in stereo. */
   chords: ChannelSource
-  keys?: { voice: KeysVoice; onVoiceChange: (voice: KeysVoice) => void }
   /** Bass: the root note only, in mono. */
   bass?: ChannelSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
   /** Mini drum machine. */
@@ -141,7 +140,6 @@ export interface PlayerSoundSettingsProps {
 export function PlayerSoundSettings({
   metronome,
   chords,
-  keys,
   bass,
   drums,
   soundUnavailableReason,
@@ -157,7 +155,7 @@ export function PlayerSoundSettings({
             {soundUnavailableReason}
           </p>
         )}
-        <BandChannelTiles metronome={metronome} chords={chords} keys={keys} bass={bass} drums={drums} />
+        <BandChannelTiles metronome={metronome} chords={chords} bass={bass} drums={drums} />
       </PanelSection>
 
       <PanelSection title="Precuenta">

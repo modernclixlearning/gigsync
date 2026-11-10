@@ -93,6 +93,8 @@ describe('songsToMidi', () => {
     expect(notes.every((n) => n.channel === 1)).toBe(true)
     // C, G, A, F → pitch classes 0, 7, 9, 5
     expect(notes.map((n) => n.pitch % 12)).toEqual([0, 7, 9, 5])
+    // In the bass guitar's bottom octave (E1–D#2): C2, G1, A1, F1
+    expect(notes.map((n) => n.pitch)).toEqual([36, 31, 33, 29])
     expect(notes[0].tick).toBe(0)
     expect(notes[1].tick).toBeGreaterThan(0)
   })
