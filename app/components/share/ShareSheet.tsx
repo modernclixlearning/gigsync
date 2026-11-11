@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileDown, Music4, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { gigsyncToFile, midiToFile, shareOrDownload, type GigsyncFile } from '~/lib/gigsyncFile'
-import { DEFAULT_SONG_MIDI_OPTIONS, songHasMidiContent, songsToMidi, type SongMidiOptions } from '~/lib/midi/songMidi'
+import { DEFAULT_SONG_MIDI_OPTIONS, songHasDrumPattern, songHasMidiContent, songsToMidi, type SongMidiOptions } from '~/lib/midi/songMidi'
 import type { Song } from '~/types/setlist'
 import { ShareToast } from './useGigsyncImport'
 
@@ -19,6 +19,7 @@ interface ShareSheetProps {
 const MIDI_LABELS: { key: keyof SongMidiOptions; label: string }[] = [
   { key: 'chords', label: 'Acordes' },
   { key: 'bass', label: 'Bajo' },
+  { key: 'drums', label: 'Batería' },
   { key: 'melody', label: 'Teclado grabado' },
   { key: 'click', label: 'Click' },
 ]
@@ -37,7 +38,8 @@ export function ShareSheet({ name, songs, file, onClose }: ShareSheetProps) {
   const [message, setMessage] = useState<string | null>(null)
   const withMidi = songs.filter(songHasMidiContent)
   const hasTake = songs.some((song) => !!song.midiTake?.notes.length)
-  const nothingToSend = !midi.chords && !midi.bass && !(midi.melody && hasTake) && !midi.click
+  const hasDrums = songs.some(songHasDrumPattern)
+  const nothingToSend = !midi.chords && !midi.bass && !(midi.drums && hasDrums) && !(midi.melody && hasTake) && !midi.click
 
   const done = (result: 'shared' | 'downloaded' | 'cancelled') => {
     if (result === 'cancelled') return
@@ -72,7 +74,7 @@ export function ShareSheet({ name, songs, file, onClose }: ShareSheetProps) {
           <p className="text-sm font-medium text-slate-900 dark:text-white">Exportar a MIDI (.mid) para Ableton</p>
           <div className="flex flex-wrap gap-2">
             {MIDI_LABELS.map(({ key, label }) => {
-              const disabled = key === 'melody' && !hasTake
+              const disabled = (key === 'melody' && !hasTake) || (key === 'drums' && !hasDrums)
               return (
                 <label
                   key={key}

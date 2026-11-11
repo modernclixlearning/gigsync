@@ -1,3 +1,7 @@
+import type { SongBand } from '~/lib/audio/bandPatterns'
+
+export type { SongBand }
+
 // Setlist Types - Re-exported from shared contracts
 
 /** Whether the beat-follows-the-lyric highlight tints the text or the background. */
@@ -76,6 +80,8 @@ export interface Song {
   youtubeStartSeconds?: number
   /** Last keyboard take applied to the song (notes as played, after the corrections). */
   midiTake?: MidiTake
+  /** The band's patterns written for this song (drums, bass and chord rhythm). */
+  band?: SongBand
 }
 
 export interface Setlist {

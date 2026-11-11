@@ -91,8 +91,18 @@ describe('useChordPlayback', () => {
     const part = tone.parts[0]
     expect(part.start).toHaveBeenCalledWith(0)
     expect(part.events as PartEvent[]).toEqual([
-      { time: '0i', pitches: [48, 60, 64, 67], ticks: 768 },
-      { time: '768i', pitches: [47, 55, 59, 62], ticks: 768 },
+      { time: '0i', pitches: [48, 60, 64, 67], ticks: 768, velocity: 0.7 },
+      { time: '768i', pitches: [47, 55, 59, 62], ticks: 768, velocity: 0.7 },
+    ])
+  })
+
+  it('with a rhythm written for the song, plays each chord on the steps of the pattern', () => {
+    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', rhythm: 'X.......x.......', beatsPerBar: 4 }))
+    expect(tone.parts[0].events as PartEvent[]).toEqual([
+      { time: '0i', pitches: [36], ticks: 384, velocity: 1 },
+      { time: '384i', pitches: [36], ticks: 384, velocity: 0.7 },
+      { time: '768i', pitches: [35], ticks: 384, velocity: 1 },
+      { time: '1152i', pitches: [35], ticks: 384, velocity: 0.7 },
     ])
   })
 

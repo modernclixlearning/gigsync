@@ -36,9 +36,9 @@ function chunks(bytes: Uint8Array): Chunk[] {
   return out
 }
 
-/** Decoded note-ons of a track: absolute tick, channel, pitch. */
-function noteOns(track: Uint8Array): { tick: number; channel: number; pitch: number }[] {
-  const out: { tick: number; channel: number; pitch: number }[] = []
+/** Decoded note-ons of a track: absolute tick, channel, pitch, velocity. */
+function noteOns(track: Uint8Array): { tick: number; channel: number; pitch: number; velocity: number }[] {
+  const out: { tick: number; channel: number; pitch: number; velocity: number }[] = []
   let i = 0
   let tick = 0
   while (i < track.length) {
@@ -54,7 +54,7 @@ function noteOns(track: Uint8Array): { tick: number; channel: number; pitch: num
       len = (len << 7) | track[i++]
       i += len
     } else {
-      if ((status & 0xf0) === 0x90) out.push({ tick, channel: status & 0x0f, pitch: track[i + 1] })
+      if ((status & 0xf0) === 0x90) out.push({ tick, channel: status & 0x0f, pitch: track[i + 1], velocity: track[i + 2] })
       i += 3
     }
   }
@@ -105,7 +105,7 @@ describe('songsToMidi', () => {
     const tracks = chunks(bytes).slice(1)
     expect(tracks).toHaveLength(5)
     const melody = noteOns(tracks[3].data)
-    expect(melody).toEqual([{ tick: 2 * PPQ, channel: 2, pitch: 64 }]) // 1 s at 120 bpm = 2 beats
+    expect(melody).toMatchObject([{ tick: 2 * PPQ, channel: 2, pitch: 64 }]) // 1 s at 120 bpm = 2 beats
     const click = noteOns(tracks[4].data)
     expect(click.every((n) => n.channel === 9)).toBe(true)
     expect(click.length).toBeGreaterThanOrEqual(8)
@@ -120,7 +120,33 @@ describe('songsToMidi', () => {
   })
 
   it('leaves out the tracks that were not asked for', () => {
-    const bytes = songsToMidi([song()], { chords: true, bass: false, melody: false, click: false })
+    const bytes = songsToMidi([song()], { chords: true, bass: false, drums: false, melody: false, click: false })
     expect(chunks(bytes)).toHaveLength(3)
+  })
+})
+
+describe('songsToMidi — the patterns written for the song', () => {
+  it('plays the bass with the song rhythm: quarter notes instead of one long note per chord', () => {
+    const plain = noteOns(chunks(songsToMidi([song()]))[3].data)
+    const withRhythm = noteOns(chunks(songsToMidi([{ ...song(), band: { bassRhythm: 'X...x...x...x...' } }]))[3].data)
+    expect(withRhythm.length).toBeGreaterThan(plain.length)
+    // Every hit is on a beat, and the first one of the song is the accent.
+    expect(withRhythm.every((n) => n.tick % PPQ === 0)).toBe(true)
+    expect(withRhythm[0].velocity).toBeGreaterThan(withRhythm[1].velocity)
+  })
+
+  it('adds a drum track on channel 10 only for songs with a drum pattern of their own', () => {
+    const without = chunks(songsToMidi([song()]))
+    const drums = { kick: 'X...............', snare: '....X.......X...', hat: '................' }
+    const withDrums = chunks(songsToMidi([{ ...song(), band: { drums } }]))
+    expect(withDrums).toHaveLength(without.length + 1)
+
+    const notes = noteOns(withDrums[4].data)
+    expect(notes.every((n) => n.channel === 9)).toBe(true)
+    expect(new Set(notes.map((n) => n.pitch))).toEqual(new Set([36, 38]))
+    // Kick on every downbeat, snare on 2 and 4.
+    const firstBar = notes.filter((n) => n.tick < 4 * PPQ)
+    expect(firstBar.filter((n) => n.pitch === 36).map((n) => n.tick)).toEqual([0])
+    expect(firstBar.filter((n) => n.pitch === 38).map((n) => n.tick)).toEqual([PPQ, 3 * PPQ])
   })
 })

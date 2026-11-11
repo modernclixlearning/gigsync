@@ -10,6 +10,7 @@ import {
   type SaveTier,
 } from '~/components/profile/SettingsSection'
 import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
+import { BandPatternEditor, type BandPatternEditorProps } from './BandPatternEditor'
 import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
 import {
   AUTO_ADVANCE_DELAY_MAX,
@@ -115,6 +116,8 @@ export interface PlayerSoundSettingsProps {
   bass?: ChannelSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
   /** Mini drum machine. */
   drums?: ChannelSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
+  /** The patterns written for this song (drums, bass and chord rhythm). */
+  patterns?: BandPatternEditorProps
   /** Set when the click and the chords can't sound right now, saying why. */
   soundUnavailableReason?: string
   countIn: {
@@ -142,6 +145,7 @@ export function PlayerSoundSettings({
   chords,
   bass,
   drums,
+  patterns,
   soundUnavailableReason,
   countIn,
   transpose,
@@ -157,6 +161,12 @@ export function PlayerSoundSettings({
         )}
         <BandChannelTiles metronome={metronome} chords={chords} bass={bass} drums={drums} />
       </PanelSection>
+
+      {patterns && (
+        <PanelSection title="Patrones de esta canción">
+          <BandPatternEditor {...patterns} />
+        </PanelSection>
+      )}
 
       <PanelSection title="Precuenta">
         <SettingsRow label="Precuenta en cada Play" description="Compases de click antes de arrancar (⏱ en la barra).">
