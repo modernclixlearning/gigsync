@@ -84,10 +84,15 @@ export const DRUM_PATTERN_DEFS: Record<DrumPattern, DrumPatternDef> = {
   },
 }
 
-/** Velocity (0–1) of a drum part at a 16th-note step, 0 when it rests. */
+/** Velocity (0–1) of a drum part of one of the built-in patterns at a 16th-note step, 0 when it rests. */
 export function drumVelocity(pattern: DrumPattern, part: DrumPart, step: number, beatsPerBar: number): number {
+  return laneVelocity(DRUM_PATTERN_DEFS[pattern][part], step, beatsPerBar)
+}
+
+/** Velocity (0–1) of a lane (a built-in pattern's, or one written for a song) at a 16th-note step. */
+export function laneVelocity(lane: DrumLane, step: number, beatsPerBar: number): number {
+  if (lane.length === 0) return 0
   const stepsPerBar = Math.max(1, Math.round(beatsPerBar)) * STEPS_PER_BEAT
-  const lane = DRUM_PATTERN_DEFS[pattern][part]
   // A pattern of several whole bars runs across them; otherwise it restarts every bar.
   const cycle = lane.length % stepsPerBar === 0 ? lane.length : stepsPerBar
   const position = ((Math.round(step) % cycle) + cycle) % cycle

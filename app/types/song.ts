@@ -1,8 +1,8 @@
 // Song Types - Extended types for song player functionality
 
-import type { Song, MidiTake, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign } from './setlist'
+import type { Song, MidiTake, SongBand, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign } from './setlist'
 
-export type { Song, MidiTake, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign }
+export type { Song, MidiTake, SongBand, PlayerOverrides, PlayerOverrideKey, BeatHighlightMode, SongTextAlign }
 
 export interface CreateSongInput {
   title: string
@@ -33,6 +33,7 @@ export interface UpdateSongInput {
   youtubeUrl?: string
   youtubeStartSeconds?: number
   midiTake?: MidiTake
+  band?: SongBand
 }
 
 export interface SongPlayerState {

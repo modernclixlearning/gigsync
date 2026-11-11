@@ -491,6 +491,8 @@ export function SongPlayerContent({
     role: 'keys',
     voice: playbackPrefs.keysVoice,
     withBass: !playbackPrefs.bassEnabled,
+    rhythm: song.band?.chordRhythm,
+    beatsPerBar,
   })
   // Bass: the root note only, mono.
   useChordPlayback({
@@ -500,12 +502,15 @@ export function SongPlayerContent({
     volume: playbackPrefs.bassVolume / 100,
     role: 'bass',
     voice: playbackPrefs.bassVoice,
+    rhythm: song.band?.bassRhythm,
+    beatsPerBar,
   })
   // Mini drum machine.
   useDrumPlayback({
     enabled: playbackPrefs.drumsEnabled && bandCanSound,
     isPlaying: metronomeIsPlaying,
     pattern: playbackPrefs.drumPattern,
+    songPattern: song.band?.drums,
     beatsPerBar,
     volume: playbackPrefs.drumsVolume / 100,
   })
@@ -1094,6 +1099,12 @@ export function SongPlayerContent({
           ),
           sound: (
             <PlayerSoundSettings
+              patterns={{
+                band: song.band,
+                onChange: (band) => void updateSong({ band }),
+                beatsPerBar,
+                defaultDrumPattern: playbackPrefs.drumPattern,
+              }}
               metronome={{
                 enabled: player.state.metronomeSoundEnabled,
                 onToggle: player.toggleMetronomeSound,

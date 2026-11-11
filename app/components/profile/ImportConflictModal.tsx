@@ -22,6 +22,7 @@ const FIELD_LABELS: Record<SongContentField, string> = {
   youtubeUrl: 'Video de YouTube',
   youtubeStartSeconds: 'Inicio del video',
   midiTake: 'Notas grabadas del teclado',
+  band: 'Patrones de la banda',
 }
 
 export function ImportConflictModal({ conflicts, onCancel, onApply }: ImportConflictModalProps) {
