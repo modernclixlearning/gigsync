@@ -23,6 +23,12 @@ import { useTrackPlayback } from '~/hooks/useTrackPlayback'
 import { DEFAULT_TRACK_VOICE, trackVolume, type TrackNote, type TrackRole } from '~/lib/audio/bandTracks'
 import { cleanSongBand } from '~/lib/audio/bandPatterns'
 import { TrackEditor } from '~/components/player/TrackEditor'
+import { useLiveMonitor } from '~/hooks/useLiveMonitor'
+import { useMIDIAccess } from '~/hooks/useMIDIAccess'
+import { loadLiveMonitorPrefs, saveLiveMonitorPrefs, type LiveMonitorPrefs, type MonitorRole } from '~/lib/midi/liveMonitor'
+import { BASS_VOICE_LABELS } from '~/lib/audio/bandSound'
+import { TRACK_VOICE_LABELS } from '~/lib/audio/bandTracks'
+import { defaultKeyboardInput } from '~/components/songs/MIDIRecordPanel'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
@@ -550,6 +556,43 @@ export function SongPlayerContent({
   const [editingTrack, setEditingTrack] = useState<TrackRole | null>(null)
   const songBandRef = useRef(song.band)
   songBandRef.current = song.band
+
+  // Live monitor: the MIDI controller plays the band's instruments (MIDI is only asked for once it is on).
+  const [monitorPrefs, setMonitorPrefs] = useState<LiveMonitorPrefs>(loadLiveMonitorPrefs)
+  const updateMonitorPrefs = useCallback((changes: Partial<LiveMonitorPrefs>) => {
+    setMonitorPrefs((previous) => {
+      const next = { ...previous, ...changes }
+      saveLiveMonitorPrefs(next)
+      return next
+    })
+  }, [])
+  const monitorMidi = useMIDIAccess(monitorPrefs.enabled)
+  const [monitorInputId, setMonitorInputId] = useState<string | null>(null)
+  useEffect(() => {
+    if (monitorInputId && monitorMidi.inputs.some((input) => input.id === monitorInputId)) return
+    setMonitorInputId(defaultKeyboardInput(monitorMidi.inputs)?.id ?? null)
+  }, [monitorMidi.inputs, monitorInputId])
+  const leadVoice = song.band?.lead?.voice ?? DEFAULT_TRACK_VOICE.lead
+  const arrangementVoice = song.band?.arrangement?.voice ?? DEFAULT_TRACK_VOICE.arrangement
+  const monitorVolumes: Record<MonitorRole, number> = {
+    drums: playbackPrefs.drumsVolume,
+    bass: playbackPrefs.bassVolume,
+    keys: playbackPrefs.chordVolume,
+    lead: trackVolume(song.band?.lead),
+    arrangement: trackVolume(song.band?.arrangement),
+  }
+  const liveMonitor = useLiveMonitor({
+    // The track editor has its own monitor, on the track's sound.
+    enabled: monitorPrefs.enabled && editingTrack === null,
+    access: monitorMidi.access,
+    inputId: monitorInputId,
+    role: monitorPrefs.role,
+    bassVoice: playbackPrefs.bassVoice,
+    leadVoice,
+    arrangementVoice,
+    volume: monitorVolumes[monitorPrefs.role] / 100,
+    drumsVolume: playbackPrefs.drumsVolume / 100,
+  })
 
   // The click and the chords play along the smart autoscroll's timeline only.
   const soundUnavailableReason = !player.state.isAutoScrollEnabled
@@ -1140,6 +1183,25 @@ export function SongPlayerContent({
                 onChange: (band) => void updateSong({ band }),
                 beatsPerBar,
                 defaultDrumPattern: playbackPrefs.drumPattern,
+              }}
+              liveMonitor={{
+                enabled: monitorPrefs.enabled,
+                onToggle: () => updateMonitorPrefs({ enabled: !monitorPrefs.enabled }),
+                role: monitorPrefs.role,
+                onRoleChange: (role) => updateMonitorPrefs({ role }),
+                accessStatus: monitorMidi.accessStatus,
+                inputs: monitorMidi.inputs,
+                inputId: monitorInputId,
+                onInputChange: setMonitorInputId,
+                voiceLabels: {
+                  drums: 'Batería',
+                  bass: `Bajo · ${BASS_VOICE_LABELS[playbackPrefs.bassVoice]}`,
+                  keys: 'Piano',
+                  lead: TRACK_VOICE_LABELS[leadVoice],
+                  arrangement: TRACK_VOICE_LABELS[arrangementVoice],
+                },
+                held: liveMonitor.held,
+                lastDrum: liveMonitor.lastDrum,
               }}
               tracks={{
                 band: song.band,
