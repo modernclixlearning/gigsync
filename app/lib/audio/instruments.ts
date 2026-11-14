@@ -158,7 +158,7 @@ export function createKeysInstrument(voice: KeysVoice, { reportStatus = true }: 
 }
 
 /** Bass: one note at a time, summed to mono and kept in the centre. */
-export function createBassInstrument(voice: BassVoice): ChordInstrument {
+export function createBassInstrument(voice: BassVoice, { reportStatus = true }: { reportStatus?: boolean } = {}): ChordInstrument {
   const synth = new Tone.PolySynth(Tone.Synth, BASS_SETTINGS[voice])
   synth.maxPolyphony = 4
   const filter = new Tone.Filter({ type: 'lowpass', frequency: 2000, rolloff: -12 })
@@ -170,8 +170,8 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
   level.toDestination()
   const sampled = BASS_SAMPLES[voice]
   // The recorded bass skips the synth's low-pass: it is already a bass.
-  const playable = sampled ? sampledVoice(synth, sampled, mono, level, 'bass') : null
-  if (!sampled) setSoundStatus('bass', 'synth')
+  const playable = sampled ? sampledVoice(synth, sampled, mono, level, 'bass', reportStatus) : null
+  if (!sampled && reportStatus) setSoundStatus('bass', 'synth')
   return {
     synth: playable?.voice ?? synthVoice(synth, level),
     dispose: () => {
@@ -180,7 +180,7 @@ export function createBassInstrument(voice: BassVoice): ChordInstrument {
       synth.dispose()
       playable?.sampler.dispose()
       playable?.stop()
-      if (!playable) setSoundStatus('bass', 'idle')
+      if (!playable && reportStatus) setSoundStatus('bass', 'idle')
       filter.dispose()
       mono.dispose()
       level.dispose()
@@ -200,7 +200,8 @@ const DRUM_FILES: Record<DrumPart, string> = { kick: 'kick.mp3', snare: 'snare.m
  * Mini drum machine: recorded kick, snare and hi-hat (an acoustic kit) into one
  * bus; a hit falls back to a synthesised drum while its sample is not loaded.
  */
-export function createDrumKit(): DrumKit {
+export function createDrumKit({ reportStatus = true }: { reportStatus?: boolean } = {}): DrumKit {
+  const status = (value: Parameters<typeof setSoundStatus>[1]) => reportStatus && setSoundStatus('drums', value)
   const bus = new Tone.Gain(0.5).toDestination()
   const kick = new Tone.MembraneSynth({
     pitchDecay: 0.04,
@@ -231,16 +232,16 @@ export function createDrumKit(): DrumKit {
 
   let alive = true
   let pending = Object.keys(DRUM_FILES).length
-  setSoundStatus('drums', 'loading')
+  status('loading')
   const players = Object.fromEntries(
     (Object.keys(DRUM_FILES) as DrumPart[]).map((part) => {
       const player = new Tone.Player({
         url: `${SAMPLE_BASE}/drums/${DRUM_FILES[part]}`,
         onload: () => {
           pending -= 1
-          if (alive && pending === 0) setSoundStatus('drums', 'samples')
+          if (alive && pending === 0) status('samples')
         },
-        onerror: () => alive && setSoundStatus('drums', 'failed'),
+        onerror: () => alive && status('failed'),
       })
       player.connect(panners[part])
       return [part, player]
@@ -262,7 +263,7 @@ export function createDrumKit(): DrumKit {
     },
     dispose() {
       alive = false
-      setSoundStatus('drums', 'idle')
+      status('idle')
       ;[
         kick, snare, hat, snareFilter, hatFilter, bus,
         ...Object.values(panners),

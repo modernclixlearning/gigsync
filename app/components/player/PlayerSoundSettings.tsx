@@ -13,6 +13,7 @@ import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
 import { BandPatternEditor, type BandPatternEditorProps } from './BandPatternEditor'
 import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
 import { BandTrackCards, type BandTrackCardsProps } from './BandTrackCards'
+import { LiveMonitorCard, type LiveMonitorCardProps } from './LiveMonitorCard'
 import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
@@ -121,6 +122,8 @@ export interface PlayerSoundSettingsProps {
   patterns?: BandPatternEditorProps
   /** The tracks written for this song: lead melody and arrangement. */
   tracks?: BandTrackCardsProps
+  /** Playing the band's instruments live from a MIDI controller. */
+  liveMonitor?: LiveMonitorCardProps
   /** Set when the click and the chords can't sound right now, saying why. */
   soundUnavailableReason?: string
   countIn: {
@@ -150,6 +153,7 @@ export function PlayerSoundSettings({
   drums,
   patterns,
   tracks,
+  liveMonitor,
   soundUnavailableReason,
   countIn,
   transpose,
@@ -175,6 +179,12 @@ export function PlayerSoundSettings({
       {tracks && (
         <PanelSection title="Melodía y arreglos de esta canción">
           <BandTrackCards {...tracks} />
+        </PanelSection>
+      )}
+
+      {liveMonitor && (
+        <PanelSection title="En vivo">
+          <LiveMonitorCard {...liveMonitor} />
         </PanelSection>
       )}
 
