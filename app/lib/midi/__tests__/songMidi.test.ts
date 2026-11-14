@@ -53,6 +53,8 @@ function noteOns(track: Uint8Array): { tick: number; channel: number; pitch: num
       while (track[i] & 0x80) len = (len << 7) | (track[i++] & 0x7f)
       len = (len << 7) | track[i++]
       i += len
+    } else if ((status & 0xf0) === 0xc0) {
+      i += 2 // program change: one data byte
     } else {
       if ((status & 0xf0) === 0x90) out.push({ tick, channel: status & 0x0f, pitch: track[i + 1], velocity: track[i + 2] })
       i += 3
@@ -120,8 +122,39 @@ describe('songsToMidi', () => {
   })
 
   it('leaves out the tracks that were not asked for', () => {
-    const bytes = songsToMidi([song()], { chords: true, bass: false, drums: false, melody: false, click: false })
+    const bytes = songsToMidi([song()], { chords: true, bass: false, drums: false, lead: false, arrangement: false, melody: false, click: false })
     expect(chunks(bytes)).toHaveLength(3)
+  })
+})
+
+describe('songsToMidi — the tracks written for the song', () => {
+  const lead = {
+    voice: 'sax' as const,
+    notes: [
+      { beat: 0, beats: 1, pitch: 72, velocity: 1 },
+      { beat: 1.5, beats: 0.5, pitch: 74, velocity: 0.5 },
+    ],
+  }
+
+  it('adds the lead melody and the arrangement as their own tracks, on the beat they were written', () => {
+    const without = chunks(songsToMidi([song()]))
+    const arrangement = { voice: 'strings' as const, notes: [{ beat: 4, beats: 4, pitch: 55, velocity: 0.7 }] }
+    const withTracks = chunks(songsToMidi([{ ...song(), band: { lead, arrangement } }]))
+    expect(withTracks).toHaveLength(without.length + 2)
+
+    expect(noteOns(withTracks[4].data)).toEqual([
+      { tick: 0, channel: 3, pitch: 72, velocity: 127 },
+      { tick: 1.5 * PPQ, channel: 3, pitch: 74, velocity: 64 },
+    ])
+    expect(noteOns(withTracks[5].data)).toEqual([{ tick: 4 * PPQ, channel: 4, pitch: 55, velocity: 89 }])
+    // Each track opens on the General MIDI sound closest to its voice (alto sax = 65).
+    expect([...withTracks[4].data].join(',')).toContain([0xc3, 65].join(','))
+  })
+
+  it('leaves out a silenced track and one that was not asked for', () => {
+    const without = chunks(songsToMidi([song()]))
+    expect(chunks(songsToMidi([{ ...song(), band: { lead: { ...lead, muted: true } } }]))).toHaveLength(without.length)
+    expect(chunks(songsToMidi([{ ...song(), band: { lead } }], { ...DEFAULT_SONG_MIDI_OPTIONS, lead: false }))).toHaveLength(without.length)
   })
 })
 

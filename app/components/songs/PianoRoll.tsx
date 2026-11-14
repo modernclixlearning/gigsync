@@ -51,6 +51,10 @@ interface PianoRollProps {
   /** Selected note indices, when the parent keeps them (otherwise the roll does). */
   selection?: number[]
   onSelectionChange?: (selection: number[]) => void
+  /** Pitches always drawn, whatever the notes (for writing from scratch). Default: around the notes. */
+  minRange?: { low: number; high: number }
+  /** Pencil: a tap on empty space adds a note (for touch screens, where a double tap is awkward). */
+  drawMode?: boolean
 }
 
 type Drag =
@@ -105,6 +109,8 @@ export function PianoRoll({
   onAudition,
   selection: controlledSelection,
   onSelectionChange,
+  minRange,
+  drawMode = false,
 }: PianoRollProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -133,7 +139,10 @@ export function PianoRoll({
   const bars = Math.max(1, Math.ceil(Math.max(durationSeconds, notesEnd) / (beat * bpb) - 1e-6))
   const totalBeats = bars * bpb
   const width = totalBeats * PX_PER_BEAT
-  const range = pitchRange(notes)
+  const fitted = pitchRange(notes)
+  const range = minRange
+    ? { low: Math.min(fitted.low, minRange.low), high: Math.max(fitted.high, minRange.high) }
+    : fitted
   const { low, high } = range
   const pitches = Array.from({ length: high - low + 1 }, (_, i) => high - i)
   const height = pitches.length * ROW_PX
@@ -173,9 +182,12 @@ export function PianoRoll({
   const centeredRef = useRef(false)
   useEffect(() => {
     const scroller = scrollRef.current
-    if (!scroller || centeredRef.current || notes.length === 0) return
+    if (!scroller || centeredRef.current || (notes.length === 0 && !minRange)) return
     centeredRef.current = true
-    const middle = (Math.min(...notes.map((n) => n.pitchMidi)) + Math.max(...notes.map((n) => n.pitchMidi))) / 2
+    const middle =
+      notes.length === 0
+        ? (low + high) / 2
+        : (Math.min(...notes.map((n) => n.pitchMidi)) + Math.max(...notes.map((n) => n.pitchMidi))) / 2
     scroller.scrollTop = Math.max(0, y(middle) + CHORD_ROW_PX - scroller.clientHeight / 2)
   })
 
@@ -287,8 +299,9 @@ export function PianoRoll({
     svgRef.current?.releasePointerCapture?.(event.pointerId)
     if (drag.kind === 'box') {
       setMarquee(null)
-      // A plain click on empty space clears the selection.
-      if (!drag.moved && drag.base.length === 0) select([])
+      // A plain click on empty space clears the selection — or, with the pencil, writes a note there.
+      if (!drag.moved && drawMode && editable) addNoteAt(event.clientX, event.clientY)
+      else if (!drag.moved && drag.base.length === 0) select([])
       return
     }
     if (drag.moved && draft) onChangeNotes?.(draft)
@@ -304,7 +317,13 @@ export function PianoRoll({
       deleteNotes([Number(index)])
       return
     }
-    const { seconds, pitch } = gridPoint(event.clientX, event.clientY)
+    // With the pencil each tap already wrote its note.
+    if (!drawMode) addNoteAt(event.clientX, event.clientY)
+  }
+
+  /** A new note, one grid step long, on the step and pitch under the pointer. */
+  const addNoteAt = (clientX: number, clientY: number) => {
+    const { seconds, pitch } = gridPoint(clientX, clientY)
     const created: NoteEvent = {
       pitchMidi: pitch,
       startTimeSeconds: snapTime(seconds, step, true),

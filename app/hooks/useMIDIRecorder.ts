@@ -70,6 +70,10 @@ export interface UseMIDIRecorderOptions {
   countInBars?: number
   /** Play the keys through the browser while listening. */
   monitor?: boolean
+  /** The instrument the keys are heard through. Default: the band's piano. */
+  createMonitor?: () => ChordInstrument
+  /** Changes when `createMonitor` would build a different instrument: the monitor is rebuilt. */
+  monitorKey?: string
 }
 
 export interface UseMIDIRecorderReturn {
@@ -95,6 +99,8 @@ export interface UseMIDIRecorderReturn {
   start: () => Promise<void>
   stop: () => void
   reset: () => void
+  /** Audio-clock time of the take's first downbeat (after the count-in), or null when not recording. */
+  origin: () => number | null
 }
 
 interface Session {
@@ -124,6 +130,8 @@ export function useMIDIRecorder({
   beatsPerBar,
   countInBars = 1,
   monitor = true,
+  createMonitor,
+  monitorKey,
 }: UseMIDIRecorderOptions): UseMIDIRecorderReturn {
   const [phase, setPhase] = useState<RecorderPhase>('idle')
   const [countIn, setCountIn] = useState<number | null>(null)
@@ -165,20 +173,24 @@ export function useMIDIRecorder({
     instrument?.synth.releaseAll()
     instrument?.dispose()
   }, [monitor])
+  // Also freed when the instrument to monitor through changes: the next key builds the new one.
   useEffect(
     () => () => {
       monitorSynthRef.current?.dispose()
       monitorSynthRef.current = null
+      monitorPlayingRef.current.clear()
     },
-    [],
+    [monitorKey],
   )
+  const createMonitorRef = useRef(createMonitor)
+  createMonitorRef.current = createMonitor
 
   /** Make the monitor follow the sounding keys; `struck` is re-attacked even if it was already sounding. */
   const syncMonitor = useCallback((sound: number[], struck?: { pitch: number; velocity: number }) => {
     if (!monitorRef.current) return
     if (!monitorSynthRef.current) {
       // The band's piano (recorded samples; a synth until they load), not reported as a band channel.
-      const created = createKeysInstrument('piano', { reportStatus: false })
+      const created = createMonitorRef.current?.() ?? createKeysInstrument('piano', { reportStatus: false })
       created.synth.volume.value = -4
       monitorSynthRef.current = created
     }
@@ -376,5 +388,7 @@ export function useMIDIRecorder({
 
   useEffect(() => () => void endSession(), [endSession])
 
-  return { phase, countIn, position, sounding, held, noteOn, noteOff, liveLines, liveProgression, recording, peek, start, stop, reset }
+  const origin = useCallback(() => sessionRef.current?.origin ?? null, [])
+
+  return { origin, phase, countIn, position, sounding, held, noteOn, noteOff, liveLines, liveProgression, recording, peek, start, stop, reset }
 }

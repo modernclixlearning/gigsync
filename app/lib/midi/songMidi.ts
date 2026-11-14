@@ -1,8 +1,8 @@
 /**
  * Songs → a Standard MIDI File (pure): a tempo/marker track, the chords and the
  * bass voiced like the player's band and played with the rhythm written for
- * the song, its drum pattern (if it has one), the keyboard take (if one was
- * saved) and, optionally, a click. Several songs go one after another, a bar apart, each
+ * the song, its drum pattern (if it has one), the lead melody and the
+ * arrangement written for it, the keyboard take (if one was saved) and, optionally, a click. Several songs go one after another, a bar apart, each
  * with its own tempo, time signature and marker — drag the file into Ableton
  * and the arrangement follows.
  */
@@ -10,6 +10,7 @@
 import { bassInstrumentPitch, voiceChord } from '~/lib/audio/chordVoicing'
 import { DRUM_PARTS, cleanDrumPattern, patternHasHits, patternVelocities, rhythmHits, stepsPerBar } from '~/lib/audio/bandPatterns'
 import { STEPS_PER_BEAT, laneVelocity, type DrumPart } from '~/lib/audio/bandSound'
+import { TRACK_ROLES, TRACK_ROLE_LABELS, trackEndBeat, trackHasNotes, type TrackRole, type TrackVoice } from '~/lib/audio/bandTracks'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { createSongTimeline } from '~/lib/timeline/calculator'
 import type { Song } from '~/types/setlist'
@@ -17,6 +18,7 @@ import {
   PPQ,
   markerEvent,
   noteEvents,
+  programEvent,
   tempoEvent,
   timeSignatureEvent,
   writeSmf,
@@ -29,16 +31,24 @@ export interface SongMidiOptions {
   bass: boolean
   /** The drum pattern written for the song (songs without one get no drums). */
   drums: boolean
+  /** The lead melody written for the song. */
+  lead: boolean
+  /** The arrangement written for the song. */
+  arrangement: boolean
+  /** The keyboard take the chords were recorded from. */
   melody: boolean
   click: boolean
 }
 
-export const DEFAULT_SONG_MIDI_OPTIONS: SongMidiOptions = { chords: true, bass: true, drums: true, melody: true, click: false }
+export const DEFAULT_SONG_MIDI_OPTIONS: SongMidiOptions = { chords: true, bass: true, drums: true, lead: true, arrangement: true, melody: true, click: false }
 
 const CH_CHORDS = 0
 const CH_BASS = 1
 const CH_MELODY = 2
 const CH_CLICK = 9
+const CH_TRACK: Record<TrackRole, number> = { lead: 3, arrangement: 4 }
+/** General MIDI program (0-based) closest to each voice, so the DAW opens the track on a similar sound. */
+const GM_PROGRAM: Record<TrackVoice, number> = { leadKeys: 81, guitar: 29, sax: 65, strings: 48, brass: 61, choir: 52 }
 /** General MIDI percussion channel (10), and its notes for the kit. */
 const CH_DRUMS = 9
 const DRUM_NOTES: Record<DrumPart, number> = { kick: 36, snare: 38, hat: 42 }
@@ -54,7 +64,16 @@ export function parseTimeSignature(value: string | undefined): { beats: number; 
 
 /** True when the song has anything to put in a MIDI file. */
 export function songHasMidiContent(song: Song): boolean {
-  return !!song.midiTake?.notes.length || (song.lyrics ?? '').trim().length > 0
+  return (
+    !!song.midiTake?.notes.length ||
+    (song.lyrics ?? '').trim().length > 0 ||
+    TRACK_ROLES.some((role) => songHasTrack(song, role))
+  )
+}
+
+/** True when the song has that track written (and not silenced). */
+export function songHasTrack(song: Song, role: TrackRole): boolean {
+  return trackHasNotes(song.band?.[role]) && !song.band![role]!.muted
 }
 
 /** True when the song has a drum pattern of its own to export. */
@@ -73,6 +92,7 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
   const bass: SmfEvent[] = []
   const drums: SmfEvent[] = []
   const melody: SmfEvent[] = []
+  const written: Record<TrackRole, SmfEvent[]> = { lead: [], arrangement: [] }
   const click: SmfEvent[] = []
 
   let offsetBeats = 0
@@ -107,6 +127,19 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
         const length = Math.max(1, Math.round(hit.durationBeats * PPQ * 0.95))
         bass.push(...noteEvents(tick, length, CH_BASS, bassInstrumentPitch(voicing), hitVelocity(hit.velocity, 95)))
       }
+    }
+
+    // Written tracks: in beats, so they sit on the song's own tempo.
+    for (const role of TRACK_ROLES) {
+      if (!options[role] || !songHasTrack(song, role)) continue
+      const track = song.band![role]!
+      written[role].push(programEvent(base, CH_TRACK[role], GM_PROGRAM[track.voice]))
+      for (const note of track.notes) {
+        const tick = base + Math.round(note.beat * PPQ)
+        const length = Math.max(1, Math.round(note.beats * PPQ))
+        written[role].push(...noteEvents(tick, length, CH_TRACK[role], note.pitch, note.velocity * 127))
+      }
+      songBeats = Math.max(songBeats, trackEndBeat(track.notes))
     }
 
     const take = song.midiTake
@@ -147,6 +180,9 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
   if (options.chords) tracks.push({ name: 'Acordes', events: chords })
   if (options.bass) tracks.push({ name: 'Bajo', events: bass })
   if (options.drums && drums.length > 0) tracks.push({ name: 'Batería', events: drums })
+  for (const role of TRACK_ROLES) {
+    if (written[role].length > 0) tracks.push({ name: TRACK_ROLE_LABELS[role], events: written[role] })
+  }
   if (options.melody && melody.length > 0) tracks.push({ name: 'Teclado (toma)', events: melody })
   if (options.click) tracks.push({ name: 'Click', events: click })
   return writeSmf(tracks)

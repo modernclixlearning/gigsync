@@ -10,6 +10,7 @@
 import * as Tone from 'tone'
 import { DRUM_PAN, type BassVoice, type DrumPart, type KeysVoice } from './bandSound'
 import { setSoundStatus, type BandChannel } from './soundStatus'
+import type { TrackVoice } from './bandTracks'
 
 /** What the chord hook needs from a channel: play notes, silence them, set the level. */
 export interface PlayableVoice {
@@ -267,6 +268,126 @@ export function createDrumKit(): DrumKit {
         ...Object.values(panners),
         ...Object.values(players),
       ].forEach((node) => node.dispose())
+    },
+  }
+}
+
+/* ── Written tracks: lead melody and arrangement ─────────────────────────── */
+
+interface TrackVoiceSpec {
+  /** Options of the Tone.Synth behind each voice of the PolySynth. */
+  synth: object
+  polyphony: number
+  /** Trim in dB, so the six voices sit at a similar loudness. */
+  trim: number
+  /** Effects between the synth and the channel level, in order. */
+  chain: () => Tone.ToneAudioNode[]
+}
+
+/**
+ * All six are synthesised (no samples yet): each is an oscillator shape, an
+ * envelope and a short chain that give it the character of the instrument.
+ */
+const TRACK_VOICE_SPECS: Record<TrackVoice, TrackVoiceSpec> = {
+  // Synth lead: bright, immediate, a touch of chorus.
+  leadKeys: {
+    synth: {
+      oscillator: { type: 'fatsawtooth', count: 3, spread: 18 },
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.25 },
+    },
+    polyphony: 8,
+    trim: -12,
+    chain: () => [
+      new Tone.Filter({ type: 'lowpass', frequency: 3800, rolloff: -12 }),
+      new Tone.Chorus({ frequency: 0.8, delayTime: 3, depth: 0.4, wet: 0.3 }).start(),
+    ],
+  },
+  // Electric guitar: overdriven, then a low-pass standing in for the speaker.
+  guitar: {
+    synth: {
+      oscillator: { type: 'fatsawtooth', count: 2, spread: 8 },
+      envelope: { attack: 0.004, decay: 0.7, sustain: 0.45, release: 0.35 },
+    },
+    polyphony: 6,
+    trim: -16,
+    chain: () => [
+      new Tone.Distortion({ distortion: 0.45, wet: 0.8 }),
+      new Tone.Filter({ type: 'lowpass', frequency: 3200, rolloff: -24 }),
+    ],
+  },
+  // Sax: a reedy pulse that speaks a little late, with vibrato.
+  sax: {
+    synth: {
+      oscillator: { type: 'pulse', width: 0.35 },
+      envelope: { attack: 0.045, decay: 0.15, sustain: 0.8, release: 0.2 },
+    },
+    polyphony: 4,
+    trim: -14,
+    chain: () => [
+      new Tone.Vibrato({ frequency: 5.2, depth: 0.08 }),
+      new Tone.Filter({ type: 'lowpass', frequency: 2200, rolloff: -12, Q: 1.5 }),
+    ],
+  },
+  // Strings: slow bow, wide ensemble.
+  strings: {
+    synth: {
+      oscillator: { type: 'fatsawtooth', count: 3, spread: 28 },
+      envelope: { attack: 0.22, decay: 0.3, sustain: 0.85, release: 0.9 },
+    },
+    polyphony: 12,
+    trim: -16,
+    chain: () => [
+      new Tone.Filter({ type: 'lowpass', frequency: 2600, rolloff: -12 }),
+      new Tone.Chorus({ frequency: 0.6, delayTime: 4, depth: 0.6, wet: 0.5 }).start(),
+    ],
+  },
+  // Brass section: a quick swell, darker than the strings.
+  brass: {
+    synth: {
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 0.06, decay: 0.25, sustain: 0.75, release: 0.3 },
+    },
+    polyphony: 8,
+    trim: -13,
+    chain: () => [new Tone.Filter({ type: 'lowpass', frequency: 1900, rolloff: -12, Q: 1 })],
+  },
+  // Choir: soft «ah» — a band-pass around the vowel's formant, slow in and out.
+  choir: {
+    synth: {
+      oscillator: { type: 'fattriangle', count: 3, spread: 22 },
+      envelope: { attack: 0.3, decay: 0.3, sustain: 0.9, release: 1.1 },
+    },
+    polyphony: 12,
+    trim: -8,
+    chain: () => [
+      new Tone.Filter({ type: 'bandpass', frequency: 850, Q: 0.6 }),
+      new Tone.Chorus({ frequency: 0.5, delayTime: 5, depth: 0.7, wet: 0.6 }).start(),
+    ],
+  },
+}
+
+/** A written track's instrument: lead keys, electric guitar, sax, strings, brass or choir. */
+export function createTrackInstrument(voice: TrackVoice): ChordInstrument {
+  const spec = TRACK_VOICE_SPECS[voice]
+  const synth = new Tone.PolySynth(Tone.Synth, spec.synth)
+  synth.maxPolyphony = spec.polyphony
+  synth.volume.value = spec.trim
+  const chain = spec.chain()
+  const level = new Tone.Volume(0)
+  let node: Tone.ToneAudioNode = synth
+  for (const next of chain) {
+    node.connect(next)
+    node = next
+  }
+  node.connect(level)
+  level.toDestination()
+  return {
+    synth: synthVoice(synth, level),
+    dispose: () => {
+      synth.releaseAll()
+      synth.dispose()
+      chain.forEach((effect) => effect.dispose())
+      level.dispose()
     },
   }
 }

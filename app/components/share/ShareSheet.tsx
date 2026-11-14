@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileDown, Music4, X } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { gigsyncToFile, midiToFile, shareOrDownload, type GigsyncFile } from '~/lib/gigsyncFile'
-import { DEFAULT_SONG_MIDI_OPTIONS, songHasDrumPattern, songHasMidiContent, songsToMidi, type SongMidiOptions } from '~/lib/midi/songMidi'
+import { DEFAULT_SONG_MIDI_OPTIONS, songHasDrumPattern, songHasMidiContent, songHasTrack, songsToMidi, type SongMidiOptions } from '~/lib/midi/songMidi'
 import type { Song } from '~/types/setlist'
 import { ShareToast } from './useGigsyncImport'
 
@@ -20,6 +20,8 @@ const MIDI_LABELS: { key: keyof SongMidiOptions; label: string }[] = [
   { key: 'chords', label: 'Acordes' },
   { key: 'bass', label: 'Bajo' },
   { key: 'drums', label: 'Batería' },
+  { key: 'lead', label: 'Melodía' },
+  { key: 'arrangement', label: 'Arreglos' },
   { key: 'melody', label: 'Teclado grabado' },
   { key: 'click', label: 'Click' },
 ]
@@ -39,7 +41,16 @@ export function ShareSheet({ name, songs, file, onClose }: ShareSheetProps) {
   const withMidi = songs.filter(songHasMidiContent)
   const hasTake = songs.some((song) => !!song.midiTake?.notes.length)
   const hasDrums = songs.some(songHasDrumPattern)
-  const nothingToSend = !midi.chords && !midi.bass && !(midi.drums && hasDrums) && !(midi.melody && hasTake) && !midi.click
+  const hasLead = songs.some((song) => songHasTrack(song, 'lead'))
+  const hasArrangement = songs.some((song) => songHasTrack(song, 'arrangement'))
+  const nothingToSend =
+    !midi.chords &&
+    !midi.bass &&
+    !(midi.drums && hasDrums) &&
+    !(midi.lead && hasLead) &&
+    !(midi.arrangement && hasArrangement) &&
+    !(midi.melody && hasTake) &&
+    !midi.click
 
   const done = (result: 'shared' | 'downloaded' | 'cancelled') => {
     if (result === 'cancelled') return
@@ -74,7 +85,11 @@ export function ShareSheet({ name, songs, file, onClose }: ShareSheetProps) {
           <p className="text-sm font-medium text-slate-900 dark:text-white">Exportar a MIDI (.mid) para Ableton</p>
           <div className="flex flex-wrap gap-2">
             {MIDI_LABELS.map(({ key, label }) => {
-              const disabled = (key === 'melody' && !hasTake) || (key === 'drums' && !hasDrums)
+              const disabled =
+                (key === 'melody' && !hasTake) ||
+                (key === 'drums' && !hasDrums) ||
+                (key === 'lead' && !hasLead) ||
+                (key === 'arrangement' && !hasArrangement)
               return (
                 <label
                   key={key}
