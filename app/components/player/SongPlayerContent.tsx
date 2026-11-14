@@ -20,8 +20,8 @@ import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useChordPlayback } from '~/hooks/useChordPlayback'
 import { useDrumPlayback } from '~/hooks/useDrumPlayback'
 import { useTrackPlayback } from '~/hooks/useTrackPlayback'
-import { DEFAULT_TRACK_VOICE, trackVolume, type TrackNote, type TrackRole } from '~/lib/audio/bandTracks'
-import { cleanSongBand } from '~/lib/audio/bandPatterns'
+import { DEFAULT_TRACK_VOICE, activeTakeNotes, isTrackRole, trackVolume, type BandRole, type TrackNote } from '~/lib/audio/bandTracks'
+import { bandRoleNotes, withBandRoleNotes } from '~/lib/audio/bandPatterns'
 import { TrackEditor } from '~/components/player/TrackEditor'
 import { useLiveMonitor } from '~/hooks/useLiveMonitor'
 import { useMIDIAccess } from '~/hooks/useMIDIAccess'
@@ -491,6 +491,19 @@ export function SongPlayerContent({
     [autoScroll.timeline, player.state.transpose, effectiveUseFlats]
   )
   const bandCanSound = player.state.isAutoScrollEnabled && !autoScroll.hasFallback
+  // What was written or played note by note moves with the song's key (the drums do not).
+  const transposeNotes = useCallback(
+    (notes: readonly TrackNote[] | undefined) =>
+      player.state.transpose === 0 || !notes
+        ? (notes ?? [])
+        : notes.map((note) => ({ ...note, pitch: Math.min(127, Math.max(0, note.pitch + player.state.transpose)) })),
+    [player.state.transpose]
+  )
+  // Live takes: while a role has one, it plays instead of the role's pattern.
+  const keysTake = song.band?.takes?.keys
+  const bassTake = song.band?.takes?.bass
+  const keysTakeNotes = useMemo(() => transposeNotes(activeTakeNotes(keysTake)), [transposeNotes, keysTake])
+  const bassTakeNotes = useMemo(() => transposeNotes(activeTakeNotes(bassTake)), [transposeNotes, bassTake])
   // Keyboard: the full chord, stereo (it carries its own bass note only when
   // there's no bass channel).
   useChordPlayback({
@@ -503,6 +516,7 @@ export function SongPlayerContent({
     withBass: !playbackPrefs.bassEnabled,
     rhythm: song.band?.chordRhythm,
     beatsPerBar,
+    takeNotes: keysTakeNotes,
   })
   // Bass: the root note only, mono.
   useChordPlayback({
@@ -514,6 +528,7 @@ export function SongPlayerContent({
     voice: playbackPrefs.bassVoice,
     rhythm: song.band?.bassRhythm,
     beatsPerBar,
+    takeNotes: bassTakeNotes,
   })
   // Mini drum machine.
   useDrumPlayback({
@@ -523,16 +538,10 @@ export function SongPlayerContent({
     songPattern: song.band?.drums,
     beatsPerBar,
     volume: playbackPrefs.drumsVolume / 100,
+    takeNotes: activeTakeNotes(song.band?.takes?.drums),
   })
 
   // Written tracks: the lead melody and the arrangement, transposed with the song.
-  const transposeNotes = useCallback(
-    (notes: readonly TrackNote[] | undefined) =>
-      player.state.transpose === 0 || !notes
-        ? (notes ?? [])
-        : notes.map((note) => ({ ...note, pitch: Math.min(127, Math.max(0, note.pitch + player.state.transpose)) })),
-    [player.state.transpose]
-  )
   const leadNotes = useMemo(() => transposeNotes(song.band?.lead?.notes), [transposeNotes, song.band?.lead?.notes])
   const arrangementNotes = useMemo(
     () => transposeNotes(song.band?.arrangement?.notes),
@@ -553,7 +562,7 @@ export function SongPlayerContent({
     volume: trackVolume(song.band?.arrangement) / 100,
   })
   /** The track being written in the full-screen editor, if any. */
-  const [editingTrack, setEditingTrack] = useState<TrackRole | null>(null)
+  const [editingTrack, setEditingTrack] = useState<BandRole | null>(null)
   const songBandRef = useRef(song.band)
   songBandRef.current = song.band
 
@@ -1183,6 +1192,10 @@ export function SongPlayerContent({
                 onChange: (band) => void updateSong({ band }),
                 beatsPerBar,
                 defaultDrumPattern: playbackPrefs.drumPattern,
+                onEditTake: (role) => {
+                  if (player.state.isPlaying) player.pause()
+                  setEditingTrack(role)
+                },
               }}
               liveMonitor={{
                 enabled: monitorPrefs.enabled,
@@ -1286,13 +1299,17 @@ export function SongPlayerContent({
       {editingTrack && (
         <TrackEditor
           role={editingTrack}
-          track={song.band?.[editingTrack]}
-          onChange={(track) => void updateSong({ band: cleanSongBand({ ...songBandRef.current, [editingTrack]: track }) })}
+          track={{
+            voice: isTrackRole(editingTrack) ? song.band?.[editingTrack]?.voice : undefined,
+            notes: bandRoleNotes(song.band, editingTrack),
+          }}
+          onChange={(part) => void updateSong({ band: withBandRoleNotes(songBandRef.current, editingTrack, part) })}
+          bassVoice={playbackPrefs.bassVoice}
           bpm={song.bpm > 0 ? song.bpm : 120}
           beatsPerBar={beatsPerBar}
           totalBeats={autoScroll.totalBeats}
           chords={songChordEvents}
-          otherTrack={song.band?.[editingTrack === 'lead' ? 'arrangement' : 'lead']}
+          otherTrack={isTrackRole(editingTrack) ? song.band?.[editingTrack === 'lead' ? 'arrangement' : 'lead'] : undefined}
           onClose={() => setEditingTrack(null)}
         />
       )}

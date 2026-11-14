@@ -12,6 +12,7 @@ import * as Tone from 'tone'
 import { DRUM_PATTERN_DEFS, STEPS_PER_BEAT, laneVelocity, type DrumPart, type DrumPattern } from '~/lib/audio/bandSound'
 import { resolveDrumLanes, type SongDrumPattern } from '~/lib/audio/bandPatterns'
 import { createDrumKit, type DrumKit } from '~/lib/audio/instruments'
+import { drumTakeHits, type TrackNote } from '~/lib/audio/bandTracks'
 
 export interface UseDrumPlaybackOptions {
   enabled: boolean
@@ -22,6 +23,8 @@ export interface UseDrumPlaybackOptions {
   beatsPerBar: number
   /** 0..1 */
   volume?: number
+  /** A drum take played live. When it has notes it plays, hit by hit, instead of any pattern. */
+  takeNotes?: readonly TrackNote[]
 }
 
 const PARTS = Object.keys(DRUM_PATTERN_DEFS.rock) as DrumPart[]
@@ -31,7 +34,8 @@ export function stepAtTick(ticks: number, ppq: number): number {
   return Math.round(ticks / (ppq / STEPS_PER_BEAT))
 }
 
-export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beatsPerBar, volume = 0.5 }: UseDrumPlaybackOptions): void {
+export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beatsPerBar, volume = 0.5, takeNotes }: UseDrumPlaybackOptions): void {
+  const take = takeNotes && takeNotes.length > 0 ? takeNotes : null
   const kitRef = useRef<DrumKit | null>(null)
   // Read from the audio callback, outside React's render cycle.
   const lanes = useMemo(() => resolveDrumLanes(songPattern, pattern), [songPattern, pattern])
@@ -43,6 +47,21 @@ export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beat
     const kit = createDrumKit()
     kitRef.current = kit
     const transport = Tone.getTransport()
+    if (take) {
+      // The take: one Part event per hit, at its tick.
+      const part = new Tone.Part<{ time: string; part: DrumPart; velocity: number }>(
+        (time, hit) => {
+          if (optionsRef.current.isPlaying) kit.hit(hit.part, time, hit.velocity)
+        },
+        drumTakeHits(take).map((hit) => ({ time: `${Math.round(hit.beat * transport.PPQ)}i`, part: hit.part, velocity: hit.velocity })),
+      )
+      part.start(0)
+      return () => {
+        part.dispose()
+        kit.dispose()
+        kitRef.current = null
+      }
+    }
     const loop = new Tone.Loop((time: number) => {
       const { isPlaying: playing, lanes: current, beatsPerBar: perBar } = optionsRef.current
       if (!playing) return
@@ -58,9 +77,9 @@ export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beat
       kit.dispose()
       kitRef.current = null
     }
-  }, [enabled])
+  }, [enabled, take])
 
   useEffect(() => {
     kitRef.current?.setVolume(Math.max(0, volume))
-  }, [volume, enabled])
+  }, [volume, enabled, take])
 }

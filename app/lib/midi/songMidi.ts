@@ -10,7 +10,17 @@
 import { bassInstrumentPitch, voiceChord } from '~/lib/audio/chordVoicing'
 import { DRUM_PARTS, cleanDrumPattern, patternHasHits, patternVelocities, rhythmHits, stepsPerBar } from '~/lib/audio/bandPatterns'
 import { STEPS_PER_BEAT, laneVelocity, type DrumPart } from '~/lib/audio/bandSound'
-import { TRACK_ROLES, TRACK_ROLE_LABELS, trackEndBeat, trackHasNotes, type TrackRole, type TrackVoice } from '~/lib/audio/bandTracks'
+import {
+  TRACK_ROLES,
+  TRACK_ROLE_LABELS,
+  activeTakeNotes,
+  drumTakeHits,
+  trackEndBeat,
+  trackHasNotes,
+  type TrackNote,
+  type TrackRole,
+  type TrackVoice,
+} from '~/lib/audio/bandTracks'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { createSongTimeline } from '~/lib/timeline/calculator'
 import type { Song } from '~/types/setlist'
@@ -76,9 +86,12 @@ export function songHasTrack(song: Song, role: TrackRole): boolean {
   return trackHasNotes(song.band?.[role]) && !song.band![role]!.muted
 }
 
-/** True when the song has a drum pattern of its own to export. */
+/** True when the song has drums of its own to export: a pattern written for it, or a live take. */
 export function songHasDrumPattern(song: Song): boolean {
-  return !!song.band?.drums && DRUM_PARTS.some((part) => patternHasHits(song.band!.drums![part]))
+  return (
+    activeTakeNotes(song.band?.takes?.drums).length > 0 ||
+    (!!song.band?.drums && DRUM_PARTS.some((part) => patternHasHits(song.band!.drums![part])))
+  )
 }
 
 /** MIDI velocity of a hit: `base` for a normal one, harder for an accent, softer for a soft one. */
@@ -109,8 +122,18 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
 
     let songBeats = timeline.totalBeats
     const songChords = chordEvents(timeline)
-    // Each part with the rhythm written for the song (one long note per chord without one).
-    if (options.chords) {
+    // A role with a live take plays the take, exactly as played.
+    const takeEvents = (notes: readonly TrackNote[], channel: number): SmfEvent[] =>
+      notes.flatMap((note) =>
+        noteEvents(base + Math.round(note.beat * PPQ), Math.max(1, Math.round(note.beats * PPQ)), channel, note.pitch, note.velocity * 127),
+      )
+    const keysTake = activeTakeNotes(song.band?.takes?.keys)
+    const bassTake = activeTakeNotes(song.band?.takes?.bass)
+    const drumsTake = activeTakeNotes(song.band?.takes?.drums)
+    songBeats = Math.max(songBeats, trackEndBeat(keysTake), trackEndBeat(bassTake), trackEndBeat(drumsTake))
+    // Otherwise each part with the rhythm written for the song (one long note per chord without one).
+    if (options.chords && keysTake.length > 0) chords.push(...takeEvents(keysTake, CH_CHORDS))
+    else if (options.chords) {
       for (const hit of rhythmHits(songChords, song.band?.chordRhythm, beatsPerBar)) {
         const voicing = voiceChord(hit.chord)
         if (!voicing) continue
@@ -119,7 +142,8 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
         for (const pitch of voicing.chord) chords.push(...noteEvents(tick, length, CH_CHORDS, pitch, hitVelocity(hit.velocity, 85)))
       }
     }
-    if (options.bass) {
+    if (options.bass && bassTake.length > 0) bass.push(...takeEvents(bassTake, CH_BASS))
+    else if (options.bass) {
       for (const hit of rhythmHits(songChords, song.band?.bassRhythm, beatsPerBar)) {
         const voicing = voiceChord(hit.chord)
         if (!voicing) continue
@@ -155,7 +179,11 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
 
     // Round up to whole bars, plus one empty bar between songs.
     songBeats = Math.max(beatsPerBar, Math.ceil(songBeats / beatsPerBar - 1e-6) * beatsPerBar)
-    if (options.drums && songHasDrumPattern(song)) {
+    if (options.drums && drumsTake.length > 0) {
+      for (const hit of drumTakeHits(drumsTake)) {
+        drums.push(...noteEvents(base + Math.round(hit.beat * PPQ), PPQ / 8, CH_DRUMS, DRUM_NOTES[hit.part], hit.velocity * 110))
+      }
+    } else if (options.drums && songHasDrumPattern(song)) {
       const pattern = cleanDrumPattern(song.band!.drums)
       const stepTicks = PPQ / STEPS_PER_BEAT
       const totalSteps = (songBeats / beatsPerBar) * stepsPerBar(beatsPerBar)

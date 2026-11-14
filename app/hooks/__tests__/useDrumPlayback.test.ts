@@ -8,11 +8,17 @@ import { renderHook } from '@testing-library/react'
 const tone = vi.hoisted(() => ({
   loops: [] as { callback: (time: number) => void; interval: string; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[],
   transport: { PPQ: 192, getTicksAtTime: vi.fn((_time: number) => 0) },
+  parts: [] as { callback: (time: number, event: unknown) => void; events: unknown[]; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[],
 }))
 const kit = vi.hoisted(() => ({ hit: vi.fn(), setVolume: vi.fn(), dispose: vi.fn() }))
 
 vi.mock('tone', () => ({
   getTransport: vi.fn(() => tone.transport),
+  Part: vi.fn().mockImplementation((callback: (time: number, event: unknown) => void, events: unknown[]) => {
+    const part = { callback, events, start: vi.fn(), dispose: vi.fn() }
+    tone.parts.push(part)
+    return part
+  }),
   Loop: vi.fn().mockImplementation((callback: (time: number) => void, interval: string) => {
     const loop = { callback, interval, start: vi.fn(), dispose: vi.fn() }
     tone.loops.push(loop)
@@ -34,10 +40,26 @@ describe('stepAtTick', () => {
 describe('useDrumPlayback', () => {
   beforeEach(() => {
     tone.loops.length = 0
+    tone.parts.length = 0
     kit.hit.mockClear()
     kit.dispose.mockClear()
     kit.setVolume.mockClear()
     tone.transport.getTicksAtTime.mockReturnValue(0)
+  })
+
+  it('with a live take, plays the take hit by hit instead of any pattern', () => {
+    const takeNotes = [
+      { beat: 0, beats: 0.25, pitch: 36, velocity: 1 },
+      { beat: 1.5, beats: 0.25, pitch: 38, velocity: 0.6 },
+    ]
+    renderHook(() => useDrumPlayback({ enabled: true, isPlaying: true, pattern: 'rock', beatsPerBar: 4, takeNotes }))
+    expect(tone.loops).toHaveLength(0)
+    expect(tone.parts[0].events).toEqual([
+      { time: '0i', part: 'kick', velocity: 1 },
+      { time: '288i', part: 'snare', velocity: 0.6 },
+    ])
+    tone.parts[0].callback(2, tone.parts[0].events[1])
+    expect(kit.hit).toHaveBeenCalledWith('snare', 2, 0.6)
   })
 
   it('does nothing while the drums are off', () => {

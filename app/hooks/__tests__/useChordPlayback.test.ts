@@ -96,6 +96,18 @@ describe('useChordPlayback', () => {
     ])
   })
 
+  it('with a live take, plays the take as played instead of the chords', () => {
+    const takeNotes = [
+      { beat: 0, beats: 1, pitch: 40, velocity: 0.9 },
+      { beat: 1.5, beats: 0.5, pitch: 43, velocity: 0.6 },
+    ]
+    renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', rhythm: 'X.......x.......', takeNotes }))
+    expect((tone.parts[0].events as PartEvent[]).map((event) => [event.time, event.pitches])).toEqual([
+      ['0i', [40]],
+      ['288i', [43]],
+    ])
+  })
+
   it('with a rhythm written for the song, plays each chord on the steps of the pattern', () => {
     renderHook(() => useChordPlayback({ enabled: true, isPlaying: false, events, role: 'bass', rhythm: 'X.......x.......', beatsPerBar: 4 }))
     expect(tone.parts[0].events as PartEvent[]).toEqual([

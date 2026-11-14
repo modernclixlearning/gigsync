@@ -139,10 +139,13 @@ export function PianoRoll({
   const bars = Math.max(1, Math.ceil(Math.max(durationSeconds, notesEnd) / (beat * bpb) - 1e-6))
   const totalBeats = bars * bpb
   const width = totalBeats * PX_PER_BEAT
-  const fitted = pitchRange(notes)
+  // With a range asked for, that range — grown only as far as the notes need.
   const range = minRange
-    ? { low: Math.min(fitted.low, minRange.low), high: Math.max(fitted.high, minRange.high) }
-    : fitted
+    ? {
+        low: Math.min(minRange.low, ...notes.map((n) => n.pitchMidi)),
+        high: Math.max(minRange.high, ...notes.map((n) => n.pitchMidi)),
+      }
+    : pitchRange(notes)
   const { low, high } = range
   const pitches = Array.from({ length: high - low + 1 }, (_, i) => high - i)
   const height = pitches.length * ROW_PX

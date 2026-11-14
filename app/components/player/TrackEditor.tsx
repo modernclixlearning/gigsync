@@ -1,6 +1,8 @@
 /**
- * Full-screen editor of one written track of the song — the lead melody or the
- * arrangement. The track is written on a piano roll that runs the whole song,
+ * Full-screen editor of what one role of the band plays in the song, note by
+ * note: the lead melody or the arrangement (written tracks), or a live take of
+ * the drums, the bass or the chords (which then plays instead of the role's
+ * pattern). It is written on a piano roll that runs the whole song,
  * with the song's chords on top: by hand (pencil, drag, stretch) or played on
  * a MIDI controller / the on-screen keys against the click, over the chords.
  * Every change is saved with the song.
@@ -15,22 +17,31 @@ import { useMIDIAccess } from '~/hooks/useMIDIAccess'
 import { useMIDIRecorder, type LiveTake, type MIDIRecording } from '~/hooks/useMIDIRecorder'
 import { useTrackPreview, type PreviewLayer, type PreviewNote } from '~/hooks/useTrackPreview'
 import {
-  TRACK_ROLE_LABELS,
+  BAND_ROLE_LABELS,
   TRACK_VOICES,
   TRACK_VOICE_LABELS,
-  cleanTrack,
   eventsToTrackNotes,
+  isTrackRole,
+  normalizeDrumNotes,
   trackEndBeat,
   trackHasNotes,
   trackNotesToEvents,
   trackVoice,
+  type BandRole,
   type BandTrack,
   type TrackNote,
-  type TrackRole,
   type TrackVoice,
 } from '~/lib/audio/bandTracks'
+import { DEFAULT_BASS_VOICE, type BassVoice } from '~/lib/audio/bandSound'
 import { voiceChord } from '~/lib/audio/chordVoicing'
-import { createKeysInstrument, createTrackInstrument, type ChordInstrument, type PlayableVoice } from '~/lib/audio/instruments'
+import {
+  createBassInstrument,
+  createDrumKitInstrument,
+  createKeysInstrument,
+  createTrackInstrument,
+  type ChordInstrument,
+  type PlayableVoice,
+} from '~/lib/audio/instruments'
 import { quantizeNotes, resizeNotes } from '~/lib/midi/pianoRoll'
 import { beatSeconds } from '~/lib/midi/recording'
 import type { ChordEvent } from '~/lib/timeline/chordEvents'
@@ -40,11 +51,13 @@ import { PianoRoll } from '~/components/songs/PianoRoll'
 import { VirtualKeyboard } from '~/components/songs/VirtualKeyboard'
 
 export interface TrackEditorProps {
-  role: TrackRole
-  /** The track as the song has it. Read when the editor opens; from then on the editor is the source. */
-  track: BandTrack | undefined
-  /** The whole track after a change; `undefined` when nothing of the song's own is left. */
-  onChange: (track: BandTrack | undefined) => void
+  role: BandRole
+  /** What the song has for the role. Read when the editor opens; from then on the editor is the source. */
+  track: { voice?: string; notes: TrackNote[] } | undefined
+  /** The notes (and, for a written track, the sound) after a change. */
+  onChange: (part: { notes: TrackNote[]; voice?: TrackVoice }) => void
+  /** Sound of the bass channel, for the bass take. */
+  bassVoice?: BassVoice
   bpm: number
   beatsPerBar: number
   /** Length of the song in beats (0 when it has no bars to follow). */
@@ -65,9 +78,21 @@ const GRID_STEPS = [
 ] as const
 
 /** Pitches always on the roll, so there is room to write from scratch. */
-const ROLL_RANGE: Record<TrackRole, { low: number; high: number }> = {
+const ROLL_RANGE: Record<BandRole, { low: number; high: number }> = {
+  // The kit: C2 kick, D2 snare, F♯2 hi-hat.
+  drums: { low: 36, high: 47 },
+  bass: { low: 28, high: 60 },
+  keys: { low: 36, high: 96 },
   lead: { low: 48, high: 96 },
   arrangement: { low: 36, high: 91 },
+}
+
+/** The instrument a role is played, monitored and listened to with. */
+function createRoleInstrument(role: BandRole, voice: TrackVoice | undefined, bassVoice: BassVoice): ChordInstrument {
+  if (role === 'drums') return createDrumKitInstrument()
+  if (role === 'bass') return createBassInstrument(bassVoice, { reportStatus: false })
+  if (role === 'keys') return createKeysInstrument('piano', { reportStatus: false })
+  return createTrackInstrument(voice ?? trackVoice(role, undefined))
 }
 
 const MIN_BARS = 4
@@ -139,12 +164,26 @@ function chordLabels(chords: readonly ChordEvent[], bpm: number, beatsPerBar: nu
   }
 }
 
-export function TrackEditor({ role, track, onChange, bpm, beatsPerBar, totalBeats, chords, otherTrack, onClose }: TrackEditorProps) {
+export function TrackEditor({
+  role,
+  track,
+  onChange,
+  bassVoice = DEFAULT_BASS_VOICE,
+  bpm,
+  beatsPerBar,
+  totalBeats,
+  chords,
+  otherTrack,
+  onClose,
+}: TrackEditorProps) {
   const bpb = Math.max(1, Math.round(beatsPerBar))
   const beat = beatSeconds(bpm)
-  const title = TRACK_ROLE_LABELS[role]
+  const title = BAND_ROLE_LABELS[role]
+  const voices = isTrackRole(role) ? TRACK_VOICES[role] : []
+  /** What the role sounds with: the track's voice, or the channel's own instrument. */
+  const soundKey = (current: TrackVoice | undefined) => `${role}:${current ?? (role === 'bass' ? bassVoice : '')}`
 
-  const [voice, setVoice] = useState<TrackVoice>(() => trackVoice(role, track?.voice))
+  const [voice, setVoice] = useState<TrackVoice | undefined>(() => (isTrackRole(role) ? trackVoice(role, track?.voice) : undefined))
   const [notes, setNotes] = useState<TrackNote[]>(() => track?.notes ?? [])
   const [history, setHistory] = useState<TrackNote[][]>([])
   const [selection, setSelection] = useState<number[]>([])
@@ -152,33 +191,33 @@ export function TrackEditor({ role, track, onChange, bpm, beatsPerBar, totalBeat
   const [extraBars, setExtraBars] = useState(0)
   const [startBar, setStartBar] = useState(1)
   const [countInBars, setCountInBars] = useState(1)
-  const [withChords, setWithChords] = useState(true)
+  // The chords under the take — except for the chords' own take, which they would double.
+  const [withChords, setWithChords] = useState(role !== 'keys')
   const [virtualOn, setVirtualOn] = useState(false)
   const touchScreen = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
   const [drawMode, setDrawMode] = useState(touchScreen)
   const [live, setLive] = useState<LiveTake | null>(null)
 
-  const trackRef = useRef(track)
-  trackRef.current = track
   const notesRef = useRef(notes)
   notesRef.current = notes
 
   /* ── Saving ── */
 
   const save = useCallback(
-    (nextNotes: TrackNote[], nextVoice: TrackVoice) =>
-      onChange(cleanTrack(role, { ...trackRef.current, voice: nextVoice, notes: nextNotes })),
-    [onChange, role],
+    (nextNotes: TrackNote[], nextVoice: TrackVoice | undefined) => onChange({ notes: nextNotes, voice: nextVoice }),
+    [onChange],
   )
   const voiceRef = useRef(voice)
   voiceRef.current = voice
   const commit = useCallback(
-    (next: TrackNote[]) => {
+    (written: TrackNote[]) => {
+      // Drums live on the three pitches of the kit, whatever row or pad they came from.
+      const next = role === 'drums' ? normalizeDrumNotes(written) : written
       setHistory((previous) => [...previous.slice(-(MAX_HISTORY - 1)), notesRef.current])
       setNotes(next)
       save(next, voiceRef.current)
     },
-    [save],
+    [save, role],
   )
   const changeVoice = (next: TrackVoice) => {
     setVoice(next)
@@ -195,7 +234,7 @@ export function TrackEditor({ role, track, onChange, bpm, beatsPerBar, totalBeat
 
   /* ── Instruments ── */
 
-  const instrumentRef = useInstrument(() => createTrackInstrument(voice), voice)
+  const instrumentRef = useInstrument(() => createRoleInstrument(role, voice, bassVoice), soundKey(voice))
   const otherSounds = trackHasNotes(otherTrack) && !otherTrack!.muted
   const otherRef = useInstrument(
     () => (otherSounds ? createTrackInstrument(otherTrack!.voice) : null),
@@ -243,8 +282,9 @@ export function TrackEditor({ role, track, onChange, bpm, beatsPerBar, totalBeat
     beatsPerBar: bpb,
     countInBars,
     monitor: true,
-    createMonitor: () => createTrackInstrument(voice),
-    monitorKey: voice,
+    createMonitor: () => createRoleInstrument(role, voice, bassVoice),
+    monitorKey: soundKey(voice),
+    acceptDrumChannel: role === 'drums',
   })
   const preview = useTrackPreview()
   const { phase, recording, peek } = recorder
@@ -442,8 +482,22 @@ export function TrackEditor({ role, track, onChange, bpm, beatsPerBar, totalBeat
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="px-4 pt-3 space-y-3">
-          <div role="radiogroup" aria-label={`Sonido: ${title.toLowerCase()}`} className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            {TRACK_VOICES[role].map((option) => (
+          {role === 'drums' && (
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Los pads del controlador o, en las teclas, do = bombo, re = caja y fa♯ = hi-hat (en cualquier octava).
+            </p>
+          )}
+          {!isTrackRole(role) && (
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Mientras la canción tenga esta toma, suena lo grabado en lugar del patrón.
+            </p>
+          )}
+          <div
+            role="radiogroup"
+            aria-label={`Sonido: ${title.toLowerCase()}`}
+            className={cn('flex gap-1.5 overflow-x-auto scrollbar-hide', voices.length === 0 && 'hidden')}
+          >
+            {voices.map((option) => (
               <button
                 key={option}
                 type="button"

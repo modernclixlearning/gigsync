@@ -5,7 +5,7 @@
  * each part sounds. Everything is saved with the song as you tap.
  */
 
-import { RotateCcw } from 'lucide-react'
+import { Mic, RotateCcw, Trash2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import {
   DRUM_PATTERNS,
@@ -30,6 +30,7 @@ import {
   type SongBand,
   type SongDrumPattern,
 } from '~/lib/audio/bandPatterns'
+import type { BandTake, TakeRole } from '~/lib/audio/bandTracks'
 
 export interface BandPatternEditorProps {
   /** What the song has written so far. */
@@ -39,6 +40,8 @@ export interface BandPatternEditorProps {
   beatsPerBar: number
   /** The built-in rhythm the drums play while the song has no pattern of its own. */
   defaultDrumPattern: DrumPattern
+  /** Open the recorder of a role's live take. Without it, takes are not offered. */
+  onEditTake?: (role: TakeRole) => void
 }
 
 type Tone = 'rose' | 'emerald' | 'sky'
@@ -127,6 +130,80 @@ function Card({ title, hint, action, children }: { title: string; hint: string; 
   )
 }
 
+/**
+ * The live take of a role: record one, or — once there is one — choose whether
+ * it or the pattern plays, edit it, or delete it.
+ */
+function TakeRow({
+  role,
+  name,
+  band,
+  onChange,
+  onEdit,
+}: {
+  role: TakeRole
+  /** The role in a sentence: «la batería». */
+  name: string
+  band: SongBand | undefined
+  onChange: (band: SongBand | undefined) => void
+  onEdit: (role: TakeRole) => void
+}) {
+  const take = band?.takes?.[role]
+  const count = take?.notes.length ?? 0
+  const setTake = (next: BandTake | undefined) =>
+    onChange(cleanSongBand({ ...band, takes: { ...band?.takes, [role]: next } }))
+  if (!take || count === 0) {
+    return (
+      <button
+        type="button"
+        onClick={() => onEdit(role)}
+        className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        <Mic className="h-4 w-4" aria-hidden />
+        Grabar {name} en vivo
+      </button>
+    )
+  }
+  const plays = !take.off
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-white px-2 py-1.5 dark:bg-slate-800">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={plays}
+        aria-label={`Suena la toma en vivo: ${name}`}
+        onClick={() => setTake({ notes: take.notes, off: plays })}
+        className={cn(
+          'h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors',
+          plays ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+        )}
+      >
+        <span className={cn('block h-5 w-5 rounded-full bg-white transition-transform', plays && 'translate-x-4')} />
+      </button>
+      <p className="min-w-0 flex-1 text-[11px] text-slate-700 dark:text-slate-200">
+        <span className="font-semibold">Toma en vivo · {count} {count === 1 ? 'nota' : 'notas'}.</span>{' '}
+        {plays ? 'Suena en lugar del patrón.' : 'Apagada: suena el patrón.'}
+      </p>
+      <button
+        type="button"
+        onClick={() => onEdit(role)}
+        className="h-8 shrink-0 rounded-lg bg-slate-100 px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
+      >
+        Editar
+      </button>
+      <button
+        type="button"
+        onClick={() => setTake(undefined)}
+        aria-label={`Borrar la toma en vivo: ${name}`}
+        title="Borrar la toma en vivo"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
+      >
+        <Trash2 className="h-4 w-4" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
 function ResetButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -151,7 +228,9 @@ function RhythmCard({
   perBar,
   tone,
   onChange,
+  footer,
 }: {
+  footer?: React.ReactNode
   title: string
   laneLabel: string
   sustainedHint: string
@@ -181,11 +260,14 @@ function RhythmCard({
         ))}
       </div>
       <StepLane label={laneLabel} pattern={pattern} perBar={perBar} tone={tone} onToggle={(index) => onChange(toggleStep(pattern, index))} />
+      {footer}
     </Card>
   )
 }
 
-export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPattern }: BandPatternEditorProps) {
+export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPattern, onEditTake }: BandPatternEditorProps) {
+  const takeRow = (role: TakeRole, name: string) =>
+    onEditTake ? <TakeRow role={role} name={name} band={band} onChange={onChange} onEdit={onEditTake} /> : undefined
   const perBar = stepsPerBar(beatsPerBar)
   const update = (changes: Partial<SongBand>) => onChange(cleanSongBand({ ...band, ...changes }))
 
@@ -252,10 +334,12 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
             </div>
           ))}
         </div>
+        {takeRow('drums', 'la batería')}
       </Card>
 
       <RhythmCard
         title="Bajo"
+        footer={takeRow('bass', 'el bajo')}
         laneLabel="Ritmo del bajo"
         sustainedHint="Una nota larga por acorde. Elige un ritmo o toca los pasos."
         rhythm={band?.bassRhythm}
@@ -267,6 +351,7 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
 
       <RhythmCard
         title="Acordes"
+        footer={takeRow('keys', 'los acordes')}
         laneLabel="Ritmo de los acordes"
         sustainedHint="Un acorde largo por cambio. Elige un ritmo o toca los pasos."
         rhythm={band?.chordRhythm}
