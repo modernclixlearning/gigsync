@@ -10,6 +10,7 @@
  */
 
 import type { ChordEvent } from '~/lib/timeline/chordEvents'
+import { cleanTrack, type BandTrack } from './bandTracks'
 import { DRUM_PATTERN_DEFS, STEPS_PER_BEAT, type DrumPart, type DrumPattern, type DrumPatternDef } from './bandSound'
 
 export const STEP_CHARS = ['.', 'o', 'x', 'X'] as const
@@ -33,6 +34,10 @@ export interface SongBand {
   bassRhythm?: string
   /** Rhythm of the chords, one bar. Unset = one long chord per chord change. */
   chordRhythm?: string
+  /** Lead melody, written note by note (see bandTracks). */
+  lead?: BandTrack
+  /** Arrangement (strings, brass, choir), written note by note. */
+  arrangement?: BandTrack
 }
 
 const isStepChar = (c: string): c is StepChar => (STEP_CHARS as readonly string[]).includes(c)
@@ -205,5 +210,9 @@ export function cleanSongBand(band: SongBand | undefined | null): SongBand | und
   if (band.drums && DRUM_PARTS.some((part) => patternHasHits(band.drums![part]))) next.drums = cleanDrumPattern(band.drums)
   if (patternHasHits(band.bassRhythm)) next.bassRhythm = cleanPattern(band.bassRhythm)
   if (patternHasHits(band.chordRhythm)) next.chordRhythm = cleanPattern(band.chordRhythm)
+  const lead = cleanTrack('lead', band.lead)
+  if (lead) next.lead = lead
+  const arrangement = cleanTrack('arrangement', band.arrangement)
+  if (arrangement) next.arrangement = arrangement
   return Object.keys(next).length > 0 ? next : undefined
 }

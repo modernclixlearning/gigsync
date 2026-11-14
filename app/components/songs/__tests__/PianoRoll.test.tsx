@@ -165,6 +165,24 @@ describe('PianoRoll — selecting several notes', () => {
     expect(screen.queryAllByRole('button', { pressed: true })).toHaveLength(0)
   })
 
+  it('with the pencil, a tap on empty space writes a note of one grid step there', () => {
+    const onChangeNotes = vi.fn()
+    const { container } = render(<PianoRoll {...base} subdivision={2} drawMode onChangeNotes={onChangeNotes} />)
+    const svg = container.querySelector('svg')!
+    // 100 px = just past the second beat (96 px): the note lands on it.
+    fireEvent.pointerDown(svg, { clientX: 100, clientY: rowY(72), pointerId: 1, button: 0 })
+    fireEvent.pointerUp(svg, { clientX: 100, clientY: rowY(72), pointerId: 1 })
+    const written = lastNotes(onChangeNotes)
+    expect(written).toHaveLength(notes.length + 1)
+    expect(written[written.length - 1]).toMatchObject({ pitchMidi: 72, startTimeSeconds: 1, durationSeconds: 0.25 })
+  })
+
+  it('draws the range it is asked for even without notes', () => {
+    render(<PianoRoll {...base} notes={[]} minRange={{ low: 36, high: 96 }} />)
+    expect(screen.getByText('C2')).toBeInTheDocument()
+    expect(screen.getByText('C7')).toBeInTheDocument()
+  })
+
   it('drags the whole selection together, and a click on one of them selects just that one', () => {
     const onChangeNotes = vi.fn()
     render(<PianoRoll {...base} subdivision={2} onChangeNotes={onChangeNotes} />)

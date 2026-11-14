@@ -49,6 +49,12 @@ export function noteEvents(tick: number, durationTicks: number, channel: number,
   ]
 }
 
+/** Program change: the General MIDI instrument (0-based) a channel plays. */
+export const programEvent = (tick: number, channel: number, program: number): SmfEvent => ({
+  tick,
+  bytes: [0xc0 | (channel & 0x0f), clamp7(program)],
+})
+
 const u32 = (n: number): number[] => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]
 const u16 = (n: number): number[] => [(n >> 8) & 0xff, n & 0xff]
 

@@ -12,6 +12,7 @@ import {
 import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
 import { BandPatternEditor, type BandPatternEditorProps } from './BandPatternEditor'
 import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
+import { BandTrackCards, type BandTrackCardsProps } from './BandTrackCards'
 import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
@@ -118,6 +119,8 @@ export interface PlayerSoundSettingsProps {
   drums?: ChannelSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
   /** The patterns written for this song (drums, bass and chord rhythm). */
   patterns?: BandPatternEditorProps
+  /** The tracks written for this song: lead melody and arrangement. */
+  tracks?: BandTrackCardsProps
   /** Set when the click and the chords can't sound right now, saying why. */
   soundUnavailableReason?: string
   countIn: {
@@ -146,6 +149,7 @@ export function PlayerSoundSettings({
   bass,
   drums,
   patterns,
+  tracks,
   soundUnavailableReason,
   countIn,
   transpose,
@@ -165,6 +169,12 @@ export function PlayerSoundSettings({
       {patterns && (
         <PanelSection title="Patrones de esta canción">
           <BandPatternEditor {...patterns} />
+        </PanelSection>
+      )}
+
+      {tracks && (
+        <PanelSection title="Melodía y arreglos de esta canción">
+          <BandTrackCards {...tracks} />
         </PanelSection>
       )}
 

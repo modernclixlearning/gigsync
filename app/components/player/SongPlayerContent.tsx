@@ -19,6 +19,10 @@ import { useMIDITransportSync } from '~/hooks/useMIDITransportSync'
 import { useMetronomeSound } from '~/hooks/useMetronomeSound'
 import { useChordPlayback } from '~/hooks/useChordPlayback'
 import { useDrumPlayback } from '~/hooks/useDrumPlayback'
+import { useTrackPlayback } from '~/hooks/useTrackPlayback'
+import { DEFAULT_TRACK_VOICE, trackVolume, type TrackNote, type TrackRole } from '~/lib/audio/bandTracks'
+import { cleanSongBand } from '~/lib/audio/bandPatterns'
+import { TrackEditor } from '~/components/player/TrackEditor'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { useAutoScroll } from '~/components/player/AutoScroll'
 import { LyricsDisplay } from '~/components/player/LyricsDisplay'
@@ -514,6 +518,38 @@ export function SongPlayerContent({
     beatsPerBar,
     volume: playbackPrefs.drumsVolume / 100,
   })
+
+  // Written tracks: the lead melody and the arrangement, transposed with the song.
+  const transposeNotes = useCallback(
+    (notes: readonly TrackNote[] | undefined) =>
+      player.state.transpose === 0 || !notes
+        ? (notes ?? [])
+        : notes.map((note) => ({ ...note, pitch: Math.min(127, Math.max(0, note.pitch + player.state.transpose)) })),
+    [player.state.transpose]
+  )
+  const leadNotes = useMemo(() => transposeNotes(song.band?.lead?.notes), [transposeNotes, song.band?.lead?.notes])
+  const arrangementNotes = useMemo(
+    () => transposeNotes(song.band?.arrangement?.notes),
+    [transposeNotes, song.band?.arrangement?.notes]
+  )
+  useTrackPlayback({
+    enabled: bandCanSound && !song.band?.lead?.muted,
+    isPlaying: metronomeIsPlaying,
+    voice: song.band?.lead?.voice ?? DEFAULT_TRACK_VOICE.lead,
+    notes: leadNotes,
+    volume: trackVolume(song.band?.lead) / 100,
+  })
+  useTrackPlayback({
+    enabled: bandCanSound && !song.band?.arrangement?.muted,
+    isPlaying: metronomeIsPlaying,
+    voice: song.band?.arrangement?.voice ?? DEFAULT_TRACK_VOICE.arrangement,
+    notes: arrangementNotes,
+    volume: trackVolume(song.band?.arrangement) / 100,
+  })
+  /** The track being written in the full-screen editor, if any. */
+  const [editingTrack, setEditingTrack] = useState<TrackRole | null>(null)
+  const songBandRef = useRef(song.band)
+  songBandRef.current = song.band
 
   // The click and the chords play along the smart autoscroll's timeline only.
   const soundUnavailableReason = !player.state.isAutoScrollEnabled
@@ -1105,6 +1141,14 @@ export function SongPlayerContent({
                 beatsPerBar,
                 defaultDrumPattern: playbackPrefs.drumPattern,
               }}
+              tracks={{
+                band: song.band,
+                onChange: (band) => void updateSong({ band }),
+                onEdit: (role) => {
+                  if (player.state.isPlaying) player.pause()
+                  setEditingTrack(role)
+                },
+              }}
               metronome={{
                 enabled: player.state.metronomeSoundEnabled,
                 onToggle: player.toggleMetronomeSound,
@@ -1177,6 +1221,19 @@ export function SongPlayerContent({
           )
         }}
       />
+      {editingTrack && (
+        <TrackEditor
+          role={editingTrack}
+          track={song.band?.[editingTrack]}
+          onChange={(track) => void updateSong({ band: cleanSongBand({ ...songBandRef.current, [editingTrack]: track }) })}
+          bpm={song.bpm > 0 ? song.bpm : 120}
+          beatsPerBar={beatsPerBar}
+          totalBeats={autoScroll.totalBeats}
+          chords={songChordEvents}
+          otherTrack={song.band?.[editingTrack === 'lead' ? 'arrangement' : 'lead']}
+          onClose={() => setEditingTrack(null)}
+        />
+      )}
     </div>
   )
 }
