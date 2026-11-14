@@ -22,6 +22,7 @@ import {
 import { patternHasHits, rhythmHits } from '~/lib/audio/bandPatterns'
 import { createBassInstrument, createKeysInstrument, type PlayableVoice } from '~/lib/audio/instruments'
 import { chordEventAt, type ChordEvent } from '~/lib/timeline/chordEvents'
+import type { TrackNote } from '~/lib/audio/bandTracks'
 
 export interface UseChordPlaybackOptions {
   enabled: boolean
@@ -43,6 +44,11 @@ export interface UseChordPlaybackOptions {
   rhythm?: string
   /** Beats in a bar — the rhythm restarts every bar. Default 4. */
   beatsPerBar?: number
+  /**
+   * A take played live for this channel. When it has notes they are what
+   * sounds, exactly as played, instead of the chords with their rhythm.
+   */
+  takeNotes?: readonly TrackNote[]
 }
 
 interface ScheduledChord {
@@ -75,14 +81,17 @@ export function useChordPlayback({
   withBass = true,
   rhythm,
   beatsPerBar = 4,
+  takeNotes,
 }: UseChordPlaybackOptions): void {
+  const take = takeNotes && takeNotes.length > 0 ? takeNotes : null
   const synthRef = useRef<PlayableVoice | null>(null)
   const eventsRef = useRef(events)
   eventsRef.current = events
   const playingRef = useRef(isPlaying)
   playingRef.current = isPlaying
   const hasRhythmRef = useRef(false)
-  hasRhythmRef.current = patternHasHits(rhythm)
+  // With a take, like with a rhythm, there is no chord to catch up with on Play.
+  hasRhythmRef.current = patternHasHits(rhythm) || take !== null
 
   // Synth, alive while the channel is on (rebuilt when its sound changes).
   useEffect(() => {
@@ -113,7 +122,14 @@ export function useChordPlayback({
         if (!synth || !playingRef.current) return
         synth.triggerAttackRelease(frequencies(chord.pitches), Tone.Ticks(chord.ticks * LEGATO).toSeconds(), time, chord.velocity)
       },
-      rhythmHits(events, rhythm, beatsPerBar).flatMap((hit) => {
+      take
+        ? take.map((note) => ({
+            time: `${Math.round(note.beat * ppq)}i`,
+            pitches: [note.pitch],
+            ticks: Math.max(1, Math.round((note.beats * ppq) / LEGATO)),
+            velocity: note.velocity,
+          }))
+        : rhythmHits(events, rhythm, beatsPerBar).flatMap((hit) => {
         const voicing = voiceChord(hit.chord)
         if (!voicing) return []
         return [
@@ -130,7 +146,7 @@ export function useChordPlayback({
     return () => {
       part.dispose()
     }
-  }, [enabled, events, role, withBass, rhythm, beatsPerBar])
+  }, [enabled, events, role, withBass, rhythm, beatsPerBar, take])
 
   // Play/pause: on pause the chord stops; on play from the middle of a chord,
   // that chord sounds as soon as the Transport moves (after any count-in).

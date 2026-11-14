@@ -11,6 +11,7 @@ import * as Tone from 'tone'
 import { DRUM_PAN, type BassVoice, type DrumPart, type KeysVoice } from './bandSound'
 import { setSoundStatus, type BandChannel } from './soundStatus'
 import type { TrackVoice } from './bandTracks'
+import { drumPartForPitch } from '~/lib/midi/liveMonitor'
 
 /** What the chord hook needs from a channel: play notes, silence them, set the level. */
 export interface PlayableVoice {
@@ -390,5 +391,40 @@ export function createTrackInstrument(voice: TrackVoice): ChordInstrument {
       chain.forEach((effect) => effect.dispose())
       level.dispose()
     },
+  }
+}
+
+/**
+ * The drum kit as an instrument played by pitch, so it can be recorded,
+ * monitored and listened to like any other: each note hits the drum its pitch
+ * stands for (see drumPartForPitch). A hit has no length and nothing to release.
+ */
+export function createDrumKitInstrument(): ChordInstrument {
+  const kit = createDrumKit({ reportStatus: false })
+  let decibels = 0
+  const hit = (notes: number[], time?: number, velocity?: number) => {
+    for (const frequency of notes) {
+      const pitch = Math.round(69 + 12 * Math.log2(frequency / 440))
+      kit.hit(drumPartForPitch(pitch), time ?? Tone.immediate(), velocity ?? 0.7)
+    }
+  }
+  return {
+    synth: {
+      triggerAttackRelease: (notes, _duration, time, velocity) => hit(notes, time, velocity),
+      triggerAttack: hit,
+      triggerRelease: () => undefined,
+      releaseAll: () => undefined,
+      volume: {
+        get value() {
+          return decibels
+        },
+        set value(next: number) {
+          decibels = next
+          // The kit's bus sits at half gain when the channel is at 0 dB.
+          kit.setVolume(0.5 * Tone.dbToGain(next))
+        },
+      },
+    },
+    dispose: () => kit.dispose(),
   }
 }

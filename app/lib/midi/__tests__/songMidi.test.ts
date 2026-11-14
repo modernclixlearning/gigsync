@@ -158,6 +158,36 @@ describe('songsToMidi — the tracks written for the song', () => {
   })
 })
 
+describe('songsToMidi — live takes', () => {
+  const n = (beat: number, pitch: number) => ({ beat, beats: 0.5, pitch, velocity: 1 })
+
+  it('a role with a take exports the take instead of its pattern', () => {
+    const takes = { bass: { notes: [n(0, 40), n(0.5, 43)] }, keys: { notes: [n(1, 60)] } }
+    const tracks = chunks(songsToMidi([{ ...song(), band: { bassRhythm: 'X...x...x...x...', takes } }]))
+    expect(noteOns(tracks[2].data)).toEqual([{ tick: PPQ, channel: 0, pitch: 60, velocity: 127 }])
+    expect(noteOns(tracks[3].data).map((note) => [note.tick, note.pitch])).toEqual([
+      [0, 40],
+      [PPQ / 2, 43],
+    ])
+  })
+
+  it('a take switched off leaves the pattern in the file', () => {
+    const plain = chunks(songsToMidi([song()]))
+    const off = chunks(songsToMidi([{ ...song(), band: { takes: { bass: { notes: [n(0, 40)], off: true } } } }]))
+    expect(noteOns(off[3].data)).toEqual(noteOns(plain[3].data))
+  })
+
+  it('a drum take becomes the drum track, each hit on its General MIDI note', () => {
+    const takes = { drums: { notes: [n(0, 36), n(1, 38), n(1.5, 42)] } }
+    const tracks = chunks(songsToMidi([{ ...song(), band: { takes } }]))
+    expect(noteOns(tracks[4].data).map((note) => [note.tick, note.channel, note.pitch])).toEqual([
+      [0, 9, 36],
+      [PPQ, 9, 38],
+      [1.5 * PPQ, 9, 42],
+    ])
+  })
+})
+
 describe('songsToMidi — the patterns written for the song', () => {
   it('plays the bass with the song rhythm: quarter notes instead of one long note per chord', () => {
     const plain = noteOns(chunks(songsToMidi([song()]))[3].data)

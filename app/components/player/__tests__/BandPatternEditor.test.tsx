@@ -13,6 +13,46 @@ const setup = (band?: SongBand, beatsPerBar = 4) => {
 const steps = (lane: string) => within(screen.getByRole('group', { name: lane })).getAllByRole('button')
 const pressed = (lane: string) => steps(lane).map((step) => (step.getAttribute('aria-pressed') === 'true' ? 'x' : '.')).join('')
 
+describe('BandPatternEditor — live takes', () => {
+  const take = { notes: [{ beat: 0, beats: 1, pitch: 40, velocity: 0.8 }] }
+  const render2 = (band?: SongBand) => {
+    const onChange = vi.fn()
+    const onEditTake = vi.fn()
+    render(<BandPatternEditor band={band} onChange={onChange} beatsPerBar={4} defaultDrumPattern="rock" onEditTake={onEditTake} />)
+    return { onChange, onEditTake, user: userEvent.setup() }
+  }
+
+  it('offers to record each of the three roles live', async () => {
+    const { user, onEditTake } = render2()
+    await user.click(screen.getByRole('button', { name: 'Grabar la batería en vivo' }))
+    await user.click(screen.getByRole('button', { name: 'Grabar el bajo en vivo' }))
+    await user.click(screen.getByRole('button', { name: 'Grabar los acordes en vivo' }))
+    expect(onEditTake.mock.calls.map((call) => call[0])).toEqual(['drums', 'bass', 'keys'])
+  })
+
+  it('a recorded take can be switched off (the pattern plays), edited and deleted', async () => {
+    const band: SongBand = { bassRhythm: 'X...x...x...x...', takes: { bass: take } }
+    const { user, onChange, onEditTake } = render2(band)
+    const card = within(screen.getByRole('region', { name: 'Bajo' }))
+    expect(card.getByText(/Toma en vivo · 1 nota/)).toBeInTheDocument()
+    expect(card.getByText('Suena en lugar del patrón.')).toBeInTheDocument()
+
+    await user.click(card.getByRole('switch', { name: 'Suena la toma en vivo: el bajo' }))
+    expect(onChange).toHaveBeenLastCalledWith({ ...band, takes: { bass: { ...take, off: true } } })
+
+    await user.click(card.getByRole('button', { name: 'Editar' }))
+    expect(onEditTake).toHaveBeenCalledWith('bass')
+
+    await user.click(card.getByRole('button', { name: 'Borrar la toma en vivo: el bajo' }))
+    expect(onChange).toHaveBeenLastCalledWith({ bassRhythm: 'X...x...x...x...' })
+  })
+
+  it('does not offer takes where they cannot be recorded', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: /en vivo/ })).toBeNull()
+  })
+})
+
 describe('BandPatternEditor', () => {
   it('shows the built-in drum pattern while the song has none, and the first tap makes it the song\'s own', async () => {
     const { user, onChange } = setup()

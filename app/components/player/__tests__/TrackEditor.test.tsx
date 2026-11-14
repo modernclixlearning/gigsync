@@ -26,7 +26,7 @@ const stubs = vi.hoisted(() => ({
     origin: vi.fn(() => 10),
   },
   preview: { playing: false, start: vi.fn(async (_options: unknown) => undefined), stop: vi.fn(), position: vi.fn(() => null) },
-  recorderOptions: [] as { monitorKey?: string; bpm: number }[],
+  recorderOptions: [] as { monitorKey?: string; bpm: number; acceptDrumChannel?: boolean }[],
 }))
 
 vi.mock('tone', () => ({
@@ -40,11 +40,16 @@ vi.mock('~/lib/audio/instruments', () => {
     synth: { volume: { value: 0 }, triggerAttackRelease: vi.fn(), triggerAttack: vi.fn(), triggerRelease: vi.fn(), releaseAll: vi.fn() },
     dispose: vi.fn(),
   })
-  return { createTrackInstrument: vi.fn(instrument), createKeysInstrument: vi.fn(instrument) }
+  return {
+    createTrackInstrument: vi.fn(instrument),
+    createKeysInstrument: vi.fn(instrument),
+    createBassInstrument: vi.fn(instrument),
+    createDrumKitInstrument: vi.fn(instrument),
+  }
 })
 vi.mock('~/hooks/useMIDIAccess', () => ({ useMIDIAccess: () => ({ access: null, accessStatus: 'granted', inputs: [] }) }))
 vi.mock('~/hooks/useMIDIRecorder', () => ({
-  useMIDIRecorder: (options: { monitorKey?: string; bpm: number }) => {
+  useMIDIRecorder: (options: { monitorKey?: string; bpm: number; acceptDrumChannel?: boolean }) => {
     stubs.recorderOptions.push(options)
     return stubs.recorder
   },
@@ -52,7 +57,7 @@ vi.mock('~/hooks/useMIDIRecorder', () => ({
 vi.mock('~/hooks/useTrackPreview', () => ({ useTrackPreview: () => stubs.preview }))
 
 import { TrackEditor } from '../TrackEditor'
-import type { BandTrack } from '~/lib/audio/bandTracks'
+import type { BandRole, BandTrack } from '~/lib/audio/bandTracks'
 
 beforeAll(() => {
   if (typeof window.PointerEvent === 'function') return
@@ -72,11 +77,11 @@ const chords = [
 ]
 const note = (beat: number, pitch = 60) => ({ beat, beats: 1, pitch, velocity: 0.7 })
 
-const setup = (track?: BandTrack) => {
+const setup = (track?: Pick<BandTrack, 'notes'> & { voice?: string }, role: BandRole = 'lead') => {
   const onChange = vi.fn()
   const onClose = vi.fn()
   const view = render(
-    <TrackEditor role="lead" track={track} onChange={onChange} bpm={120} beatsPerBar={4} totalBeats={8} chords={chords} onClose={onClose} />,
+    <TrackEditor role={role} track={track} onChange={onChange} bpm={120} beatsPerBar={4} totalBeats={8} chords={chords} onClose={onClose} />,
   )
   return { onChange, onClose, user: userEvent.setup(), ...view }
 }
@@ -105,7 +110,7 @@ describe('TrackEditor', () => {
     const { user, onChange } = setup({ voice: 'leadKeys', notes: [note(0)] })
     await user.click(screen.getByRole('radio', { name: 'Saxo' }))
     expect(onChange).toHaveBeenLastCalledWith({ voice: 'sax', notes: [note(0)] })
-    expect(stubs.recorderOptions.at(-1)?.monitorKey).toBe('sax')
+    expect(stubs.recorderOptions.at(-1)?.monitorKey).toBe('lead:sax')
   })
 
   it('writes a note with the pencil, saves it in beats, and undoes it', async () => {
@@ -118,7 +123,7 @@ describe('TrackEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith({ voice: 'leadKeys', notes: [{ beat: 2, beats: 0.5, pitch: 96, velocity: 0.8 }] })
 
     await user.click(screen.getByRole('button', { name: 'Deshacer' }))
-    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(onChange).toHaveBeenLastCalledWith({ voice: 'leadKeys', notes: [] })
   })
 
   it('a take recorded from a bar replaces what the track had in the stretch it covers', async () => {
@@ -156,6 +161,28 @@ describe('TrackEditor', () => {
     expect(options.layers.map((layer) => layer.notes.length)).toEqual([1, 2])
 
     await user.click(screen.getByRole('button', { name: 'Vaciar' }))
-    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(onChange).toHaveBeenLastCalledWith({ voice: 'leadKeys', notes: [] })
+  })
+
+  it('for the drums: no sound to choose, the pads are recorded, and every note lands on a drum of the kit', async () => {
+    const { user, onChange, baseElement } = setup(undefined, 'drums')
+    expect(screen.getByRole('dialog', { name: 'Batería de la canción' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(stubs.recorderOptions.at(-1)).toMatchObject({ acceptDrumChannel: true, monitorKey: 'drums:' })
+
+    // The roll shows C2–B2 (rows from B2 down). A tap on the E2 row (index 7) is a snare: written on D2.
+    await user.click(screen.getByRole('button', { name: /Lápiz/ }))
+    const svg = baseElement.querySelector('svg.block')!
+    fireEvent.pointerDown(svg, { clientX: 50, clientY: 7 * 12 + 6, pointerId: 1, button: 0 })
+    fireEvent.pointerUp(svg, { clientX: 50, clientY: 7 * 12 + 6, pointerId: 1 })
+    expect(onChange).toHaveBeenLastCalledWith({ voice: undefined, notes: [{ beat: 1, beats: 0.25, pitch: 38, velocity: 0.8 }] })
+  })
+
+  it('for the chords take, the chords are not played under it unless asked', async () => {
+    const { user } = setup({ notes: [note(0)] }, 'keys')
+    expect(screen.getByRole('checkbox', { name: 'Con los acordes' })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Escuchar' }))
+    const options = stubs.preview.start.mock.lastCall?.[0] as unknown as { layers: unknown[] }
+    expect(options.layers).toHaveLength(1)
   })
 })

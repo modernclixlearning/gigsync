@@ -10,7 +10,17 @@
  */
 
 import type { ChordEvent } from '~/lib/timeline/chordEvents'
-import { cleanTrack, type BandTrack } from './bandTracks'
+import {
+  TAKE_ROLES,
+  cleanTake,
+  cleanTrack,
+  isTrackRole,
+  trackVoice,
+  type BandRole,
+  type BandTakes,
+  type BandTrack,
+  type TrackNote,
+} from './bandTracks'
 import { DRUM_PATTERN_DEFS, STEPS_PER_BEAT, type DrumPart, type DrumPattern, type DrumPatternDef } from './bandSound'
 
 export const STEP_CHARS = ['.', 'o', 'x', 'X'] as const
@@ -38,6 +48,8 @@ export interface SongBand {
   lead?: BandTrack
   /** Arrangement (strings, brass, choir), written note by note. */
   arrangement?: BandTrack
+  /** Drums, bass or chords played live: while a role has a take, it plays instead of its pattern. */
+  takes?: BandTakes
 }
 
 const isStepChar = (c: string): c is StepChar => (STEP_CHARS as readonly string[]).includes(c)
@@ -214,5 +226,31 @@ export function cleanSongBand(band: SongBand | undefined | null): SongBand | und
   if (lead) next.lead = lead
   const arrangement = cleanTrack('arrangement', band.arrangement)
   if (arrangement) next.arrangement = arrangement
+  const takes: BandTakes = {}
+  for (const role of TAKE_ROLES) {
+    const take = cleanTake(role, band.takes?.[role])
+    if (take) takes[role] = take
+  }
+  if (Object.keys(takes).length > 0) next.takes = takes
   return Object.keys(next).length > 0 ? next : undefined
+}
+
+/** The notes written or played for a role of the band (its track or its take). */
+export function bandRoleNotes(band: SongBand | undefined | null, role: BandRole): TrackNote[] {
+  return (isTrackRole(role) ? band?.[role]?.notes : band?.takes?.[role]?.notes) ?? []
+}
+
+/**
+ * The band with the notes (and, for a written track, the sound) of one role
+ * replaced — what the editor saves. The role's other settings are kept.
+ */
+export function withBandRoleNotes(
+  band: SongBand | undefined | null,
+  role: BandRole,
+  part: { notes: TrackNote[]; voice?: string },
+): SongBand | undefined {
+  if (isTrackRole(role)) {
+    return cleanSongBand({ ...band, [role]: { ...band?.[role], voice: trackVoice(role, part.voice ?? band?.[role]?.voice), notes: part.notes } })
+  }
+  return cleanSongBand({ ...band, takes: { ...band?.takes, [role]: { ...band?.takes?.[role], notes: part.notes } } })
 }

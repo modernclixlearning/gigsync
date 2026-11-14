@@ -8,6 +8,8 @@
  */
 
 import type { NoteEvent } from '~/lib/audioAnalysis/types'
+import { drumPartForPitch } from '~/lib/midi/liveMonitor'
+import type { DrumPart } from './bandSound'
 
 export const TRACK_ROLES = ['lead', 'arrangement'] as const
 export type TrackRole = (typeof TRACK_ROLES)[number]
@@ -158,4 +160,64 @@ export function eventsToTrackNotes(events: readonly NoteEvent[], bpm: number, of
       velocity: event.amplitude,
     })),
   )
+}
+
+/* ── Live takes: drums, bass and chords played instead of their pattern ──── */
+
+/** The roles that follow a pattern — and can be played live instead. */
+export const TAKE_ROLES = ['drums', 'bass', 'keys'] as const
+export type TakeRole = (typeof TAKE_ROLES)[number]
+
+/** The band's five roles. */
+export type BandRole = TakeRole | TrackRole
+
+export const BAND_ROLE_LABELS: Record<BandRole, string> = {
+  drums: 'Batería',
+  bass: 'Bajo',
+  keys: 'Acordes',
+  ...TRACK_ROLE_LABELS,
+}
+
+export const isTrackRole = (role: BandRole): role is TrackRole => (TRACK_ROLES as readonly string[]).includes(role)
+
+/**
+ * What was played live for a role, note by note. While a song has one (and it
+ * is not switched off) the role plays the take and not its pattern.
+ */
+export interface BandTake {
+  notes: TrackNote[]
+  /** Kept, but the pattern plays. */
+  off?: boolean
+}
+
+export type BandTakes = Partial<Record<TakeRole, BandTake>>
+
+/** A take as stored → clean, or undefined when it has no notes. */
+export function cleanTake(role: TakeRole, take: Partial<BandTake> | undefined | null): BandTake | undefined {
+  const cleaned = cleanTrackNotes(take?.notes)
+  const notes = role === 'drums' ? normalizeDrumNotes(cleaned) : cleaned
+  if (notes.length === 0) return undefined
+  return take?.off === true ? { notes, off: true } : { notes }
+}
+
+/** The notes a role plays from its take: none when there is no take or it is switched off. */
+export function activeTakeNotes(take: BandTake | undefined | null): readonly TrackNote[] {
+  return take && !take.off && Array.isArray(take.notes) ? take.notes : NO_NOTES
+}
+const NO_NOTES: readonly TrackNote[] = []
+
+/** The pitch each drum is written on (its General MIDI note). */
+export const DRUM_TAKE_PITCH: Record<DrumPart, number> = { kick: 36, snare: 38, hat: 42 }
+
+/** A drum hit has no length of its own: a 16th note on the roll. */
+export const DRUM_HIT_BEATS = 0.25
+
+/** Drum notes on the three pitches of the kit, whatever key or pad they were played on — same order. */
+export function normalizeDrumNotes(notes: readonly TrackNote[]): TrackNote[] {
+  return notes.map((note) => ({ ...note, pitch: DRUM_TAKE_PITCH[drumPartForPitch(note.pitch)], beats: DRUM_HIT_BEATS }))
+}
+
+/** The drum each note of a drum take hits. */
+export function drumTakeHits(notes: readonly TrackNote[]): { beat: number; part: DrumPart; velocity: number }[] {
+  return notes.map((note) => ({ beat: note.beat, part: drumPartForPitch(note.pitch), velocity: note.velocity }))
 }

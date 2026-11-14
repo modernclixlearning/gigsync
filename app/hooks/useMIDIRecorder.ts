@@ -74,6 +74,8 @@ export interface UseMIDIRecorderOptions {
   createMonitor?: () => ChordInstrument
   /** Changes when `createMonitor` would build a different instrument: the monitor is rebuilt. */
   monitorKey?: string
+  /** Also record the drum pads (channel 10) — for recording the drums. Default: they are ignored. */
+  acceptDrumChannel?: boolean
 }
 
 export interface UseMIDIRecorderReturn {
@@ -132,6 +134,7 @@ export function useMIDIRecorder({
   monitor = true,
   createMonitor,
   monitorKey,
+  acceptDrumChannel = false,
 }: UseMIDIRecorderOptions): UseMIDIRecorderReturn {
   const [phase, setPhase] = useState<RecorderPhase>('idle')
   const [countIn, setCountIn] = useState<number | null>(null)
@@ -237,10 +240,10 @@ export function useMIDIRecorder({
     (event: Event) => {
       const midiEvent = event as MIDIMessageEvent
       const message = parseMIDINoteMessage(midiEvent.data)
-      if (!message || message.channel === MIDI_DRUM_CHANNEL) return
+      if (!message || (message.channel === MIDI_DRUM_CHANNEL && !acceptDrumChannel)) return
       applyMessage(message, midiEvent.timeStamp || performance.now())
     },
-    [applyMessage],
+    [applyMessage, acceptDrumChannel],
   )
 
   const noteOn = useCallback(

@@ -8,7 +8,8 @@ import {
   trackVoice,
   trackVolume,
 } from '../bandTracks'
-import { cleanSongBand } from '../bandPatterns'
+import { activeTakeNotes, cleanTake, drumTakeHits, normalizeDrumNotes } from '../bandTracks'
+import { bandRoleNotes, cleanSongBand, withBandRoleNotes } from '../bandPatterns'
 
 const note = (beat: number, pitch = 60, beats = 1, velocity = 0.7) => ({ beat, beats, pitch, velocity })
 
@@ -91,5 +92,44 @@ describe('cleanSongBand with tracks', () => {
       lead: { voice: 'sax', notes: [note(0)] },
     })
     expect(cleanSongBand({ lead: { voice: 'leadKeys', notes: [] } })).toBeUndefined()
+  })
+})
+
+describe('live takes', () => {
+  it('a take without notes is nothing; one switched off keeps its notes but plays none', () => {
+    expect(cleanTake('bass', { notes: [] })).toBeUndefined()
+    expect(cleanTake('bass', { notes: [note(0, 40)], off: false })).toEqual({ notes: [note(0, 40)] })
+    const off = cleanTake('keys', { notes: [note(0)], off: true })
+    expect(off).toEqual({ notes: [note(0)], off: true })
+    expect(activeTakeNotes(off)).toEqual([])
+    expect(activeTakeNotes({ notes: [note(0)] })).toEqual([note(0)])
+    expect(activeTakeNotes(undefined)).toEqual([])
+  })
+
+  it('writes every drum note on the pitch of its drum, a 16th long', () => {
+    const played = [note(0, 60, 2), note(1, 64, 0.1), note(1.5, 46, 1)]
+    expect(normalizeDrumNotes(played).map((n) => [n.beat, n.pitch, n.beats])).toEqual([
+      [0, 36, 0.25],
+      [1, 38, 0.25],
+      [1.5, 42, 0.25],
+    ])
+    expect(drumTakeHits(played).map((hit) => hit.part)).toEqual(['kick', 'snare', 'hat'])
+    expect(cleanTake('drums', { notes: played })?.notes.map((n) => n.pitch)).toEqual([36, 38, 42])
+  })
+
+  it('saves the notes of a role where they belong and keeps the rest of the band', () => {
+    const band = { bassRhythm: 'X...x...x...x...', lead: { voice: 'sax' as const, notes: [note(0)], volume: 30 } }
+    const withTake = withBandRoleNotes(band, 'bass', { notes: [note(2, 40)] })
+    expect(withTake).toEqual({ ...band, takes: { bass: { notes: [note(2, 40)] } } })
+    expect(bandRoleNotes(withTake, 'bass')).toEqual([note(2, 40)])
+
+    // A written track keeps its level; an emptied take goes away.
+    expect(withBandRoleNotes(withTake, 'lead', { notes: [note(4)], voice: 'guitar' })?.lead).toEqual({
+      voice: 'guitar',
+      notes: [note(4)],
+      volume: 30,
+    })
+    expect(withBandRoleNotes(withTake, 'bass', { notes: [] })).toEqual(band)
+    expect(bandRoleNotes(band, 'drums')).toEqual([])
   })
 })
