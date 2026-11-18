@@ -15,9 +15,13 @@ export const PLAYER_PANEL_TABS: { id: PlayerPanelTab; label: string }[] = [
   { id: 'edit', label: 'Canción' },
 ]
 
-/** Width of the docked panel from `md:` up — the player reserves the same space on its right. */
-export const PLAYER_SIDE_PANEL_WIDTH_CLASS = 'md:w-[400px]'
-export const PLAYER_SIDE_PANEL_OFFSET_CLASS = 'md:pr-[400px]'
+/**
+ * Width of the docked panel from `md:` up — the player reserves the same space
+ * on its right. It grows with the screen, so the channel cards in «Sonido» get
+ * bigger (and, on the widest screens, sit two to a row) when there is room.
+ */
+export const PLAYER_SIDE_PANEL_WIDTH_CLASS = 'md:w-[400px] lg:w-[480px] 2xl:w-[680px]'
+export const PLAYER_SIDE_PANEL_OFFSET_CLASS = 'md:pr-[400px] lg:pr-[480px] 2xl:pr-[680px]'
 /** Height of the bottom sheet below `md:` — the player pads its bottom by the same amount. */
 export const PLAYER_SIDE_PANEL_SHEET_OFFSET_CLASS = 'max-md:pb-[55vh]'
 

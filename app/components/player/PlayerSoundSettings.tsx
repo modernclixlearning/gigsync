@@ -10,10 +10,11 @@ import {
   type SaveTier,
 } from '~/components/profile/SettingsSection'
 import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
-import { BandPatternEditor, type BandPatternEditorProps } from './BandPatternEditor'
+import type { BandPatternEditorProps } from './BandPatternEditor'
 import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
-import { BandTrackCards, type BandTrackCardsProps } from './BandTrackCards'
-import { LiveMonitorCard, type LiveMonitorCardProps } from './LiveMonitorCard'
+import type { BandTrackCardsProps } from './BandTrackCards'
+import { BandChannelStudio } from './BandChannelStudio'
+import type { LiveMonitorCardProps } from './LiveMonitorCard'
 import {
   AUTO_ADVANCE_DELAY_MAX,
   AUTO_ADVANCE_DELAY_MIN,
@@ -170,21 +171,9 @@ export function PlayerSoundSettings({
         <BandChannelTiles metronome={metronome} chords={chords} bass={bass} drums={drums} />
       </PanelSection>
 
-      {patterns && (
-        <PanelSection title="Patrones de esta canción">
-          <BandPatternEditor {...patterns} />
-        </PanelSection>
-      )}
-
-      {tracks && (
-        <PanelSection title="Melodía y arreglos de esta canción">
-          <BandTrackCards {...tracks} />
-        </PanelSection>
-      )}
-
-      {liveMonitor && (
-        <PanelSection title="En vivo">
-          <LiveMonitorCard {...liveMonitor} />
+      {patterns && tracks && liveMonitor && (
+        <PanelSection title="Canales de esta canción">
+          <BandChannelStudio patterns={patterns} tracks={tracks} liveMonitor={liveMonitor} />
         </PanelSection>
       )}
 

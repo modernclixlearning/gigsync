@@ -4,8 +4,8 @@ import { cn } from '~/lib/utils'
 interface DialogProps {
   title: string
   onClose: () => void
-  /** `md` for forms and confirmations, `lg` for pickers with a list inside. */
-  size?: 'md' | 'lg'
+  /** `md` for forms and confirmations, `lg` for pickers with a list inside, `xl` for editors. */
+  size?: 'md' | 'lg' | 'xl'
   children: ReactNode
 }
 
@@ -36,7 +36,7 @@ export function Dialog({ title, onClose, size = 'md', children }: DialogProps) {
           'flex w-full max-h-[85dvh] flex-col p-5 sm:p-6 safe-area-pb',
           'rounded-t-2xl sm:rounded-2xl',
           'bg-white dark:bg-[#161a2e] border border-slate-200 dark:border-slate-800 shadow-2xl',
-          size === 'lg' ? 'sm:max-w-lg' : 'sm:max-w-md'
+          size === 'xl' ? 'sm:max-w-2xl' : size === 'lg' ? 'sm:max-w-lg' : 'sm:max-w-md'
         )}
       >
         <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">{title}</h2>

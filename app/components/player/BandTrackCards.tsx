@@ -23,6 +23,10 @@ export interface BandTrackCardsProps {
   onChange: (band: SongBand | undefined) => void
   /** Open the editor of a track. */
   onEdit: (role: TrackRole) => void
+  /** Show only this track's card (a modal per channel). Default: both. */
+  only?: TrackRole
+  /** Spacing of the whole group. Default: inset like a tab section. */
+  className?: string
 }
 
 const HINTS: Record<TrackRole, string> = {
@@ -30,7 +34,7 @@ const HINTS: Record<TrackRole, string> = {
   arrangement: 'Cuerdas, metales o coro.',
 }
 
-export function BandTrackCards({ band, onChange, onEdit }: BandTrackCardsProps) {
+export function BandTrackCards({ band, onChange, onEdit, only, className }: BandTrackCardsProps) {
   const update = (role: TrackRole, changes: Partial<BandTrack>) => {
     const current = band?.[role]
     const next: BandTrack = { voice: trackVoice(role, current?.voice), notes: current?.notes ?? [], ...current, ...changes }
@@ -38,8 +42,8 @@ export function BandTrackCards({ band, onChange, onEdit }: BandTrackCardsProps) 
   }
 
   return (
-    <div>
-      {TRACK_ROLES.map((role) => {
+    <div className={cn('space-y-3', className ?? 'px-4 pt-3')}>
+      {TRACK_ROLES.filter((role) => !only || only === role).map((role) => {
         const track = band?.[role]
         const title = TRACK_ROLE_LABELS[role]
         const count = track?.notes.length ?? 0
@@ -50,7 +54,7 @@ export function BandTrackCards({ band, onChange, onEdit }: BandTrackCardsProps) 
             key={role}
             role="region"
             aria-label={title}
-            className="mx-4 mt-3 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3"
+            className="rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
