@@ -1,5 +1,5 @@
-import type { ComponentType, ReactNode } from 'react'
-import { Drum, Guitar, Music2, Piano, Timer, Volume2, VolumeX, type LucideProps } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { Drum, Guitar, Music2, Piano, Sparkles, Timer, type LucideProps } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import {
   BASS_VOICES,
@@ -21,17 +21,19 @@ export interface ChannelSource {
   onVolumeChange: (volume: number) => void
 }
 
-type Icon = ComponentType<LucideProps>
+export type Icon = ComponentType<LucideProps>
 
 /** One look per channel: the icon bubble and the volume slider share its color. */
-const LOOKS = {
+export const LOOKS = {
   metronome: { icon: Timer, bubble: 'bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300', accent: 'accent-amber-500' },
   keys: { icon: Piano, bubble: 'bg-sky-100 text-sky-700 dark:bg-sky-500/25 dark:text-sky-300', accent: 'accent-sky-500' },
   bass: { icon: Guitar, bubble: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-300', accent: 'accent-emerald-500' },
   drums: { icon: Drum, bubble: 'bg-rose-100 text-rose-700 dark:bg-rose-500/25 dark:text-rose-300', accent: 'accent-rose-500' },
+  lead: { icon: Music2, bubble: 'bg-violet-100 text-violet-700 dark:bg-violet-500/25 dark:text-violet-300', accent: 'accent-violet-500' },
+  arrangement: { icon: Sparkles, bubble: 'bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300', accent: 'accent-amber-500' },
 } as const
 
-const BASS_ICONS: Record<BassVoice, Icon> = { electric: Guitar, upright: Music2 }
+export const BASS_ICONS: Record<BassVoice, Icon> = { electric: Guitar, upright: Music2 }
 
 const PATTERN_SHORT: Record<DrumPattern, string> = { rock: 'Rock', pop: 'Pop', ballad: 'Balada', bossa: 'Bossa' }
 
@@ -50,7 +52,7 @@ const STATUS_DOT: Record<Exclude<SoundSourceStatus, 'idle'>, string> = {
 }
 
 /** Where the sound comes from: a dot and one word, the full sentence on hover and for screen readers. */
-function SourceBadge({ channel }: { channel: BandChannel }) {
+export function SourceBadge({ channel }: { channel: BandChannel }) {
   const status = useSoundStatuses()[channel]
   if (status === 'idle') return null
   return (
@@ -67,7 +69,7 @@ function SourceBadge({ channel }: { channel: BandChannel }) {
 }
 
 /** Icon-only exclusive choice (a sound): the name is its tooltip and accessible name. */
-function IconChoices<T extends string>({
+export function IconChoices<T extends string>({
   label,
   options,
   labels,
@@ -142,7 +144,7 @@ export function PatternGlyph({ pattern }: { pattern: DrumPattern }) {
   )
 }
 
-function PatternChoices({
+export function PatternChoices({
   value,
   onChange,
   disabled,
@@ -179,118 +181,6 @@ function PatternChoices({
           </button>
         )
       })}
-    </div>
-  )
-}
-
-function ChannelTile({
-  channel,
-  label,
-  source,
-  children,
-}: {
-  channel: BandChannel | 'metronome'
-  label: string
-  source: ChannelSource
-  children?: ReactNode
-}) {
-  const look = LOOKS[channel]
-  const TileIcon = look.icon
-  return (
-    <div
-      className={cn(
-        'h-full rounded-2xl p-3 flex flex-col gap-3 border shadow-sm transition-colors',
-        'bg-slate-50 dark:bg-[#1a1f36] border-slate-300 dark:border-slate-600'
-      )}
-    >
-      <div className="flex flex-col items-center gap-2 text-center">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={source.enabled}
-          aria-label={label}
-          onClick={source.onToggle}
-          className={cn(
-            'w-14 h-14 shrink-0 rounded-full flex items-center justify-center transition-all',
-            source.enabled ? look.bubble : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300',
-            source.enabled && 'ring-2 ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#1a1f36] ring-current'
-          )}
-        >
-          <TileIcon className="w-6 h-6" aria-hidden />
-        </button>
-        <div className="min-w-0 space-y-0.5 flex flex-col items-center">
-          <p className="font-semibold text-sm text-slate-900 dark:text-white">{label}</p>
-          {/* The line is always there so the volume sliders line up across tiles. */}
-          <div className="h-4 flex items-center">
-            {channel === 'metronome' ? (
-              <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Click</p>
-            ) : (
-              <SourceBadge channel={channel} />
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {source.volume === 0 ? (
-          <VolumeX className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
-        ) : (
-          <Volume2 className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
-        )}
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={source.volume}
-          aria-label={`Volumen: ${label.toLowerCase()}`}
-          onChange={(event) => source.onVolumeChange(Number(event.target.value))}
-          className={cn('w-full h-1.5 cursor-pointer', look.accent)}
-        />
-        <span className="w-9 shrink-0 text-right text-[11px] font-medium tabular-nums text-slate-600 dark:text-slate-300">{source.volume}%</span>
-      </div>
-
-      {children && <div className="mt-auto">{children}</div>}
-    </div>
-  )
-}
-
-export interface BandChannelTilesProps {
-  metronome: ChannelSource
-  /** Keyboard (a piano): the full chord, in stereo. */
-  chords: ChannelSource
-  bass?: ChannelSource & { voice: BassVoice; onVoiceChange: (voice: BassVoice) => void }
-  drums?: ChannelSource & { pattern: DrumPattern; onPatternChange: (pattern: DrumPattern) => void }
-}
-
-/**
- * The band's channels as tiles: a colored icon that switches the channel on and
- * off, its volume, where its sound comes from (samples or synth) and its
- * choices (sound, rhythm) as icons instead of words.
- */
-export function BandChannelTiles({ metronome, chords, bass, drums }: BandChannelTilesProps) {
-  return (
-    <div className="grid grid-cols-2 gap-3 px-4 pt-3 items-stretch">
-      <ChannelTile channel="metronome" label="Metrónomo" source={metronome} />
-      <ChannelTile channel="keys" label="Acordes" source={chords} />
-      {bass && (
-        <ChannelTile channel="bass" label="Bajo" source={bass}>
-          <IconChoices
-            label="Sonido del bajo"
-            options={BASS_VOICES}
-            labels={BASS_VOICE_LABELS}
-            icons={BASS_ICONS}
-            value={bass.voice}
-            onChange={bass.onVoiceChange}
-            disabled={!bass.enabled}
-          />
-        </ChannelTile>
-      )}
-      {drums && (
-        <ChannelTile channel="drums" label="Batería" source={drums}>
-          <PatternChoices value={drums.pattern} onChange={drums.onPatternChange} disabled={!drums.enabled} />
-        </ChannelTile>
-      )}
     </div>
   )
 }

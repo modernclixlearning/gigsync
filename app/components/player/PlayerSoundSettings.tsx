@@ -11,9 +11,8 @@ import {
 } from '~/components/profile/SettingsSection'
 import type { BassVoice, DrumPattern } from '~/lib/audio/bandSound'
 import type { BandPatternEditorProps } from './BandPatternEditor'
-import { BandChannelTiles, type ChannelSource } from './BandChannelTiles'
-import type { BandTrackCardsProps } from './BandTrackCards'
-import { BandChannelStudio } from './BandChannelStudio'
+import type { ChannelSource } from './ChannelControls'
+import { BandChannelStudio, type TrackChannelProps } from './BandChannelStudio'
 import type { LiveMonitorCardProps } from './LiveMonitorCard'
 import {
   AUTO_ADVANCE_DELAY_MAX,
@@ -122,7 +121,7 @@ export interface PlayerSoundSettingsProps {
   /** The patterns written for this song (drums, bass and chord rhythm). */
   patterns?: BandPatternEditorProps
   /** The tracks written for this song: lead melody and arrangement. */
-  tracks?: BandTrackCardsProps
+  tracks?: TrackChannelProps
   /** Playing the band's instruments live from a MIDI controller. */
   liveMonitor?: LiveMonitorCardProps
   /** Set when the click and the chords can't sound right now, saying why. */
@@ -162,20 +161,22 @@ export function PlayerSoundSettings({
 }: PlayerSoundSettingsProps) {
   return (
     <div>
-      <PanelSection title="Lo que suena">
+      <PanelSection title="Canales de esta canción">
         {soundUnavailableReason && (
           <p className="mx-4 mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             {soundUnavailableReason}
           </p>
         )}
-        <BandChannelTiles metronome={metronome} chords={chords} bass={bass} drums={drums} />
+        <BandChannelStudio
+          metronome={metronome}
+          chords={chords}
+          bass={bass}
+          drums={drums}
+          patterns={patterns}
+          tracks={tracks}
+          liveMonitor={liveMonitor}
+        />
       </PanelSection>
-
-      {patterns && tracks && liveMonitor && (
-        <PanelSection title="Canales de esta canción">
-          <BandChannelStudio patterns={patterns} tracks={tracks} liveMonitor={liveMonitor} />
-        </PanelSection>
-      )}
 
       <PanelSection title="Precuenta">
         <SettingsRow label="Precuenta en cada Play" description="Compases de click antes de arrancar (⏱ en la barra).">
