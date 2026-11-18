@@ -42,6 +42,10 @@ export interface BandPatternEditorProps {
   defaultDrumPattern: DrumPattern
   /** Open the recorder of a role's live take. Without it, takes are not offered. */
   onEditTake?: (role: TakeRole) => void
+  /** Show only this role's card (a modal per channel). Default: all three. */
+  only?: TakeRole
+  /** Spacing of the whole editor. Default: inset like a tab section. */
+  className?: string
 }
 
 type Tone = 'rose' | 'emerald' | 'sky'
@@ -117,7 +121,7 @@ function StepLane({
 
 function Card({ title, hint, action, children }: { title: string; hint: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div role="region" aria-label={title} className="mx-4 mt-3 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3">
+    <div role="region" aria-label={title} className="rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
@@ -265,7 +269,8 @@ function RhythmCard({
   )
 }
 
-export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPattern, onEditTake }: BandPatternEditorProps) {
+export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPattern, onEditTake, only, className }: BandPatternEditorProps) {
+  const shows = (role: TakeRole) => !only || only === role
   const takeRow = (role: TakeRole, name: string) =>
     onEditTake ? <TakeRow role={role} name={name} band={band} onChange={onChange} onEdit={onEditTake} /> : undefined
   const perBar = stepsPerBar(beatsPerBar)
@@ -286,7 +291,8 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
   }
 
   return (
-    <div>
+    <div className={cn('space-y-3', className ?? 'px-4 pt-3')}>
+      {shows('drums') && (
       <Card
         title="Batería"
         hint={
@@ -336,8 +342,9 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
         </div>
         {takeRow('drums', 'la batería')}
       </Card>
+      )}
 
-      <RhythmCard
+      {shows('bass') && <RhythmCard
         title="Bajo"
         footer={takeRow('bass', 'el bajo')}
         laneLabel="Ritmo del bajo"
@@ -347,9 +354,9 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
         perBar={perBar}
         tone="emerald"
         onChange={(bassRhythm) => update({ bassRhythm })}
-      />
+      />}
 
-      <RhythmCard
+      {shows('keys') && <RhythmCard
         title="Acordes"
         footer={takeRow('keys', 'los acordes')}
         laneLabel="Ritmo de los acordes"
@@ -359,9 +366,9 @@ export function BandPatternEditor({ band, onChange, beatsPerBar, defaultDrumPatt
         perBar={perBar}
         tone="sky"
         onChange={(chordRhythm) => update({ chordRhythm })}
-      />
+      />}
 
-      <p className="mx-4 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">
         Cada casilla es una semicorchea. Un toque: nota; otro: acento; otro más: silencio. Se guarda con la canción.
       </p>
     </div>

@@ -24,6 +24,8 @@ export interface LiveMonitorCardProps {
   /** Keys held right now. */
   held: number[]
   lastDrum: { part: 'kick' | 'snare' | 'hat'; count: number } | null
+  /** Spacing around the card. Default: inset like a tab section. */
+  className?: string
 }
 
 const DRUM_LABELS = { kick: 'Bombo', snare: 'Caja', hat: 'Hi-hat' } as const
@@ -54,6 +56,7 @@ export function LiveMonitorCard({
   voiceLabels,
   held,
   lastDrum,
+  className,
 }: LiveMonitorCardProps) {
   const message =
     STATUS_MESSAGE[accessStatus] ??
@@ -69,7 +72,10 @@ export function LiveMonitorCard({
     <div
       role="region"
       aria-label="Tocar con el controlador"
-      className="mx-4 mt-3 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3"
+      className={cn(
+        'rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-[#1a1f36] p-3 space-y-3',
+        className ?? 'mx-4 mt-3'
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
