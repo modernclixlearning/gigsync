@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, FilePenLine } from 'lucide-react'
+import { ArrowLeft, FilePenLine, Gauge } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '~/lib/utils'
 import {
@@ -23,6 +23,7 @@ import { useTrackPlayback } from '~/hooks/useTrackPlayback'
 import { DEFAULT_TRACK_VOICE, activeTakeNotes, isTrackRole, trackVolume, type BandRole, type TrackNote } from '~/lib/audio/bandTracks'
 import { bandRoleNotes, withBandRoleNotes } from '~/lib/audio/bandPatterns'
 import { TrackEditor } from '~/components/player/TrackEditor'
+import { TunerDialog } from '~/components/tuner/TunerDialog'
 import { useLiveMonitor } from '~/hooks/useLiveMonitor'
 import { useMIDIAccess } from '~/hooks/useMIDIAccess'
 import { loadLiveMonitorPrefs, saveLiveMonitorPrefs, type LiveMonitorPrefs, type MonitorRole } from '~/lib/midi/liveMonitor'
@@ -562,6 +563,13 @@ export function SongPlayerContent({
     notes: arrangementNotes,
     volume: trackVolume(song.band?.arrangement) / 100,
   })
+  // The tuner, over the song: opening it pauses playback (the mic would hear the band) and
+  // leaves the song, the setlist and the place in it as they are.
+  const [isTunerOpen, setIsTunerOpen] = useState(false)
+  const openTuner = useCallback(() => {
+    if (playerRef.current.state.isPlaying) playerRef.current.pause()
+    setIsTunerOpen(true)
+  }, [])
   /** The track being written in the full-screen editor, if any. */
   const [editingTrack, setEditingTrack] = useState<BandRole | null>(null)
   const songBandRef = useRef(song.band)
@@ -862,6 +870,21 @@ export function SongPlayerContent({
                 <span className={cn('w-1 h-3 rounded-full animate-pulse delay-150', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
               </div>
             )}
+            <button
+              type="button"
+              onClick={openTuner}
+              aria-label="Afinador"
+              title="Abrir el afinador sin salir de la canción"
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                isSetlistMode
+                  ? 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              )}
+            >
+              <Gauge className="w-5 h-5" />
+              <span className="hidden sm:inline">Afinador</span>
+            </button>
             <button
               type="button"
               onClick={toggleEditPanel}
@@ -1297,6 +1320,8 @@ export function SongPlayerContent({
           )
         }}
       />
+      {isTunerOpen && <TunerDialog onClose={() => setIsTunerOpen(false)} />}
+
       {editingTrack && (
         <TrackEditor
           role={editingTrack}

@@ -1,13 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useMicrophone } from './useMicrophone'
-import type { 
-  TunerState, 
-  PitchInfo, 
-  NoteName, 
-  TuningPreset, 
-  CalibrationSettings 
-} from '~/types/tuner'
+import type { TunerState, PitchInfo, TuningPreset, CalibrationSettings } from '~/types/tuner'
 import { DEFAULT_CALIBRATION } from '~/types/tuner'
+import { createPitchStabilizer, type StablePitch } from '~/lib/tuner/pitchStabilizer'
 
 export interface UseTunerReturn extends TunerState {
   /** Microphone access is being requested */
@@ -24,39 +19,34 @@ export interface UseTunerReturn extends TunerState {
   setPreset: (preset: TuningPreset | null) => void
 }
 
-// Note frequencies relative to A4 (semitones from A)
-const NOTE_NAMES: NoteName[] = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+/** The detector runs about 30 times a second: plenty for a needle, and half the work. */
+const DETECT_INTERVAL_MS = 30
+/** Lowest pitch looked for (Hz) — below a bass's low B. Bounds how far YIN searches. */
+const MIN_FREQUENCY = 30
 
 /**
- * Convert frequency to note information
+ * Loudness (RMS) under which nothing is tuned: room noise and a string that
+ * has all but died away. Higher sensitivity lets quieter sounds through.
  */
-function frequencyToNote(frequency: number, referenceFrequency: number = 440): PitchInfo | null {
-  if (frequency <= 0) return null
+function noiseGate(sensitivity: number): number {
+  return 0.002 + (1 - Math.min(1, Math.max(0, sensitivity))) * 0.012
+}
 
-  // Calculate semitones from A4
-  const semitones = 12 * Math.log2(frequency / referenceFrequency)
-  
-  // Round to nearest semitone to get the note
-  const roundedSemitones = Math.round(semitones)
-  
-  // Calculate cents deviation (-50 to +50)
-  const cents = Math.round((semitones - roundedSemitones) * 100)
-  
-  // Calculate note index (A = 9 in our NOTE_NAMES array)
-  // A4 is our reference, so semitone 0 = A
-  const noteIndex = ((roundedSemitones % 12) + 12 + 9) % 12
-  const note = NOTE_NAMES[noteIndex]
-  
-  // Calculate octave (A4 = octave 4, each 12 semitones = 1 octave)
-  const octave = 4 + Math.floor((roundedSemitones + 9) / 12)
-  
-  return {
-    frequency,
-    note,
-    octave,
-    cents,
-    confidence: 1, // Will be set by the detection algorithm
-  }
+function rootMeanSquare(buffer: Float32Array): number {
+  let sum = 0
+  for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i]
+  return Math.sqrt(sum / buffer.length)
+}
+
+/** Whether what is on screen would look any different with `next`. */
+function sameOnScreen(previous: PitchInfo | null, next: StablePitch | null): boolean {
+  if (!previous || !next) return previous === next
+  return (
+    previous.note === next.note &&
+    previous.octave === next.octave &&
+    previous.cents === next.cents &&
+    Math.abs(previous.frequency - next.frequency) < 0.05
+  )
 }
 
 /**
@@ -71,12 +61,14 @@ function detectPitch(
   const bufferSize = buffer.length
   const yinThreshold = 0.1 + (1 - sensitivity) * 0.3 // 0.1 to 0.4 based on sensitivity
   
-  // Step 1: Calculate the difference function
-  const yinBuffer = new Float32Array(bufferSize / 2)
+  // Step 1: Calculate the difference function. The window is half the buffer;
+  // only lags down to the lowest pitch looked for are searched.
+  const windowSize = bufferSize / 2
+  const yinBuffer = new Float32Array(Math.min(windowSize, Math.ceil(sampleRate / MIN_FREQUENCY) + 1))
   
   for (let tau = 0; tau < yinBuffer.length; tau++) {
     yinBuffer[tau] = 0
-    for (let i = 0; i < yinBuffer.length; i++) {
+    for (let i = 0; i < windowSize; i++) {
       const delta = buffer[i] - buffer[i + tau]
       yinBuffer[tau] += delta * delta
     }
@@ -160,6 +152,7 @@ export function useTuner(): UseTunerReturn {
   const animationFrameRef = useRef<number | null>(null)
   const bufferRef = useRef<Float32Array | null>(null)
   const calibrationRef = useRef<CalibrationSettings>(state.calibration)
+  const stabilizer = useMemo(() => createPitchStabilizer(), [])
 
   // Keep calibration ref in sync with state
   useEffect(() => {
@@ -220,8 +213,10 @@ export function useTuner(): UseTunerReturn {
     }
 
     setState(prev => ({ ...prev, isListening: true, error: null }))
+    stabilizer.reset()
+    let lastDetection = -Infinity
 
-    const detectLoop = () => {
+    const detectLoop = (frameTime: number = performance.now()) => {
       // Verify analyser is still available and context is running
       if (!analyser || !bufferRef.current) {
         if (animationFrameRef.current) {
@@ -248,33 +243,30 @@ export function useTuner(): UseTunerReturn {
         return
       }
 
+      // A needle does not need 60 readings a second: about 30, and the rest of the frames are skipped.
+      if (frameTime - lastDetection < DETECT_INTERVAL_MS) {
+        animationFrameRef.current = requestAnimationFrame(detectLoop)
+        return
+      }
+      lastDetection = frameTime
+
       // Get time domain data
       analyser.getFloatTimeDomainData(bufferRef.current as Float32Array<ArrayBuffer>)
 
-      // Detect pitch using YIN algorithm with current calibration
-      const result = detectPitch(
-        bufferRef.current, 
-        sampleRate,
-        calibrationRef.current.sensitivity
-      )
+      const { sensitivity, referenceFrequency } = calibrationRef.current
+      // Too quiet to be a note: nothing is tuned (and the stabilizer lets the last reading fade).
+      const detected =
+        rootMeanSquare(bufferRef.current) < noiseGate(sensitivity)
+          ? null
+          : detectPitch(bufferRef.current, sampleRate, sensitivity)
 
-      if (result && result.confidence > 0.5) {
-        const noteInfo = frequencyToNote(
-          result.frequency, 
-          calibrationRef.current.referenceFrequency
-        )
-        if (noteInfo) {
-          setState(prev => ({
-            ...prev,
-            pitch: { ...noteInfo, confidence: result.confidence },
-          }))
-        } else {
-          setState(prev => ({ ...prev, pitch: null }))
-        }
-      } else {
-        // Clear pitch if no confident detection
-        setState(prev => ({ ...prev, pitch: null }))
-      }
+      // The stabilizer decides what the screen shows; only a visible change re-renders.
+      const stable = stabilizer.push(detected, frameTime, referenceFrequency)
+      setState(prev =>
+        sameOnScreen(prev.pitch, stable)
+          ? prev
+          : { ...prev, pitch: stable ? { ...stable } : null }
+      )
 
       animationFrameRef.current = requestAnimationFrame(detectLoop)
     }
@@ -287,7 +279,7 @@ export function useTuner(): UseTunerReturn {
         animationFrameRef.current = null
       }
     }
-  }, [microphone.isActive, microphone.analyser, microphone.sampleRate, microphone.audioContext, calibration])
+  }, [microphone.isActive, microphone.analyser, microphone.sampleRate, microphone.audioContext, calibration, stabilizer])
 
   const start = useCallback(async () => {
     await microphone.start()
@@ -295,8 +287,9 @@ export function useTuner(): UseTunerReturn {
 
   const stop = useCallback(() => {
     microphone.stop()
+    stabilizer.reset()
     setState(prev => ({ ...prev, isListening: false, pitch: null }))
-  }, [microphone])
+  }, [microphone, stabilizer])
 
   const toggle = useCallback(async () => {
     if (state.isListening) {

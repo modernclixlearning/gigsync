@@ -111,6 +111,57 @@ describe('useTuner', () => {
     }, { timeout: 3000 })
   })
 
+  it('locks onto the note heard and holds it steady', async () => {
+    mockMicrophone.isActive = true
+    mockAnalyser = mockAudioContext.createAnalyser()
+    mockMicrophone.analyser = mockAnalyser
+    mockMicrophone.audioContext = mockAudioContext as any
+    mockMicrophone.sampleRate = 44100
+    vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
+
+    // A 440 Hz tone with a little frame-to-frame wobble in its pitch (±2 Hz).
+    let frame = 0
+    vi.mocked(mockAnalyser.getFloatTimeDomainData).mockImplementation((array) => {
+      const hz = 440 + (frame++ % 2 === 0 ? 2 : -2)
+      for (let i = 0; i < array.length; i++) array[i] = 0.5 * Math.sin(2 * Math.PI * hz * (i / 44100))
+    })
+
+    const { result } = renderHook(() => useTuner())
+
+    await waitFor(() => {
+      expect(result.current.pitch?.note).toBe('A')
+    }, { timeout: 3000 })
+    expect(result.current.pitch?.octave).toBe(4)
+
+    // After settling, the wobble no longer moves the needle by more than a few cents.
+    const seen: number[] = []
+    for (let i = 0; i < 10; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      if (result.current.pitch) seen.push(result.current.pitch.cents)
+    }
+    expect(seen.length).toBeGreaterThan(0)
+    expect(Math.max(...seen) - Math.min(...seen)).toBeLessThanOrEqual(8)
+  })
+
+  it('does not tune room noise below the noise gate', async () => {
+    mockMicrophone.isActive = true
+    mockAnalyser = mockAudioContext.createAnalyser()
+    mockMicrophone.analyser = mockAnalyser
+    mockMicrophone.audioContext = mockAudioContext as any
+    mockMicrophone.sampleRate = 44100
+    vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
+
+    // A clean 440 Hz tone, but far too quiet to be played on purpose.
+    vi.mocked(mockAnalyser.getFloatTimeDomainData).mockImplementation((array) => {
+      for (let i = 0; i < array.length; i++) array[i] = 0.002 * Math.sin(2 * Math.PI * 440 * (i / 44100))
+    })
+
+    const { result } = renderHook(() => useTuner())
+    await waitFor(() => expect(result.current.isListening).toBe(true), { timeout: 3000 })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(result.current.pitch).toBe(null)
+  })
+
   it('should handle calibration changes', () => {
     const { result } = renderHook(() => useTuner())
 
