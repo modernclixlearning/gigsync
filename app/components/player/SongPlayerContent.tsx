@@ -101,7 +101,7 @@ export function SongPlayerContent({
   // Side panel (Vista / Sonido / Canción): docked next to the song so every
   // change is visible (or audible) on it while being made.
   const [isPanelOpen, setIsPanelOpen] = useState(initialPanelTab !== undefined)
-  const [panelTab, setPanelTab] = useState<PlayerPanelTab>(initialPanelTab ?? 'view')
+  const [panelTab, setPanelTab] = useState<PlayerPanelTab>(initialPanelTab ?? 'sound')
   const isPanelOpenRef = useRef(isPanelOpen)
   isPanelOpenRef.current = isPanelOpen
   const openPanel = useCallback((tab: PlayerPanelTab) => {
@@ -112,9 +112,10 @@ export function SongPlayerContent({
 
   // Two ways in, one per job: «Editar» in the header (the song itself: the
   // Canción tab) and the sliders in the bottom bar (how it looks and sounds
-  // while playing: Vista and Sonido, back on the last one used). Each lights
-  // up only for its own part; pressing the other switches tab.
-  const lastViewTabRef = useRef<Exclude<PlayerPanelTab, 'edit'>>('view')
+  // while playing: Vista and Sonido, back on the last one used — Sonido the
+  // first time). Each lights up only for its own part; pressing the other
+  // switches tab.
+  const lastViewTabRef = useRef<Exclude<PlayerPanelTab, 'edit'>>('sound')
   if (panelTab !== 'edit') lastViewTabRef.current = panelTab
   const isEditPanelOpen = isPanelOpen && panelTab === 'edit'
   const isViewPanelOpen = isPanelOpen && panelTab !== 'edit'
