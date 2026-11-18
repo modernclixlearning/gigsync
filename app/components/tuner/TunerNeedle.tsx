@@ -123,7 +123,7 @@ export function TunerNeedle({
         {/* Needle */}
         <g
           transform={`rotate(${isActive ? clampedRotation : 0}, ${centerX}, ${centerY})`}
-          className="transition-transform duration-100 ease-out"
+          className="transition-transform duration-200 ease-out"
         >
           {/* Needle shadow */}
           <line
