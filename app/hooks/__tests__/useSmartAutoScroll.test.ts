@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { chordCellBeats, chordIndexAt, findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
+import { chordCellBeats, chordIndexAt, findLeadInPickup, findPickupElement, scrollTargetForLine, useSmartAutoScroll } from '../useSmartAutoScroll'
 import { parseChordPro } from '~/lib/chordpro/parser'
 import mockTone from '@tests/mocks/tone'
 
@@ -1067,6 +1067,40 @@ describe('findPickupElement', () => {
 
   it('lines without a levare never match', () => {
     expect(findPickupElement([el('element-0', 0), el('element-1', 8)], 7.5)).toBeNull()
+  })
+})
+
+describe('findLeadInPickup', () => {
+  const el = (id: string, startBeat: number, pickupBeats?: number, type = 'lyric') =>
+    ({
+      id,
+      type,
+      startBeat,
+      endBeat: startBeat + 8,
+      durationBeats: 8,
+      bars: 2,
+      content: { type, raw: '', text: 'This happened once before', chords: [], ...(pickupBeats ? { pickupBeats } : {}) },
+    }) as never
+
+  it('is the first line when its levare reaches back before the start of the song', () => {
+    expect(findLeadInPickup([el('element-0', 0, 2), el('element-1', 8)])).toEqual({ elementId: 'element-0', beats: 2 })
+    expect(findLeadInPickup([el('element-0', 0, 1.5)])).toEqual({ elementId: 'element-0', beats: 1.5 })
+  })
+
+  it('counts only what does not fit: a line that starts a little after the beginning', () => {
+    expect(findLeadInPickup([el('element-0', 1, 3)])).toEqual({ elementId: 'element-0', beats: 2 })
+  })
+
+  it('is null when every levare fits over the end of what comes before it', () => {
+    expect(findLeadInPickup([el('element-0', 0), el('element-1', 8, 2)])).toBeNull()
+    expect(findLeadInPickup([el('element-0', 2, 2)])).toBeNull()
+  })
+
+  it('is null for songs with no levare, no lyric lines or no timeline yet', () => {
+    expect(findLeadInPickup([el('element-0', 0)])).toBeNull()
+    expect(findLeadInPickup([el('element-0', 0, 2, 'chords-only')])).toBeNull()
+    expect(findLeadInPickup(undefined)).toBeNull()
+    expect(findLeadInPickup([])).toBeNull()
   })
 })
 

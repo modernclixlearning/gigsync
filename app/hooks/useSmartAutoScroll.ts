@@ -123,6 +123,25 @@ export function findPickupElement(elements: TimelineElement[], beat: number): st
   return null
 }
 
+/**
+ * A levare that does not fit before the line: its `pickupBeats` reach back past
+ * the start of the song (the first line has no previous line to be sung over).
+ * `beats` is how long before the line's first chord the song has to give it.
+ * Null when every levare fits.
+ */
+export interface LeadInPickup {
+  elementId: string
+  beats: number
+}
+
+export function findLeadInPickup(elements: TimelineElement[] | undefined): LeadInPickup | null {
+  for (const el of elements ?? []) {
+    const pickupBeats = el.content.type === 'lyric' ? el.content.pickupBeats : undefined
+    if (pickupBeats && pickupBeats > el.startBeat) return { elementId: el.id, beats: pickupBeats - el.startBeat }
+  }
+  return null
+}
+
 export interface UseSmartAutoScrollReturn {
   /** Current absolute beat number from BPM sync */
   currentBeat: number
@@ -150,6 +169,11 @@ export interface UseSmartAutoScrollReturn {
    * right now, over the end of the previous line. Null otherwise.
    */
   pickupElementId: string | null
+  /**
+   * The levare of the song's first line, which reaches back before beat 0: the
+   * player gives it a lead-in (see useCountIn) instead of letting it be lost.
+   */
+  leadInPickup: LeadInPickup | null
   /** True when fallback to simple autoscroll is active */
   hasFallback: boolean
   /** Function to retry smart autoscroll after fallback */
@@ -414,6 +438,13 @@ export function useSmartAutoScroll({
     [isEnabled, timelineElements, bpmSync.preciseBeat]
   )
 
+  // A property of the song, not of the autoscroll: it is needed on the very first Play, which is
+  // what switches the autoscroll on.
+  const leadInPickup = useMemo(
+    () => (hasFallback ? null : findLeadInPickup(timelineElements)),
+    [hasFallback, timelineElements]
+  )
+
   // Timed on the 16th-note beat, so a chord that starts on an "and" lights up there.
   const activeElement = currentElementIdRef.current
     ? timelineElements?.find((e) => e.id === currentElementIdRef.current)
@@ -429,6 +460,7 @@ export function useSmartAutoScroll({
     currentBeat: bpmSync.currentBeat,
     preciseBeat: bpmSync.preciseBeat,
     pickupElementId,
+    leadInPickup,
     currentBar: bpmSync.currentBar,
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,
