@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMetronome } from '../useMetronome'
-import mockTone, { MockSynth, MockTransport, MockLoop } from '@tests/mocks/tone'
+import mockTone, { MockSynth, MockTransport, clocks } from '@tests/mocks/tone'
 
 // Mock Tone.js
 vi.mock('tone', async () => {
@@ -16,6 +16,7 @@ describe('useMetronome', () => {
   beforeEach(() => {
     mockSynth = new MockSynth()
     mockTransport = new MockTransport()
+    clocks.length = 0
     
     vi.mocked(mockTone.Transport.get).mockReturnValue(mockTransport as any)
     vi.mocked(mockTone.getTransport).mockReturnValue(mockTransport as any)
@@ -54,11 +55,24 @@ describe('useMetronome', () => {
     })
 
     expect(result.current.bpm).toBe(150)
-    
-    // Wait for useEffect to update transport BPM
-    await waitFor(() => {
-      expect(mockTransport.bpm.value).toBe(150)
+
+    // Playing, the clock follows the tempo: one tick per beat.
+    await act(async () => {
+      await result.current.start()
     })
+    act(() => {
+      result.current.setBpm(90)
+    })
+    await waitFor(() => {
+      expect(clocks[clocks.length - 1].frequency.value).toBe(90 / 60)
+    })
+  })
+
+  it('should start at the tempo and meter it is given', () => {
+    const { result } = renderHook(() => useMetronome(96, '6/8'))
+
+    expect(result.current.bpm).toBe(96)
+    expect(result.current.timeSignature).toBe('6/8')
   })
 
   it('should clamp BPM to valid range (20-300)', () => {
@@ -84,9 +98,31 @@ describe('useMetronome', () => {
 
     await waitFor(() => {
       expect(result.current.isPlaying).toBe(true)
-      expect(mockTransport.start).toHaveBeenCalled()
       expect(mockTone.start).toHaveBeenCalled()
     })
+    // It ticks on its own clock, at the tempo.
+    expect(clocks).toHaveLength(1)
+    expect(clocks[0].start).toHaveBeenCalled()
+    expect(clocks[0].frequency.value).toBe(120 / 60)
+  })
+
+  it('should never touch the shared transport, so a song can keep its place and tempo', async () => {
+    const { result } = renderHook(() => useMetronome(100))
+    mockTransport.bpm.value = 80 // the song's tempo
+
+    await act(async () => {
+      await result.current.start()
+    })
+    act(() => {
+      result.current.setBpm(140)
+    })
+    act(() => {
+      result.current.stop()
+    })
+
+    expect(mockTransport.start).not.toHaveBeenCalled()
+    expect(mockTransport.stop).not.toHaveBeenCalled()
+    expect(mockTransport.bpm.value).toBe(80)
   })
 
   it('should stop metronome', async () => {
@@ -106,7 +142,78 @@ describe('useMetronome', () => {
 
     expect(result.current.isPlaying).toBe(false)
     expect(result.current.currentBeat).toBe(0)
-    expect(mockTransport.stop).toHaveBeenCalled()
+    expect(clocks[0].stop).toHaveBeenCalled()
+    expect(clocks[0].dispose).toHaveBeenCalled()
+  })
+
+  describe('the clicks', () => {
+    const play = async (result: { current: ReturnType<typeof useMetronome> }) => {
+      await act(async () => {
+        await result.current.start()
+      })
+      return clocks[clocks.length - 1]
+    }
+    const clicked = () => mockSynth.triggerAttackRelease.mock.calls.map((call) => call[0])
+
+    it('accents the first beat of the bar and cycles through the meter', async () => {
+      const { result } = renderHook(() => useMetronome(120, '3/4'))
+      const clock = await play(result)
+      act(() => {
+        for (let i = 0; i < 6; i++) clock.tick(i * 0.5)
+      })
+      expect(clicked()).toEqual([1200, 800, 800, 1200, 800, 800])
+    })
+
+    it('shows the beat being played', async () => {
+      const { result } = renderHook(() => useMetronome(120, '4/4'))
+      const clock = await play(result)
+      act(() => clock.tick(0))
+      expect(result.current.currentBeat).toBe(1)
+      act(() => clock.tick(0.5))
+      act(() => clock.tick(1))
+      expect(result.current.currentBeat).toBe(3)
+    })
+
+    it('with subdivisions ticks twice per beat and shows the beat, not the half', async () => {
+      const { result } = renderHook(() => useMetronome(120, '4/4'))
+      act(() => result.current.toggleSubdivisions())
+      const clock = await play(result)
+      expect(clock.frequency.value).toBe((120 / 60) * 2)
+      act(() => {
+        for (let i = 0; i < 3; i++) clock.tick(i * 0.25)
+      })
+      expect(clicked().length).toBe(3)
+      expect(result.current.currentBeat).toBe(2)
+    })
+
+    it('does not accent when accenting is off, and does not click when silent', async () => {
+      const { result } = renderHook(() => useMetronome(120, '4/4'))
+      act(() => result.current.setAccentFirst(false))
+      const clock = await play(result)
+      act(() => {
+        clock.tick(0)
+        clock.tick(0.5)
+      })
+      expect(clicked()).toEqual([800, 800])
+
+      mockSynth.triggerAttackRelease.mockClear()
+      act(() => result.current.setSound('silent'))
+      act(() => clock.tick(1))
+      expect(clicked()).toEqual([])
+    })
+
+    it('picks up a new meter right away: the bar starts over', async () => {
+      const { result } = renderHook(() => useMetronome(120, '4/4'))
+      const clock = await play(result)
+      act(() => {
+        clock.tick(0)
+        clock.tick(0.5)
+      })
+      act(() => result.current.setTimeSignature('3/4'))
+      mockSynth.triggerAttackRelease.mockClear()
+      act(() => clock.tick(1))
+      expect(clicked()).toEqual([1200])
+    })
   })
 
   it('should toggle metronome', async () => {
@@ -251,10 +358,9 @@ describe('useMetronome', () => {
       result.current.setBpm(100)
     })
 
-    // Wait for useEffect to update transport BPM
-    await waitFor(() => {
-      expect(mockTransport.bpm.value).toBe(100)
-    }, { timeout: 2000 })
+    expect(result.current.bpm).toBe(100)
+    // And the transport is left alone.
+    expect(mockTransport.bpm.value).toBe(120)
   })
 
   it('should cleanup on unmount', async () => {
@@ -269,5 +375,7 @@ describe('useMetronome', () => {
     unmount()
 
     expect(disposeSpy).toHaveBeenCalled()
+    expect(clocks[0].stop).toHaveBeenCalled()
+    expect(clocks[0].dispose).toHaveBeenCalled()
   })
 })

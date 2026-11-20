@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, FilePenLine, Gauge } from 'lucide-react'
+import { ArrowLeft, FilePenLine, Gauge, Timer } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '~/lib/utils'
 import {
@@ -24,6 +24,7 @@ import { DEFAULT_TRACK_VOICE, activeTakeNotes, isTrackRole, trackVolume, type Ba
 import { bandRoleNotes, withBandRoleNotes } from '~/lib/audio/bandPatterns'
 import { TrackEditor } from '~/components/player/TrackEditor'
 import { TunerDialog } from '~/components/tuner/TunerDialog'
+import { MetronomeDialog } from '~/components/metronome/MetronomeDialog'
 import { useLiveMonitor } from '~/hooks/useLiveMonitor'
 import { useMIDIAccess } from '~/hooks/useMIDIAccess'
 import { loadLiveMonitorPrefs, saveLiveMonitorPrefs, type LiveMonitorPrefs, type MonitorRole } from '~/lib/midi/liveMonitor'
@@ -570,6 +571,13 @@ export function SongPlayerContent({
     if (playerRef.current.state.isPlaying) playerRef.current.pause()
     setIsTunerOpen(true)
   }, [])
+  // The metronome, over the song: it starts at the song's tempo and meter, runs on its own
+  // clock (not the song's transport), and opening it pauses the song so two clicks do not mix.
+  const [isMetronomeOpen, setIsMetronomeOpen] = useState(false)
+  const openMetronome = useCallback(() => {
+    if (playerRef.current.state.isPlaying) playerRef.current.pause()
+    setIsMetronomeOpen(true)
+  }, [])
   /** The track being written in the full-screen editor, if any. */
   const [editingTrack, setEditingTrack] = useState<BandRole | null>(null)
   const songBandRef = useRef(song.band)
@@ -870,6 +878,21 @@ export function SongPlayerContent({
                 <span className={cn('w-1 h-3 rounded-full animate-pulse delay-150', isSetlistMode ? 'bg-primary' : 'bg-indigo-500')} />
               </div>
             )}
+            <button
+              type="button"
+              onClick={openMetronome}
+              aria-label="Metrónomo"
+              title="Abrir el metrónomo sin salir de la canción, al tempo de la canción"
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                isSetlistMode
+                  ? 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              )}
+            >
+              <Timer className="w-5 h-5" />
+              <span className="hidden sm:inline">Metrónomo</span>
+            </button>
             <button
               type="button"
               onClick={openTuner}
@@ -1321,6 +1344,13 @@ export function SongPlayerContent({
         }}
       />
       {isTunerOpen && <TunerDialog onClose={() => setIsTunerOpen(false)} />}
+      {isMetronomeOpen && (
+        <MetronomeDialog
+          bpm={midiClock.bpm ?? (song.bpm || 120)}
+          timeSignature={song.timeSignature || '4/4'}
+          onClose={() => setIsMetronomeOpen(false)}
+        />
+      )}
 
       {editingTrack && (
         <TrackEditor
