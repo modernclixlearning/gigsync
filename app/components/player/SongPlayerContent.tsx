@@ -371,6 +371,13 @@ export function SongPlayerContent({
   // (or counting in) starts over from the top instead of stopping at once.
   const isAtEndRef = useRef(false)
   isAtEndRef.current = isSongFinished(autoScroll.currentBeat, autoScroll.totalBeats)
+  // A levare on the first line reaches back before the song starts: playing from the top
+  // then begins with a lead-in of that many beats, the words lit while it runs.
+  const leadInPickup = autoScroll.leadInPickup
+  const leadInRef = useRef(leadInPickup)
+  leadInRef.current = leadInPickup
+  const currentBeatRef = useRef(autoScroll.currentBeat)
+  currentBeatRef.current = autoScroll.currentBeat
   const rewindIfFinished = useCallback(() => {
     if (!playerRef.current.state.isPlaying && isAtEndRef.current) {
       autoScrollReset()
@@ -396,16 +403,20 @@ export function SongPlayerContent({
     if (playerRef.current.state.isPlaying) return
     setIsAdvancePending(false)
     rewindIfFinished()
+    // From the top, a first-line levare is sung over the end of the count-in. With the
+    // count-in off, the count is just those beats.
+    const pickup = (isAtEndRef.current || currentBeatRef.current < 0.25) ? leadInRef.current : null
     void countIn.start({
       bpm: countInBpm,
       beatsPerBar,
       bars: playbackPrefs.countInBars,
+      ...(pickup ? { pickupBeats: pickup.beats, ...(playbackPrefs.countInEnabled ? {} : { totalBeats: pickup.beats }) } : {}),
       volume: playbackPrefs.metronomeVolume / 100,
       onDone: () => {
         if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
       },
     })
-  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, playbackPrefs.metronomeVolume, rewindIfFinished])
+  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, playbackPrefs.countInEnabled, playbackPrefs.metronomeVolume, rewindIfFinished])
 
   // The count-in is a toggle, not a separate play: while it's on, every Play
   // (button or space bar) starts with it. Saved in the settings, so it stays
@@ -423,7 +434,9 @@ export function SongPlayerContent({
       cancelCountIn()
       return
     }
-    if (!playerRef.current.state.isPlaying && isCountInOn) {
+    // The count-in, or — with it off — the lead-in a first-line levare needs.
+    const needsLeadIn = !!leadInRef.current && (isAtEndRef.current || currentBeatRef.current < 0.25)
+    if (!playerRef.current.state.isPlaying && (isCountInOn || needsLeadIn)) {
       startCountIn()
       return
     }
@@ -1035,6 +1048,27 @@ export function SongPlayerContent({
           />
         )}
 
+      {/* Lead-in of a first-line levare: the song is not playing yet, so the line is lit on its own */}
+      {countIn.isPickup && leadInPickup && !player.state.isPlaying && (
+        <style>{`
+          [data-element-id] {
+            opacity: 0.25;
+            transition: opacity 0.4s ease;
+          }
+          [data-element-id="${leadInPickup.elementId}"] {
+            opacity: 1;
+          }
+          ${pickupHighlightCss(leadInPickup.elementId, {
+            lyricMode: player.state.beatHighlightMode,
+            chordMode: player.state.chordHighlightMode ?? player.state.beatHighlightMode,
+            textColor: player.state.beatHighlightTextColor,
+            bgColor: player.state.beatHighlightBgColor,
+            glowColor: player.state.beatHighlightGlowColor ?? player.state.beatHighlightTextColor,
+            glowIntensity: player.state.beatHighlightGlowIntensity,
+          })}
+        `}</style>
+      )}
+
       {/* Current line + per-bar highlight style */}
       {autoScroll.currentElementId &&
         player.state.isPlaying &&
@@ -1136,7 +1170,13 @@ export function SongPlayerContent({
           aria-live="assertive"
           className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
         >
-          <span className="text-[10rem] font-black leading-none text-indigo-500/80 tabular-nums drop-shadow-lg">
+          <span
+            className={cn(
+              'text-[10rem] font-black leading-none tabular-nums drop-shadow-lg',
+              // While the levare is sung the words are what matters: the number steps back.
+              countIn.isPickup ? 'text-indigo-500/30' : 'text-indigo-500/80'
+            )}
+          >
             {countIn.count}
           </span>
         </div>
