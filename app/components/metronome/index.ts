@@ -16,3 +16,6 @@ export type { VisualBeatProps } from './VisualBeat'
 
 export { TapTempo } from './TapTempo'
 export type { TapTempoProps } from './TapTempo'
+
+export { TempoKnob } from './TempoKnob'
+export type { TempoKnobProps } from './TempoKnob'

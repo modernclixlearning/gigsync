@@ -67,6 +67,42 @@ export class MockLoop {
   })
 }
 
+/** Tone.Clock: ticks on its own, apart from the Transport. `tick()` fires it by hand. */
+export class MockClock {
+  callback: (time: number, ticks?: number) => void
+  frequency: { value: number }
+  started = false
+
+  constructor(options: { callback: (time: number, ticks?: number) => void; frequency: number }) {
+    this.callback = options.callback
+    this.frequency = { value: options.frequency }
+  }
+
+  start = vi.fn(() => {
+    this.started = true
+  })
+
+  stop = vi.fn(() => {
+    this.started = false
+  })
+
+  dispose = vi.fn(() => {
+    this.started = false
+  })
+
+  /** Fire one tick at audio time `time`. */
+  tick(time: number = 0): void {
+    this.callback(time)
+  }
+}
+
+export const clocks: MockClock[] = []
+const MockClockSpy = vi.fn().mockImplementation((options: { callback: (time: number) => void; frequency: number }) => {
+  const clock = new MockClock(options)
+  clocks.push(clock)
+  return clock
+})
+
 // Create a spy constructor for MockLoop
 const MockLoopSpy = vi.fn().mockImplementation((callback: (time: number) => void, interval: string) => {
   return new MockLoop(callback, interval)
@@ -104,6 +140,7 @@ const mockTone = {
   }),
   getTransport: vi.fn(() => mockTransport),
   Loop: MockLoopSpy,
+  Clock: MockClockSpy,
   Draw: MockDraw,
   context: mockContext,
   start: vi.fn().mockResolvedValue(undefined),

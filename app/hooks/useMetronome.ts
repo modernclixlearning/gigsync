@@ -38,12 +38,17 @@ function parseTimeSignature(signature: string): { beats: number; noteValue: numb
   return { beats: beats || 4, noteValue: noteValue || 4 }
 }
 
-export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
+/**
+ * The practice metronome. It runs on its own Tone.Clock — never on the shared
+ * Transport that the song player plays and scrolls on — so it can be opened
+ * over a song (or run beside it) without moving the song's position or tempo.
+ */
+export function useMetronome(initialBpm: number = 120, initialTimeSignature: string = '4/4'): UseMetronomeReturn {
   const [state, setState] = useState<MetronomeState>({
     isPlaying: false,
     bpm: initialBpm,
     currentBeat: 0,
-    timeSignature: '4/4',
+    timeSignature: initialTimeSignature,
     sound: 'classic',
     volume: 0.8,
     accentFirst: true,
@@ -52,9 +57,12 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
   })
 
   const synthRef = useRef<Tone.Synth | null>(null)
-  const loopRef = useRef<Tone.Loop | null>(null)
+  const clockRef = useRef<Tone.Clock | null>(null)
   const beatIndexRef = useRef(0)
   const isInitializedRef = useRef(false)
+  // Read from the audio callback, outside React's render cycle.
+  const optionsRef = useRef(state)
+  optionsRef.current = state
 
   // Initialize synth
   useEffect(() => {
@@ -76,9 +84,10 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
     }
 
     return () => {
-      if (loopRef.current) {
-        loopRef.current.dispose()
-        loopRef.current = null
+      if (clockRef.current) {
+        clockRef.current.stop()
+        clockRef.current.dispose()
+        clockRef.current = null
       }
       if (synthRef.current) {
         synthRef.current.dispose()
@@ -95,74 +104,34 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
     }
   }, [state.volume])
 
-  // Update BPM
+  // Tempo: the clock ticks once per beat, or twice with subdivisions.
   useEffect(() => {
-    if (isInitializedRef.current) {
-      try {
-        Tone.getTransport().bpm.value = state.bpm
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to update BPM'
-        setState((prev) => ({ ...prev, error: errorMessage }))
-      }
+    if (clockRef.current) {
+      clockRef.current.frequency.value = (state.bpm / 60) * (state.subdivisions ? 2 : 1)
     }
-  }, [state.bpm])
+  }, [state.bpm, state.subdivisions, state.isPlaying])
 
-  // Helper function to create and start the loop
-  const createLoop = useCallback(() => {
-    if (!isInitializedRef.current || !synthRef.current) {
-      return
-    }
-
-    const { beats } = parseTimeSignature(state.timeSignature)
-    const soundConfig = SOUNDS[state.sound]
-    
+  // A new meter or subdivision starts the bar over.
+  useEffect(() => {
     beatIndexRef.current = 0
+  }, [state.timeSignature, state.subdivisions])
 
-    if (loopRef.current) {
-      loopRef.current.dispose()
-      loopRef.current = null
-    }
+  /** One tick of the clock, at its exact audio time. */
+  const tick = useCallback((time: number) => {
+    const synth = synthRef.current
+    if (!synth) return
+    const { timeSignature, sound, accentFirst, subdivisions } = optionsRef.current
+    const { beats } = parseTimeSignature(timeSignature)
+    const perBeat = subdivisions ? 2 : 1
+    const index = beatIndexRef.current
 
-    const interval = state.subdivisions ? '8n' : '4n'
-    const beatsPerMeasure = state.subdivisions ? beats * 2 : beats
+    const soundConfig = SOUNDS[sound]
+    const frequency = accentFirst && index === 0 ? soundConfig.accent : soundConfig.normal
+    if (frequency > 0) synth.triggerAttackRelease(frequency, '32n', time)
 
-    loopRef.current = new Tone.Loop((time: number) => {
-      if (!synthRef.current) return
-
-      const isAccent = state.accentFirst && beatIndexRef.current === 0
-      const frequency = isAccent ? soundConfig.accent : soundConfig.normal
-      
-      if (frequency > 0) {
-        synthRef.current.triggerAttackRelease(frequency, '32n', time)
-      }
-
-      // Improved beat calculation for subdivisions
-      let currentBeat: number
-      if (state.subdivisions) {
-        // For subdivisions, map every 2 ticks to 1 beat
-        currentBeat = Math.floor(beatIndexRef.current / 2) + 1
-      } else {
-        // For regular beats, use index directly
-        currentBeat = beatIndexRef.current + 1
-      }
-
-      setState((prev: MetronomeState) => ({ ...prev, currentBeat }))
-      
-      beatIndexRef.current = (beatIndexRef.current + 1) % beatsPerMeasure
-    }, interval).start(0)
-  }, [state.timeSignature, state.sound, state.accentFirst, state.subdivisions])
-
-  // Restart loop when critical settings change while playing
-  useEffect(() => {
-    if (state.isPlaying && isInitializedRef.current) {
-      try {
-        createLoop()
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to update metronome settings'
-        setState((prev) => ({ ...prev, error: errorMessage }))
-      }
-    }
-  }, [state.isPlaying, state.sound, state.accentFirst, state.subdivisions, createLoop])
+    setState((prev: MetronomeState) => ({ ...prev, currentBeat: Math.floor(index / perBeat) + 1 }))
+    beatIndexRef.current = (index + 1) % (beats * perBeat)
+  }, [])
 
   const start = useCallback(async () => {
     if (!isInitializedRef.current || !synthRef.current) {
@@ -181,15 +150,18 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
 
       // Start Tone.js audio context (requires user interaction)
       await Tone.start()
-      
-      // Validate Transport state
-      const transport = Tone.getTransport()
-      if (!transport) {
-        throw new Error('Transport not available')
-      }
 
-      createLoop()
-      transport.start()
+      if (clockRef.current) {
+        clockRef.current.stop()
+        clockRef.current.dispose()
+      }
+      const { bpm, subdivisions } = optionsRef.current
+      beatIndexRef.current = 0
+      clockRef.current = new Tone.Clock({
+        callback: tick,
+        frequency: (bpm / 60) * (subdivisions ? 2 : 1),
+      })
+      clockRef.current.start()
       setState((prev: MetronomeState) => ({ 
         ...prev, 
         isPlaying: true, 
@@ -207,18 +179,14 @@ export function useMetronome(initialBpm: number = 120): UseMetronomeReturn {
       }))
       console.error('Metronome start error:', error)
     }
-  }, [createLoop])
+  }, [tick])
 
   const stop = useCallback(() => {
     try {
-      if (isInitializedRef.current) {
-        const transport = Tone.getTransport()
-        if (transport && transport.state !== 'stopped') {
-          transport.stop()
-        }
-      }
-      if (loopRef.current) {
-        loopRef.current.stop()
+      if (clockRef.current) {
+        clockRef.current.stop()
+        clockRef.current.dispose()
+        clockRef.current = null
       }
       beatIndexRef.current = 0
       setState((prev: MetronomeState) => ({ 
