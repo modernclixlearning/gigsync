@@ -257,6 +257,79 @@ describe('useBPMSync', () => {
     // The actual callback execution depends on Tone.js internals
   })
 
+  describe('announcing the beats (the loop is fired by hand)', () => {
+    /** The beat-tracking loop the hook created, fired once with the transport at `position`. */
+    const tick = (position: string) => {
+      const loops = vi.mocked(mockTone.Loop).mock.results.map((r) => r.value as MockLoop)
+      mockTransport.position = position
+      act(() => loops[loops.length - 1].callback(0))
+    }
+
+    it('announces beat 0 on the first tick after Play, so the first line lights up at once', () => {
+      const onBeatChange = vi.fn()
+      renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:0:0')
+      expect(onBeatChange).toHaveBeenCalledTimes(1)
+      expect(onBeatChange).toHaveBeenLastCalledWith(0)
+    })
+
+    it('announces each beat once, however many 16th-note ticks it has', () => {
+      const onBeatChange = vi.fn()
+      renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:0:0')
+      tick('0:0:1')
+      tick('0:0:2')
+      tick('0:0:3')
+      expect(onBeatChange).toHaveBeenCalledTimes(1)
+      tick('0:1:0')
+      tick('0:1:2')
+      expect(onBeatChange.mock.calls.map((call) => call[0])).toEqual([0, 1])
+    })
+
+    it('counts beats across bars', () => {
+      const onBeatChange = vi.fn()
+      renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:3:0')
+      tick('1:0:0')
+      expect(onBeatChange.mock.calls.map((call) => call[0])).toEqual([3, 4])
+    })
+
+    it('announces the first beat again after a reset (Desde el inicio)', () => {
+      const onBeatChange = vi.fn()
+      const { result } = renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:0:0')
+      tick('0:2:0')
+      act(() => result.current.reset())
+      onBeatChange.mockClear()
+      tick('0:0:0')
+      expect(onBeatChange).toHaveBeenCalledWith(0)
+    })
+
+    it('announces the beat it lands on after a seek, even if it was already on it', () => {
+      const onBeatChange = vi.fn()
+      const { result } = renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:2:0')
+      onBeatChange.mockClear()
+      act(() => result.current.seekToBeat(2))
+      tick('0:2:0')
+      expect(onBeatChange).toHaveBeenCalledWith(2)
+    })
+
+    it('does not announce a beat again when playback is paused and resumed on the same beat', () => {
+      const onBeatChange = vi.fn()
+      renderHook(() => useBPMSync({ bpm: 120, timeSignature: '4/4', isPlaying: false, onBeatChange }))
+
+      tick('0:1:0')
+      tick('0:1:2') // paused and resumed within the beat
+      expect(onBeatChange).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('should call onBarChange callback when bar changes', async () => {
     const onBarChange = vi.fn()
     renderHook(() =>
