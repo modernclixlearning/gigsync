@@ -90,6 +90,9 @@ export interface UseBPMSyncReturn {
   transportTime: number
 }
 
+/** `previousBeatRef` before any beat has been announced. */
+const NO_BEAT = -1
+
 /**
  * Hook to synchronize playback with BPM using Tone.js Transport
  * 
@@ -115,7 +118,10 @@ export function useBPMSync({
   const [transportTime, setTransportTime] = useState(0)
   
   const loopRef = useRef<Tone.Loop | null>(null)
-  const previousBeatRef = useRef(0)
+  // No beat has been announced yet: the first tick after starting, resetting or seeking always
+  // is, even at beat 0 — otherwise the first line and chord of a song would only light up one
+  // beat after Play (a beat is announced only when it differs from the previous one).
+  const previousBeatRef = useRef(NO_BEAT)
   const previousBarRef = useRef(0)
   const onBeatChangeRef = useRef(onBeatChange)
   const onBarChangeRef = useRef(onBarChange)
@@ -216,7 +222,7 @@ export function useBPMSync({
     setCurrentBar(0)
     setCurrentBeatInBar(0)
     setIsRunning(false)
-    previousBeatRef.current = 0
+    previousBeatRef.current = NO_BEAT
     previousBarRef.current = 0
   }, [])
   
@@ -229,6 +235,8 @@ export function useBPMSync({
     setPreciseBeat(beat)
     setCurrentBar(bar)
     setCurrentBeatInBar(beatInBar)
+    // Arriving at the new place is announced, even if it is the beat we were already on.
+    previousBeatRef.current = NO_BEAT
   }, [beatsPerBar])
   
   // Cleanup on unmount

@@ -45,8 +45,8 @@ export class MockTransport {
 }
 
 export class MockLoop {
-  private callback: (time: number) => void
-  private interval: string
+  callback: (time: number) => void
+  interval: string
   private isStarted = false
 
   constructor(callback: (time: number) => void, interval: string) {
