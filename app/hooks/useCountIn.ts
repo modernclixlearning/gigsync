@@ -14,14 +14,10 @@ export interface CountInOptions {
   /** 0..1, like the player's click. Default 1. */
   volume?: number
   /**
-   * Count exactly this many beats instead of `bars` whole bars: the lead-in of
-   * a levare on the song's first line. The clicks fall on the beats before the
-   * downbeat (a fractional length leaves its first part silent).
-   */
-  totalBeats?: number
-  /**
    * The words of a first-line levare are sung over the last `pickupBeats`
-   * beats before the song starts: `isPickup` is on for that stretch.
+   * beats before the song starts, with no accompaniment: `isPickup` is on for
+   * that stretch and its beats are counted (the number is shown) but not
+   * clicked, so the click does not step on the voice singing alone.
    */
   pickupBeats?: number
   /** Called on the downbeat right after the last click: start the song here. */
@@ -43,6 +39,7 @@ export interface UseCountInReturn {
  * clicks at the song's tempo, accent on each downbeat. The clicks are
  * scheduled on the audio clock, and the UI number and `onDone` are timed
  * against that same clock, so the song starts right on the next downbeat.
+ * The last `pickupBeats` beats (a levare) are counted in silence.
  */
 export function useCountIn(): UseCountInReturn {
   const [count, setCount] = useState<number | null>(null)
@@ -62,7 +59,7 @@ export function useCountIn(): UseCountInReturn {
   }, [])
 
   const start = useCallback(
-    async ({ bpm, beatsPerBar, bars, volume = 1, totalBeats, pickupBeats, onDone }: CountInOptions) => {
+    async ({ bpm, beatsPerBar, bars, volume = 1, pickupBeats, onDone }: CountInOptions) => {
       cancel()
       if (Tone.context.state !== 'running') await Tone.start()
 
@@ -75,30 +72,22 @@ export function useCountIn(): UseCountInReturn {
       setIsCountingIn(true)
 
       const perBar = Math.max(1, Math.round(beatsPerBar))
-      const lead = totalBeats !== undefined && totalBeats > 0
-      // The length of the count in beats: whole bars, or exactly the lead-in.
-      const total = lead ? (totalBeats as number) : countInBeats(perBar, bars)
+      // Whole bars, and never shorter than the levare that is sung at the end of it.
+      const total = Math.max(countInBeats(perBar, bars), Math.ceil((pickupBeats ?? 0) / perBar) * perBar)
       const interval = 60 / Math.max(1, bpm)
       const t0 = Tone.now() + LEAD_SECONDS
       const msUntil = (audioTime: number) => Math.max(0, (audioTime - Tone.now()) * 1000)
 
-      // (beat of the count, number shown) of every click. A lead-in clicks the beats right
-      // before the downbeat — counted back from it, so the last click is beat `perBar`.
-      const clicks: { at: number; number: number }[] = []
-      if (lead) {
-        for (let k = 1; total - k >= -1e-9; k++) clicks.push({ at: total - k, number: ((perBar - k) % perBar + perBar) % perBar + 1 })
-        clicks.reverse()
-      } else {
-        for (let i = 0; i < total; i++) clicks.push({ at: i, number: (i % perBar) + 1 })
+      // From this beat on the levare is sung: counted, but not clicked.
+      const pickupFrom = pickupBeats && pickupBeats > 0 ? Math.max(0, total - pickupBeats) : total
+      for (let i = 0; i < total; i++) {
+        const at = t0 + i * interval
+        const number = (i % perBar) + 1
+        if (i < pickupFrom - 1e-9) synth.triggerAttackRelease(number === 1 ? ACCENT_HZ : NORMAL_HZ, '32n', at)
+        timersRef.current.push(setTimeout(() => setCount(number), msUntil(at)))
       }
-      for (const click of clicks) {
-        const at = t0 + click.at * interval
-        synth.triggerAttackRelease(click.number === 1 ? ACCENT_HZ : NORMAL_HZ, '32n', at)
-        timersRef.current.push(setTimeout(() => setCount(click.number), msUntil(at)))
-      }
-      if (pickupBeats && pickupBeats > 0) {
-        const from = Math.max(0, total - pickupBeats)
-        timersRef.current.push(setTimeout(() => setIsPickup(true), msUntil(t0 + from * interval)))
+      if (pickupFrom < total) {
+        timersRef.current.push(setTimeout(() => setIsPickup(true), msUntil(t0 + pickupFrom * interval)))
       }
       timersRef.current.push(
         setTimeout(() => {
