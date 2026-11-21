@@ -403,14 +403,16 @@ export function SongPlayerContent({
     if (playerRef.current.state.isPlaying) return
     setIsAdvancePending(false)
     rewindIfFinished()
-    // From the top, a first-line levare is sung over the end of the count-in. With the
-    // count-in off, the count is just those beats.
+    // From the top, a first-line levare is sung over the end of the count, in silence (the
+    // click would step on the voice). With the count-in off, the count is still a whole bar
+    // — its first beats clicked, the levare's beats not — so the tempo is set before the voice enters.
     const pickup = (isAtEndRef.current || currentBeatRef.current < 0.25) ? leadInRef.current : null
+    const pickupBars = pickup ? Math.ceil(pickup.beats / beatsPerBar) : 1
     void countIn.start({
       bpm: countInBpm,
       beatsPerBar,
-      bars: playbackPrefs.countInBars,
-      ...(pickup ? { pickupBeats: pickup.beats, ...(playbackPrefs.countInEnabled ? {} : { totalBeats: pickup.beats }) } : {}),
+      bars: playbackPrefs.countInEnabled ? Math.max(playbackPrefs.countInBars, pickupBars) : pickupBars,
+      ...(pickup ? { pickupBeats: pickup.beats } : {}),
       volume: playbackPrefs.metronomeVolume / 100,
       onDone: () => {
         if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
