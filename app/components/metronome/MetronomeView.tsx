@@ -12,7 +12,7 @@
  */
 
 import { motion } from 'framer-motion'
-import { Pause, Play, RotateCcw } from 'lucide-react'
+import { Check, Pause, Play, RotateCcw } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { useMetronome } from '~/hooks/useMetronome'
 import { VisualBeat } from '~/components/metronome/VisualBeat'
@@ -28,11 +28,17 @@ export interface MetronomeViewProps {
   initialBpm?: number
   /** Meter to start at (the song's, in the player). Default 4/4. */
   initialTimeSignature?: string
+  /** The tempo the song has saved (the player). Default: the one the view opened at. */
+  songBpm?: number
+  /** Save the tempo shown as the song's own. Without it there is no such button. */
+  onApplyBpm?: (bpm: number) => void
 }
 
-export function MetronomeView({ layout = 'page', initialBpm = 120, initialTimeSignature = '4/4' }: MetronomeViewProps) {
+export function MetronomeView({ layout = 'page', initialBpm = 120, initialTimeSignature = '4/4', songBpm, onApplyBpm }: MetronomeViewProps) {
   // The tempo it opened at: whole and in range (a DAW's clock gives decimals).
   const startedAt = Math.max(20, Math.min(300, Math.round(initialBpm)))
+  // The tempo the song has saved, to say it and to know when what you marked differs from it.
+  const songTempo = Math.max(20, Math.min(300, Math.round(songBpm ?? initialBpm)))
   const metronome = useMetronome(startedAt, initialTimeSignature)
   const inDialog = layout === 'dialog'
   const beatsPerMeasure = Number(metronome.timeSignature.split('/')[0]) || 4
@@ -142,6 +148,24 @@ export function MetronomeView({ layout = 'page', initialBpm = 120, initialTimeSi
               </button>
             )}
           </div>
+
+          {onApplyBpm && (
+            <div className="flex w-full max-w-sm flex-col items-center gap-2">
+              <p aria-live="polite" className="text-sm text-slate-500 dark:text-slate-400">
+                Tempo de la canción: <span className="font-semibold text-slate-900 dark:text-white">{songTempo} BPM</span>
+              </p>
+              {metronome.bpm !== songTempo && (
+                <button
+                  type="button"
+                  onClick={() => onApplyBpm(metronome.bpm)}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                >
+                  <Check className="h-4 w-4" aria-hidden />
+                  Usar {metronome.bpm} BPM en la canción
+                </button>
+              )}
+            </div>
+          )}
 
           <TimeSignatureSelector value={metronome.timeSignature} onChange={metronome.setTimeSignature} className="max-w-sm" />
         </section>
