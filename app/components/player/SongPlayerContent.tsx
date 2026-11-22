@@ -1390,6 +1390,8 @@ export function SongPlayerContent({
         <MetronomeDialog
           bpm={midiClock.bpm ?? (song.bpm || 120)}
           timeSignature={song.timeSignature || '4/4'}
+          songBpm={song.bpm || 120}
+          onApplyBpm={(bpm) => void updateSong({ bpm })}
           onClose={() => setIsMetronomeOpen(false)}
         />
       )}
