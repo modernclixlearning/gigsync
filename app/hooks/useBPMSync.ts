@@ -138,9 +138,12 @@ export function useBPMSync({
   // Initialize Transport
   useEffect(() => {
     if (!externalTempo) Tone.Transport.bpm.value = bpm
-    // Parse time signature for Tone.js (e.g., "4/4" -> [4, 4])
-    const [beats, noteValue] = timeSignature.split('/').map(Number)
-    Tone.Transport.timeSignature = [beats || 4, noteValue || 4]
+    // The player counts beats: a bar has as many as the numerator says, each one a quarter of the
+    // Transport at the song's tempo, whatever note the signature names. So the Transport's meter
+    // is "numerator/4" — with "12/8" Tone would end a bar after 6 quarters and the beat count
+    // (bars × 12 + beats) would jump ahead of the real time.
+    const [beats] = timeSignature.split('/').map(Number)
+    Tone.Transport.timeSignature = [beats || 4, 4]
   }, [bpm, timeSignature, externalTempo])
   
   // Create beat tracking loop

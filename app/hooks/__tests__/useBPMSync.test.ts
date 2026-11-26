@@ -99,6 +99,40 @@ describe('useBPMSync', () => {
     })
   })
 
+  it('counts a bar as its numerator in beats whatever the note: 12/8, 6/8 and 7/8 get N/4', () => {
+    for (const [signature, expected] of [
+      ['12/8', [12, 4]],
+      ['6/8', [6, 4]],
+      ['7/8', [7, 4]],
+      ['5/2', [5, 4]],
+      ['11/8', [11, 4]],
+    ] as const) {
+      const { unmount } = renderHook(() => useBPMSync({ bpm: 120, timeSignature: signature, isPlaying: false }))
+      expect(mockTone.Transport.timeSignature).toEqual(expected)
+      unmount()
+    }
+  })
+
+  it('keeps the beat count in step with time in a /8 signature: a 12/8 bar is 12 beats, not 6', () => {
+    const { result } = renderHook(() => useBPMSync({ bpm: 120, timeSignature: '12/8', isPlaying: false }))
+    const loops = vi.mocked(mockTone.Loop).mock.results.map((r) => r.value as MockLoop)
+    // Tone's position after 8 quarters: with a 12/4 meter that is still bar 0, beat 8.
+    mockTransport.position = '0:8:0'
+    act(() => loops[loops.length - 1].callback(0))
+    expect(result.current.currentBeat).toBe(8)
+    expect(result.current.currentBar).toBe(0)
+    // And after 12 quarters the first bar is over.
+    mockTransport.position = '1:0:0'
+    act(() => loops[loops.length - 1].callback(0))
+    expect(result.current.currentBeat).toBe(12)
+    expect(result.current.currentBar).toBe(1)
+  })
+
+  it('falls back to 4 beats for a signature that cannot be read', () => {
+    renderHook(() => useBPMSync({ bpm: 120, timeSignature: 'raro', isPlaying: false }))
+    expect(mockTone.Transport.timeSignature).toEqual([4, 4])
+  })
+
   it('should play when play() is called', async () => {
     const { result } = renderHook(() =>
       useBPMSync({

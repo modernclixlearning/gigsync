@@ -19,3 +19,6 @@ export type { TapTempoProps } from './TapTempo'
 
 export { TempoKnob } from './TempoKnob'
 export type { TempoKnobProps } from './TempoKnob'
+
+export { TimeSignaturePicker, splitTimeSignature } from './TimeSignaturePicker'
+export type { TimeSignaturePickerProps } from './TimeSignaturePicker'
