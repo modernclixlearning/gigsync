@@ -20,6 +20,16 @@ export function beatAccent(beatInBar: number, beatsPerBar: number, unit: number)
   return group > 0 && beatInBar % group === 0 ? 'group' : 'normal'
 }
 
+/**
+ * The number said for the beat at `beatInBar` (0-based): the position in the
+ * bar, or in its group of three in a compound meter (6/8 is counted
+ * "1 2 3 1 2 3", 12/8 "1 2 3 1 2 3 1 2 3 1 2 3").
+ */
+export function beatCountLabel(beatInBar: number, beatsPerBar: number, unit: number): number {
+  const group = beatGroupSize(beatsPerBar, unit)
+  return (group > 0 ? beatInBar % group : beatInBar) + 1
+}
+
 /** Loudness of a click, relative to the strongest one. */
 export const ACCENT_VELOCITY: Record<BeatAccent, number> = {
   strong: 1,

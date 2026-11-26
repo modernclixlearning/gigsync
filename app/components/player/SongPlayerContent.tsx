@@ -416,6 +416,7 @@ export function SongPlayerContent({
     void countIn.start({
       bpm: countInBpm,
       beatsPerBar,
+      timeSignature: song.timeSignature,
       bars: playbackPrefs.countInEnabled ? Math.max(playbackPrefs.countInBars, pickupBars) : pickupBars,
       ...(pickup ? { pickupBeats: pickup.beats } : {}),
       volume: playbackPrefs.metronomeVolume / 100,
@@ -423,7 +424,7 @@ export function SongPlayerContent({
         if (!playerRef.current.state.isPlaying) void playerRef.current.togglePlay()
       },
     })
-  }, [countIn.start, countInBpm, beatsPerBar, playbackPrefs.countInBars, playbackPrefs.countInEnabled, playbackPrefs.metronomeVolume, rewindIfFinished])
+  }, [countIn.start, countInBpm, beatsPerBar, song.timeSignature, playbackPrefs.countInBars, playbackPrefs.countInEnabled, playbackPrefs.metronomeVolume, rewindIfFinished])
 
   // The count-in is a toggle, not a separate play: while it's on, every Play
   // (button or space bar) starts with it. Saved in the settings, so it stays

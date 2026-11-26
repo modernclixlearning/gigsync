@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Tone from 'tone'
 import { countInBeats } from '~/lib/playback'
+import { ACCENT_VELOCITY, beatAccent, beatCountLabel, meterOf } from '~/lib/metronome/beatAccent'
 
 const ACCENT_HZ = 1200
 const NORMAL_HZ = 800
@@ -10,6 +11,8 @@ const LEAD_SECONDS = 0.05
 export interface CountInOptions {
   bpm: number
   beatsPerBar: number
+  /** The song's meter ("6/8"): 6/8, 9/8 and 12/8 are counted "1 2 3 1 2 3", accenting each group. */
+  timeSignature?: string
   bars: number
   /** 0..1, like the player's click. Default 1. */
   volume?: number
@@ -36,7 +39,8 @@ export interface UseCountInReturn {
 
 /**
  * Metronome count-in before playback ("Play con precuenta"): whole bars of
- * clicks at the song's tempo, accent on each downbeat. The clicks are
+ * clicks at the song's tempo, accent on each downbeat (and on each group of
+ * three in 6/8, 9/8 and 12/8, which are counted "1 2 3 1 2 3"). The clicks are
  * scheduled on the audio clock, and the UI number and `onDone` are timed
  * against that same clock, so the song starts right on the next downbeat.
  * The last `pickupBeats` beats (a levare) are counted in silence.
@@ -59,7 +63,7 @@ export function useCountIn(): UseCountInReturn {
   }, [])
 
   const start = useCallback(
-    async ({ bpm, beatsPerBar, bars, volume = 1, pickupBeats, onDone }: CountInOptions) => {
+    async ({ bpm, beatsPerBar, timeSignature, bars, volume = 1, pickupBeats, onDone }: CountInOptions) => {
       cancel()
       if (Tone.context.state !== 'running') await Tone.start()
 
@@ -75,6 +79,7 @@ export function useCountIn(): UseCountInReturn {
       // Whole bars, and never shorter than the levare that is sung at the end of it.
       const total = Math.max(countInBeats(perBar, bars), Math.ceil((pickupBeats ?? 0) / perBar) * perBar)
       const interval = 60 / Math.max(1, bpm)
+      const { unit } = meterOf(timeSignature ?? '4/4')
       const t0 = Tone.now() + LEAD_SECONDS
       const msUntil = (audioTime: number) => Math.max(0, (audioTime - Tone.now()) * 1000)
 
@@ -82,8 +87,12 @@ export function useCountIn(): UseCountInReturn {
       const pickupFrom = pickupBeats && pickupBeats > 0 ? Math.max(0, total - pickupBeats) : total
       for (let i = 0; i < total; i++) {
         const at = t0 + i * interval
-        const number = (i % perBar) + 1
-        if (i < pickupFrom - 1e-9) synth.triggerAttackRelease(number === 1 ? ACCENT_HZ : NORMAL_HZ, '32n', at)
+        const beatInBar = i % perBar
+        const number = beatCountLabel(beatInBar, perBar, unit)
+        if (i < pickupFrom - 1e-9) {
+          const accent = beatAccent(beatInBar, perBar, unit)
+          synth.triggerAttackRelease(accent === 'normal' ? NORMAL_HZ : ACCENT_HZ, '32n', at, ACCENT_VELOCITY[accent])
+        }
         timersRef.current.push(setTimeout(() => setCount(number), msUntil(at)))
       }
       if (pickupFrom < total) {
