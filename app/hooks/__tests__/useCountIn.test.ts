@@ -161,6 +161,41 @@ describe('useCountIn', () => {
     })
   })
 
+  describe('compound meters', () => {
+    const run = async (timeSignature: string, beatsPerBar: number, bars = 1) => {
+      const { result } = renderHook(() => useCountIn())
+      await act(async () => {
+        await result.current.start({ bpm: 120, beatsPerBar, timeSignature, bars, onDone: vi.fn() })
+      })
+      const counted: (number | null)[] = []
+      for (let i = 0; i < beatsPerBar * bars; i++) {
+        act(() => vi.advanceTimersByTime(i === 0 ? 60 : 500))
+        counted.push(result.current.count)
+      }
+      return counted
+    }
+
+    it('counts a 6/8 bar "1 2 3 1 2 3" and accents the 1st and the 4th click', async () => {
+      const counted = await run('6/8', 6)
+      expect(counted).toEqual([1, 2, 3, 1, 2, 3])
+      const calls = vi.mocked(synth.triggerAttackRelease).mock.calls
+      expect(calls.map((call) => call[0])).toEqual([1200, 800, 800, 1200, 800, 800])
+      expect(calls.map((call) => call[3])).toEqual([1, 1, 1, 0.75, 1, 1])
+    })
+
+    it('counts a 12/8 bar in four groups of three', async () => {
+      expect(await run('12/8', 12)).toEqual([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3])
+      expect(vi.mocked(synth.triggerAttackRelease).mock.calls.map((call) => call[0] === 1200)).toEqual(
+        [true, false, false, true, false, false, true, false, false, true, false, false],
+      )
+    })
+
+    it('keeps counting a simple meter through the bar, accent on the first click only', async () => {
+      expect(await run('7/8', 7)).toEqual([1, 2, 3, 4, 5, 6, 7])
+      expect(vi.mocked(synth.triggerAttackRelease).mock.calls.filter((call) => call[0] === 1200)).toHaveLength(1)
+    })
+  })
+
   it('clicks at the volume it is given (the player passes its metronome volume)', async () => {
     const { result } = renderHook(() => useCountIn())
     await act(async () => {
