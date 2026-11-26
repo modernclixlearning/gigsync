@@ -23,6 +23,8 @@ export interface UseDrumPlaybackOptions {
   beatsPerBar: number
   /** 0..1 */
   volume?: number
+  /** Beats the bar lines are moved by an incomplete first bar (see lib/timeline/anacrusis). Default 0. */
+  barOffsetBeats?: number
   /** A drum take played live. When it has notes it plays, hit by hit, instead of any pattern. */
   takeNotes?: readonly TrackNote[]
 }
@@ -34,13 +36,22 @@ export function stepAtTick(ticks: number, ppq: number): number {
   return Math.round(ticks / (ppq / STEPS_PER_BEAT))
 }
 
-export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beatsPerBar, volume = 0.5, takeNotes }: UseDrumPlaybackOptions): void {
+export function useDrumPlayback({
+  enabled,
+  isPlaying,
+  pattern,
+  songPattern,
+  beatsPerBar,
+  volume = 0.5,
+  takeNotes,
+  barOffsetBeats = 0,
+}: UseDrumPlaybackOptions): void {
   const take = takeNotes && takeNotes.length > 0 ? takeNotes : null
   const kitRef = useRef<DrumKit | null>(null)
   // Read from the audio callback, outside React's render cycle.
   const lanes = useMemo(() => resolveDrumLanes(songPattern, pattern), [songPattern, pattern])
-  const optionsRef = useRef({ isPlaying, lanes, beatsPerBar })
-  optionsRef.current = { isPlaying, lanes, beatsPerBar }
+  const optionsRef = useRef({ isPlaying, lanes, beatsPerBar, barOffsetBeats })
+  optionsRef.current = { isPlaying, lanes, beatsPerBar, barOffsetBeats }
 
   useEffect(() => {
     if (!enabled) return
@@ -63,9 +74,10 @@ export function useDrumPlayback({ enabled, isPlaying, pattern, songPattern, beat
       }
     }
     const loop = new Tone.Loop((time: number) => {
-      const { isPlaying: playing, lanes: current, beatsPerBar: perBar } = optionsRef.current
+      const { isPlaying: playing, lanes: current, beatsPerBar: perBar, barOffsetBeats: offset } = optionsRef.current
       if (!playing) return
-      const step = stepAtTick(transport.getTicksAtTime(time), transport.PPQ)
+      // An anacrusis moves the bar lines, so the pattern's first step is not the first of the song.
+      const step = stepAtTick(transport.getTicksAtTime(time), transport.PPQ) + Math.round(offset * STEPS_PER_BEAT)
       for (const part of PARTS) {
         const velocity = laneVelocity(current[part], step, perBar)
         if (velocity > 0) kit.hit(part, time, velocity)

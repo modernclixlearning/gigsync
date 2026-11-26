@@ -35,7 +35,7 @@ export interface StabilizerOptions {
 }
 
 export const DEFAULT_STABILIZER_OPTIONS: StabilizerOptions = {
-  minConfidence: 0.8,
+  minConfidence: 0.7,
   medianSize: 5,
   warmup: 3,
   switchMarginCents: 15,

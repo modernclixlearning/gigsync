@@ -25,14 +25,17 @@ const DETECT_INTERVAL_MS = 30
 const MIN_FREQUENCY = 30
 
 /**
- * Loudness (RMS) under which nothing is tuned: room noise and a string that
- * has all but died away. Higher sensitivity lets quieter sounds through.
+ * Loudness (RMS) under which nothing is tuned: only digital silence and the
+ * floor of the converter — about -64 dBFS. It must stay this low: a guitar
+ * picked up by a phone's microphone can be very quiet, and the detector
+ * already rejects noise by itself (noise never reaches a confident pitch), so
+ * a higher gate would only hide real notes. Higher sensitivity lowers it a bit.
  */
-function noiseGate(sensitivity: number): number {
-  return 0.002 + (1 - Math.min(1, Math.max(0, sensitivity))) * 0.012
+export function noiseGate(sensitivity: number): number {
+  return 0.0003 + (1 - Math.min(1, Math.max(0, sensitivity))) * 0.0006
 }
 
-function rootMeanSquare(buffer: Float32Array): number {
+export function rootMeanSquare(buffer: Float32Array): number {
   let sum = 0
   for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i]
   return Math.sqrt(sum / buffer.length)
@@ -53,7 +56,7 @@ function sameOnScreen(previous: PitchInfo | null, next: StablePitch | null): boo
  * YIN pitch detection algorithm implementation
  * Returns the detected fundamental frequency in Hz
  */
-function detectPitch(
+export function detectPitch(
   buffer: Float32Array, 
   sampleRate: number,
   sensitivity: number = 0.5

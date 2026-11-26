@@ -23,6 +23,8 @@ export interface UseMetronomeSoundOptions {
   accentFirst?: boolean
   /** The song's meter ("6/8"): 6/8, 9/8 and 12/8 also accent each group of three. */
   timeSignature?: string
+  /** Beats the bar lines are moved by an incomplete first bar (see lib/timeline/anacrusis). Default 0. */
+  barOffsetBeats?: number
 }
 
 const SOUNDS: Record<MetronomeSoundType, { accent: number; normal: number }> = {
@@ -37,19 +39,21 @@ const SOUNDS: Record<MetronomeSoundType, { accent: number; normal: number }> = {
  * Whether a click at `ticks` falls on the first beat of a bar.
  * `quartersPerBar` is Tone's own measure length (e.g. 4 for 4/4, 3 for 6/8).
  */
-export function isDownbeat(ticks: number, ppq: number, quartersPerBar: number): boolean {
+export function isDownbeat(ticks: number, ppq: number, quartersPerBar: number, offsetQuarters = 0): boolean {
   const ticksPerBar = Math.round(Math.max(1, quartersPerBar) * ppq)
-  const tickInBar = ((Math.round(ticks) % ticksPerBar) + ticksPerBar) % ticksPerBar
+  // An anacrusis moves the bar lines: the song's first beats are the last of a bar.
+  const tickInBar = ((Math.round(ticks + offsetQuarters * ppq) % ticksPerBar) + ticksPerBar) % ticksPerBar
   return tickInBar < ppq / 2 || ticksPerBar - tickInBar < ppq / 2
 }
 
 /**
  * The 0-based beat within its bar of the click at `ticks`, in whole quarters
- * (each one a beat of the song). Tolerates tick rounding around a beat line.
+ * (each one a beat of the song). `offsetQuarters` moves the bar lines for an
+ * incomplete first bar. Tolerates tick rounding around a beat line.
  */
-export function beatInBarAt(ticks: number, ppq: number, quartersPerBar: number): number {
+export function beatInBarAt(ticks: number, ppq: number, quartersPerBar: number, offsetQuarters = 0): number {
   const perBar = Math.max(1, Math.round(quartersPerBar))
-  const beat = Math.round(ticks / ppq)
+  const beat = Math.round(ticks / ppq + offsetQuarters)
   return ((beat % perBar) + perBar) % perBar
 }
 
@@ -60,11 +64,12 @@ export function useMetronomeSound({
   volume = 0.6,
   accentFirst = true,
   timeSignature = '4/4',
+  barOffsetBeats = 0,
 }: UseMetronomeSoundOptions): void {
   const synthRef = useRef<Tone.Synth | null>(null)
   // Read from the audio callback, outside React's render cycle.
-  const optionsRef = useRef({ isPlaying, sound, accentFirst, timeSignature })
-  optionsRef.current = { isPlaying, sound, accentFirst, timeSignature }
+  const optionsRef = useRef({ isPlaying, sound, accentFirst, timeSignature, barOffsetBeats })
+  optionsRef.current = { isPlaying, sound, accentFirst, timeSignature, barOffsetBeats }
 
   // Synth + a quarter-note loop on the Transport. The loop only fires while the
   // Transport runs, so play/pause/seek/tempo changes are followed for free.
@@ -85,7 +90,13 @@ export function useMetronomeSound({
       synthRef.current = synth
 
       loop = new Tone.Loop((time: number) => {
-        const { isPlaying: playing, sound: currentSound, accentFirst: accent, timeSignature: meter } = optionsRef.current
+        const {
+          isPlaying: playing,
+          sound: currentSound,
+          accentFirst: accent,
+          timeSignature: meter,
+          barOffsetBeats: offset,
+        } = optionsRef.current
         if (!playing) return
         const frequencies = SOUNDS[currentSound]
         if (frequencies.normal <= 0) return
@@ -98,9 +109,9 @@ export function useMetronomeSound({
         // compound meter from the beat's place in that bar.
         const kind = !accent
           ? 'normal'
-          : isDownbeat(ticks, transport.PPQ, quartersPerBar)
+          : isDownbeat(ticks, transport.PPQ, quartersPerBar, offset)
             ? 'strong'
-            : beatAccent(beatInBarAt(ticks, transport.PPQ, quartersPerBar), beats, unit)
+            : beatAccent(beatInBarAt(ticks, transport.PPQ, quartersPerBar, offset), beats, unit)
         synth.triggerAttackRelease(
           kind === 'normal' ? frequencies.normal : frequencies.accent,
           '32n',

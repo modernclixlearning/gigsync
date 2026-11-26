@@ -44,6 +44,7 @@ import { useSongTimeline, type UseSongTimelineOptions } from './useSongTimeline'
 import { useBPMSync } from './useBPMSync'
 import type { SongTimeline, TimelineElement } from '~/types/timeline'
 import { chordCellBeats } from '~/lib/timeline/chordEvents'
+import { timelineAnacrusisOffset } from '~/lib/timeline/anacrusis'
 
 export { chordCellBeats }
 
@@ -174,6 +175,12 @@ export interface UseSmartAutoScrollReturn {
    * player gives it a lead-in (see useCountIn) instead of letting it be lost.
    */
   leadInPickup: LeadInPickup | null
+  /**
+   * Beats the bar lines are moved by an incomplete first bar (`A 2 | A |`): a bar
+   * begins where `(beat + barOffsetBeats) % beatsPerBar === 0`. 0 for a song that
+   * starts on the 1 (see lib/timeline/anacrusis).
+   */
+  barOffsetBeats: number
   /** True when fallback to simple autoscroll is active */
   hasFallback: boolean
   /** Function to retry smart autoscroll after fallback */
@@ -445,6 +452,11 @@ export function useSmartAutoScroll({
     [hasFallback, timelineElements]
   )
 
+  const barOffsetBeats = useMemo(
+    () => timelineAnacrusisOffset(timelineElements, timeline.timeline?.beatsPerBar ?? 4),
+    [timelineElements, timeline.timeline?.beatsPerBar]
+  )
+
   // Timed on the 16th-note beat, so a chord that starts on an "and" lights up there.
   const activeElement = currentElementIdRef.current
     ? timelineElements?.find((e) => e.id === currentElementIdRef.current)
@@ -461,6 +473,7 @@ export function useSmartAutoScroll({
     preciseBeat: bpmSync.preciseBeat,
     pickupElementId,
     leadInPickup,
+    barOffsetBeats,
     currentBar: bpmSync.currentBar,
     currentBeatInBar: bpmSync.currentBeatInBar,
     currentElementId: currentElementIdRef.current,

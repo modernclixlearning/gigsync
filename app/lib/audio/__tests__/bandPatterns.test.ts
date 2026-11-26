@@ -38,6 +38,38 @@ describe('patterns as text', () => {
   })
 })
 
+describe('rhythmHits with an anacrusis', () => {
+  // `A 2 | A |`: two beats of pickup, then a full bar.
+  const intro = [
+    { chord: 'A', startBeat: 0, durationBeats: 2 },
+    { chord: 'A', startBeat: 2, durationBeats: 4 },
+  ]
+
+  it('counts the pattern from the first complete bar: the accent lands on beat 2, not 0', () => {
+    const hits = rhythmHits(intro, 'X...x...x...x...', 4, 2)
+    expect(hits.map((h) => [h.startBeat, h.velocity])).toEqual([
+      [0, 0.7], // the pickup: 3 of the bar before, normal
+      [1, 0.7],
+      [2, 1], // the 1 of the first bar: accent
+      [3, 0.7],
+      [4, 0.7],
+      [5, 0.7],
+    ])
+  })
+
+  it('without the offset the accent stays on the start of the song', () => {
+    const hits = rhythmHits(intro, 'X...x...x...x...', 4)
+    expect(hits[0]).toMatchObject({ startBeat: 0, velocity: 1 })
+    expect(hits.find((h) => h.startBeat === 2)?.velocity).toBe(0.7)
+  })
+
+  it('a rhythm with a single hit per bar plays it at the 1 of each bar, wherever the bars start', () => {
+    const hits = rhythmHits(intro, 'X...............', 4, 2)
+    // The pickup catches no step: its chord still sounds once, on its first beat.
+    expect(hits.map((h) => h.startBeat)).toEqual([0, 2])
+  })
+})
+
 describe('rhythmHits — the chords of the song played with a rhythm', () => {
   it('without a rhythm every chord is one long hit', () => {
     expect(rhythmHits(chords, undefined, 4)).toEqual([

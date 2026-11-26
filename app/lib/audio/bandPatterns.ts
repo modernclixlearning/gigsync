@@ -178,16 +178,19 @@ export const SUSTAINED_VELOCITY = 0.7
 /**
  * The chords of the song played with a rhythm: one hit per step of the pattern
  * that falls inside each chord, lasting until the next hit (or the end of the
- * chord). The pattern restarts every bar. A chord too short to catch any step
+ * chord). The pattern restarts every bar (counted from the first complete bar when
+ * the song starts with an incomplete one: `barOffsetBeats`). A chord too short to catch any step
  * still sounds once, on its first beat — no chord of the song is skipped.
  * Without a rhythm, every chord is one long hit.
  */
-export function rhythmHits(events: ChordEvent[], rhythm: string | undefined | null, beatsPerBar: number): RhythmHit[] {
+export function rhythmHits(events: ChordEvent[], rhythm: string | undefined | null, beatsPerBar: number, barOffsetBeats = 0): RhythmHit[] {
   const velocities = patternVelocities(rhythm)
   if (!velocities.some((v) => v > 0)) {
     return events.map((event) => ({ ...event, velocity: SUSTAINED_VELOCITY }))
   }
   const perBar = stepsPerBar(beatsPerBar)
+  // An anacrusis moves the bar lines: the rhythm's first step is not the song's first.
+  const offsetSteps = Math.round(barOffsetBeats * STEPS_PER_BEAT)
   const hits: RhythmHit[] = []
   for (const event of events) {
     const end = event.startBeat + event.durationBeats
@@ -196,7 +199,7 @@ export function rhythmHits(events: ChordEvent[], rhythm: string | undefined | nu
     const lastStep = Math.ceil(end * STEPS_PER_BEAT - 1e-6)
     const starts: { beat: number; velocity: number }[] = []
     for (let step = firstStep; step < lastStep; step++) {
-      const velocity = velocities[(((step % perBar) + perBar) % perBar) % velocities.length] ?? 0
+      const velocity = velocities[((((step + offsetSteps) % perBar) + perBar) % perBar) % velocities.length] ?? 0
       if (velocity > 0) starts.push({ beat: step / STEPS_PER_BEAT, velocity })
     }
     if (starts.length === 0) starts.push({ beat: event.startBeat, velocity: SUSTAINED_VELOCITY })

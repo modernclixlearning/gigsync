@@ -23,6 +23,7 @@ import {
 } from '~/lib/audio/bandTracks'
 import { chordEvents } from '~/lib/timeline/chordEvents'
 import { createSongTimeline } from '~/lib/timeline/calculator'
+import { timelineAnacrusisOffset } from '~/lib/timeline/anacrusis'
 import type { Song } from '~/types/setlist'
 import {
   PPQ,
@@ -122,6 +123,9 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
 
     let songBeats = timeline.totalBeats
     const songChords = chordEvents(timeline)
+    // A song that starts with an incomplete bar has its bar lines moved: the rhythms and the drums follow them.
+    const barOffset = timelineAnacrusisOffset(timeline.elements, beatsPerBar)
+    const barOffsetSteps = Math.round(barOffset * STEPS_PER_BEAT)
     // A role with a live take plays the take, exactly as played.
     const takeEvents = (notes: readonly TrackNote[], channel: number): SmfEvent[] =>
       notes.flatMap((note) =>
@@ -134,7 +138,7 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
     // Otherwise each part with the rhythm written for the song (one long note per chord without one).
     if (options.chords && keysTake.length > 0) chords.push(...takeEvents(keysTake, CH_CHORDS))
     else if (options.chords) {
-      for (const hit of rhythmHits(songChords, song.band?.chordRhythm, beatsPerBar)) {
+      for (const hit of rhythmHits(songChords, song.band?.chordRhythm, beatsPerBar, barOffset)) {
         const voicing = voiceChord(hit.chord)
         if (!voicing) continue
         const tick = base + Math.round(hit.startBeat * PPQ)
@@ -144,7 +148,7 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
     }
     if (options.bass && bassTake.length > 0) bass.push(...takeEvents(bassTake, CH_BASS))
     else if (options.bass) {
-      for (const hit of rhythmHits(songChords, song.band?.bassRhythm, beatsPerBar)) {
+      for (const hit of rhythmHits(songChords, song.band?.bassRhythm, beatsPerBar, barOffset)) {
         const voicing = voiceChord(hit.chord)
         if (!voicing) continue
         const tick = base + Math.round(hit.startBeat * PPQ)
@@ -190,7 +194,7 @@ export function songsToMidi(songs: Song[], options: SongMidiOptions = DEFAULT_SO
       for (const part of DRUM_PARTS) {
         const lane = patternVelocities(pattern[part])
         for (let step = 0; step < totalSteps; step++) {
-          const velocity = laneVelocity(lane, step, beatsPerBar)
+          const velocity = laneVelocity(lane, step + barOffsetSteps, beatsPerBar)
           if (velocity > 0) drums.push(...noteEvents(base + step * stepTicks, stepTicks / 2, CH_DRUMS, DRUM_NOTES[part], velocity * 110))
         }
       }
