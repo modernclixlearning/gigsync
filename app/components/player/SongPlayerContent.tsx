@@ -351,7 +351,8 @@ export function SongPlayerContent({
     isPlaying: metronomeIsPlaying,
     sound: 'classic',
     volume: playbackPrefs.metronomeVolume / 100,
-    accentFirst: true
+    accentFirst: true,
+    timeSignature: song.timeSignature
   })
 
   const parseTimeSignature = (signature: string): number => {

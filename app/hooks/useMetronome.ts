@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as Tone from 'tone'
+import { ACCENT_VELOCITY, beatAccent } from '~/lib/metronome/beatAccent'
 
 export interface MetronomeState {
   isPlaying: boolean
@@ -121,13 +122,17 @@ export function useMetronome(initialBpm: number = 120, initialTimeSignature: str
     const synth = synthRef.current
     if (!synth) return
     const { timeSignature, sound, accentFirst, subdivisions } = optionsRef.current
-    const { beats } = parseTimeSignature(timeSignature)
+    const { beats, noteValue } = parseTimeSignature(timeSignature)
     const perBeat = subdivisions ? 2 : 1
     const index = beatIndexRef.current
+    const beatInBar = Math.floor(index / perBeat)
 
+    // Only the beat itself is accented, never its subdivision. Compound meters
+    // (6/8, 9/8, 12/8) accent each group of three as well as the first beat.
+    const accent = accentFirst && index % perBeat === 0 ? beatAccent(beatInBar, beats, noteValue) : 'normal'
     const soundConfig = SOUNDS[sound]
-    const frequency = accentFirst && index === 0 ? soundConfig.accent : soundConfig.normal
-    if (frequency > 0) synth.triggerAttackRelease(frequency, '32n', time)
+    const frequency = accent === 'normal' ? soundConfig.normal : soundConfig.accent
+    if (frequency > 0) synth.triggerAttackRelease(frequency, '32n', time, ACCENT_VELOCITY[accent])
 
     setState((prev: MetronomeState) => ({ ...prev, currentBeat: Math.floor(index / perBeat) + 1 }))
     beatIndexRef.current = (index + 1) % (beats * perBeat)

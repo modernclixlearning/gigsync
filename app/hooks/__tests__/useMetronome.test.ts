@@ -164,6 +164,54 @@ describe('useMetronome', () => {
       expect(clicked()).toEqual([1200, 800, 800, 1200, 800, 800])
     })
 
+    it('accents the 1st and the 4th eighth of a 6/8 bar, the 4th a little softer', async () => {
+      const { result } = renderHook(() => useMetronome(120, '6/8'))
+      const clock = await play(result)
+      act(() => {
+        for (let i = 0; i < 12; i++) clock.tick(i * 0.5)
+      })
+      expect(clicked()).toEqual([1200, 800, 800, 1200, 800, 800, 1200, 800, 800, 1200, 800, 800])
+      const velocities = mockSynth.triggerAttackRelease.mock.calls.slice(0, 6).map((call) => call[3])
+      expect(velocities).toEqual([1, 1, 1, 0.75, 1, 1])
+    })
+
+    it('accents every group of three in 12/8, and only the first beat in 7/8', async () => {
+      const twelve = renderHook(() => useMetronome(120, '12/8'))
+      const clock = await play(twelve.result)
+      act(() => {
+        for (let i = 0; i < 12; i++) clock.tick(i * 0.5)
+      })
+      expect(clicked().map((f, i) => (f === 1200 ? i : -1)).filter((i) => i >= 0)).toEqual([0, 3, 6, 9])
+
+      mockSynth.triggerAttackRelease.mockClear()
+      const seven = renderHook(() => useMetronome(120, '7/8'))
+      const sevenClock = await play(seven.result)
+      act(() => {
+        for (let i = 0; i < 7; i++) sevenClock.tick(i * 0.5)
+      })
+      expect(clicked()).toEqual([1200, 800, 800, 800, 800, 800, 800])
+    })
+
+    it('with subdivisions, 6/8 still accents only the beats, not the halves', async () => {
+      const { result } = renderHook(() => useMetronome(120, '6/8'))
+      act(() => result.current.toggleSubdivisions())
+      const clock = await play(result)
+      act(() => {
+        for (let i = 0; i < 12; i++) clock.tick(i * 0.25)
+      })
+      expect(clicked().map((f, i) => (f === 1200 ? i : -1)).filter((i) => i >= 0)).toEqual([0, 6])
+    })
+
+    it('does not accent the groups when accenting is off', async () => {
+      const { result } = renderHook(() => useMetronome(120, '6/8'))
+      act(() => result.current.setAccentFirst(false))
+      const clock = await play(result)
+      act(() => {
+        for (let i = 0; i < 6; i++) clock.tick(i * 0.5)
+      })
+      expect(clicked()).toEqual([800, 800, 800, 800, 800, 800])
+    })
+
     it('shows the beat being played', async () => {
       const { result } = renderHook(() => useMetronome(120, '4/4'))
       const clock = await play(result)
