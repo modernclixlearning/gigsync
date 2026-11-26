@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useTuner } from '../useTuner'
+import { useTuner, detectPitch, noiseGate, rootMeanSquare } from '../useTuner'
 import { useMicrophone } from '../useMicrophone'
 import { MockAudioContext, MockMediaStream } from '@tests/mocks/webAudio'
 import { DEFAULT_CALIBRATION } from '~/types/tuner'
@@ -143,7 +143,7 @@ describe('useTuner', () => {
     expect(Math.max(...seen) - Math.min(...seen)).toBeLessThanOrEqual(8)
   })
 
-  it('does not tune room noise below the noise gate', async () => {
+  it('tunes a note played quietly: a guitar picked up low by a phone microphone', async () => {
     mockMicrophone.isActive = true
     mockAnalyser = mockAudioContext.createAnalyser()
     mockMicrophone.analyser = mockAnalyser
@@ -151,9 +151,29 @@ describe('useTuner', () => {
     mockMicrophone.sampleRate = 44100
     vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
 
-    // A clean 440 Hz tone, but far too quiet to be played on purpose.
+    // Peak amplitude 0.008 (RMS ~0.0057, about -45 dBFS): what a gate set at 0.008 used to throw away.
     vi.mocked(mockAnalyser.getFloatTimeDomainData).mockImplementation((array) => {
-      for (let i = 0; i < array.length; i++) array[i] = 0.002 * Math.sin(2 * Math.PI * 440 * (i / 44100))
+      for (let i = 0; i < array.length; i++) array[i] = 0.008 * Math.sin(2 * Math.PI * 110 * (i / 44100))
+    })
+
+    const { result } = renderHook(() => useTuner())
+    await waitFor(() => {
+      expect(result.current.pitch?.note).toBe('A')
+    }, { timeout: 3000 })
+    expect(result.current.pitch?.octave).toBe(2)
+  })
+
+  it('does not tune digital silence level signals', async () => {
+    mockMicrophone.isActive = true
+    mockAnalyser = mockAudioContext.createAnalyser()
+    mockMicrophone.analyser = mockAnalyser
+    mockMicrophone.audioContext = mockAudioContext as any
+    mockMicrophone.sampleRate = 44100
+    vi.mocked(useMicrophone).mockReturnValue(mockMicrophone)
+
+    // A clean 440 Hz tone, but at the floor of the converter: -75 dBFS.
+    vi.mocked(mockAnalyser.getFloatTimeDomainData).mockImplementation((array) => {
+      for (let i = 0; i < array.length; i++) array[i] = 0.0002 * Math.sin(2 * Math.PI * 440 * (i / 44100))
     })
 
     const { result } = renderHook(() => useTuner())
@@ -349,5 +369,61 @@ describe('useTuner', () => {
       // Pitch should be null or not set
       expect(result.current.pitch).toBe(null)
     }, { timeout: 3000 })
+  })
+})
+
+describe('detectPitch', () => {
+  /** A plucked-string-like tone: eight harmonics, a bit of inharmonicity, decaying, over a noise floor. */
+  function pluck(freq: number, sampleRate: number, peak: number, noise: number): Float32Array {
+    const out = new Float32Array(4096)
+    let seed = 1
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1
+    for (let i = 0; i < out.length; i++) {
+      const t = 0.15 + i / sampleRate
+      let v = 0
+      for (let h = 1; h <= 8; h++) v += Math.sin(2 * Math.PI * freq * h * (1 + 0.0004 * h * h) * t) / h ** 1.2
+      out[i] = (v * peak * Math.exp(-t * 1.2)) / 2 + rand() * noise
+    }
+    return out
+  }
+  const cents = (found: number, expected: number) => Math.abs(1200 * Math.log2(found / expected))
+
+  it('finds a plucked string at any level a microphone gives, from loud to very quiet', () => {
+    for (const sampleRate of [44100, 48000]) {
+      for (const [expected, freq] of [[82.41, 82.41], [110, 110], [329.63, 329.63]] as const) {
+        for (const peak of [0.5, 0.1, 0.03, 0.01]) {
+          const result = detectPitch(pluck(freq, sampleRate, peak, 0.0005), sampleRate, 0.5)
+          expect(result, `${freq} Hz at ${peak} (${sampleRate} Hz)`).not.toBeNull()
+          expect(result!.confidence).toBeGreaterThan(0.9)
+          expect(cents(result!.frequency, expected)).toBeLessThan(30)
+        }
+      }
+    }
+  })
+
+  it('never takes noise for a note: it finds no pitch in white noise or room rumble', () => {
+    let seed = 7
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1
+    for (const amplitude of [0.002, 0.01, 0.05]) {
+      for (let k = 0; k < 20; k++) {
+        const white = new Float32Array(4096)
+        const rumble = new Float32Array(4096)
+        let low = 0
+        for (let i = 0; i < white.length; i++) {
+          white[i] = rand() * amplitude
+          low += 0.05 * (rand() - low)
+          rumble[i] = low * 4 * amplitude
+        }
+        expect(detectPitch(white, 44100, 0.5)).toBeNull()
+        expect(detectPitch(rumble, 44100, 0.5)).toBeNull()
+      }
+    }
+  })
+
+  it('the gate only keeps out the floor of the converter: a quiet guitar is far above it', () => {
+    const quiet = pluck(110, 44100, 0.01, 0.0005)
+    expect(rootMeanSquare(quiet)).toBeGreaterThan(noiseGate(0.5) * 5)
+    expect(noiseGate(0.5)).toBeLessThan(0.001)
+    expect(noiseGate(1)).toBeLessThan(noiseGate(0))
   })
 })
