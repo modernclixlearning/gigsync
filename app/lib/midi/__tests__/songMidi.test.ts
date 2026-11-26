@@ -188,6 +188,31 @@ describe('songsToMidi — live takes', () => {
   })
 })
 
+describe('songsToMidi — a song that starts with an incomplete bar', () => {
+  const intro = (extra: Partial<Song> = {}) => song({ lyrics: '[Intro]\nA 2 | A |', ...extra })
+
+  it('counts the bass rhythm from the first complete bar: the accent is on beat 2', () => {
+    const notes = noteOns(chunks(songsToMidi([intro({ band: { bassRhythm: 'X...x...x...x...' } })]))[3].data)
+    const at = (beat: number) => notes.find((n) => n.tick === beat * PPQ)
+    expect(at(2)!.velocity).toBeGreaterThan(at(3)!.velocity)
+    expect(at(2)!.velocity).toBeGreaterThan(at(0)!.velocity)
+  })
+
+  it('puts the drums on the same bar lines: the kick of the pattern falls on beat 2, then 6', () => {
+    const drums = { kick: 'X...............', snare: '................', hat: '................' }
+    const tracks = chunks(songsToMidi([intro({ band: { drums } })]))
+    const kicks = noteOns(tracks[4].data).filter((n) => n.pitch === 36).map((n) => n.tick)
+    expect(kicks.slice(0, 2)).toEqual([2 * PPQ, 6 * PPQ])
+  })
+
+  it('a song with no incomplete first bar is unchanged', () => {
+    const plain = song({ lyrics: '[Intro]\nA | A |', band: { bassRhythm: 'X...x...x...x...' } })
+    const notes = noteOns(chunks(songsToMidi([plain]))[3].data)
+    expect(notes[0].tick).toBe(0)
+    expect(notes[0].velocity).toBeGreaterThan(notes[1].velocity)
+  })
+})
+
 describe('songsToMidi — the patterns written for the song', () => {
   it('plays the bass with the song rhythm: quarter notes instead of one long note per chord', () => {
     const plain = noteOns(chunks(songsToMidi([song()]))[3].data)

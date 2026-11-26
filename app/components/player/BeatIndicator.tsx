@@ -1,7 +1,7 @@
 interface BeatIndicatorProps {
   /** Current beat within the bar (1-based for display) */
   beat: number
-  /** Current bar index (0-based, converted to 1-based for display) */
+  /** Current bar index (0-based, converted to 1-based for display; -1 is the incomplete bar a song starts with, shown as 0) */
   bar: number
   /** Optional total number of bars in the song */
   totalBars?: number
@@ -9,7 +9,7 @@ interface BeatIndicatorProps {
 
 export function BeatIndicator({ beat, bar, totalBars }: BeatIndicatorProps) {
   const safeBeat = Math.max(1, Math.round(beat))
-  const safeBar = Math.max(0, Math.round(bar))
+  const safeBar = Math.max(-1, Math.round(bar))
 
   const barLabel =
     typeof totalBars === 'number' && totalBars > 0

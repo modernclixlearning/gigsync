@@ -52,6 +52,14 @@ describe('isDownbeat', () => {
     expect([0, 1, 2, 3].map((q) => isDownbeat(q * 192, 192, 3))).toEqual([true, false, false, true])
   })
 
+  it('an anacrusis moves the bar lines: with two beats of pickup the 1 falls on beat 2, then 6', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map((q) => isDownbeat(q * 192, 192, 4, 2))).toEqual([
+      false, false, true, false, false, false, true,
+    ])
+    // One beat of pickup in 3/4: the 1 falls on beat 2.
+    expect([0, 1, 2, 3].map((q) => isDownbeat(q * 192, 192, 3, 1))).toEqual([false, false, true, false])
+  })
+
   it('tolerates tick rounding around the bar line', () => {
     expect(isDownbeat(4 * 192 - 1, 192, 4)).toBe(true)
     expect(isDownbeat(4 * 192 + 1, 192, 4)).toBe(true)
@@ -94,6 +102,18 @@ describe('useMetronomeSound', () => {
     const synth = tone.synths[0]
     expect(synth.triggerAttackRelease).toHaveBeenNthCalledWith(1, 1200, '32n', 4)
     expect(synth.triggerAttackRelease).toHaveBeenNthCalledWith(2, 800, '32n', 5)
+  })
+
+  it('accents the 1 of the first complete bar when the song starts with an incomplete one', () => {
+    renderHook(() => useMetronomeSound({ enabled: true, isPlaying: true, barOffsetBeats: 2 }))
+    const [loop] = tone.loops
+    // Time N is quarter N: beats 0 and 1 are the pickup, the 1 is beat 2.
+    loop.callback(0)
+    loop.callback(1)
+    loop.callback(2)
+    loop.callback(3)
+    const synth = tone.synths[0]
+    expect(synth.triggerAttackRelease.mock.calls.map((call: unknown[]) => call[0])).toEqual([800, 800, 1200, 800])
   })
 
   it('stays silent while not playing or with the silent sound', () => {
