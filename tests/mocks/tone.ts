@@ -13,7 +13,7 @@ export class MockSynth {
     return this
   }
 
-  triggerAttackRelease = vi.fn((frequency: number, duration: string, time?: number) => {
+  triggerAttackRelease = vi.fn((frequency: number, duration: string, time?: number, velocity?: number) => {
     // Mock implementation
   })
 

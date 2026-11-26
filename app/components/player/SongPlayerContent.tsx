@@ -353,6 +353,7 @@ export function SongPlayerContent({
     sound: 'classic',
     volume: playbackPrefs.metronomeVolume / 100,
     accentFirst: true,
+    timeSignature: song.timeSignature,
     barOffsetBeats: autoScroll.barOffsetBeats
   })
 
