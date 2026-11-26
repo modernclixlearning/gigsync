@@ -44,6 +44,8 @@ export interface UseChordPlaybackOptions {
   rhythm?: string
   /** Beats in a bar — the rhythm restarts every bar. Default 4. */
   beatsPerBar?: number
+  /** Beats the bar lines are moved by an incomplete first bar (see lib/timeline/anacrusis). Default 0. */
+  barOffsetBeats?: number
   /**
    * A take played live for this channel. When it has notes they are what
    * sounds, exactly as played, instead of the chords with their rhythm.
@@ -81,6 +83,7 @@ export function useChordPlayback({
   withBass = true,
   rhythm,
   beatsPerBar = 4,
+  barOffsetBeats = 0,
   takeNotes,
 }: UseChordPlaybackOptions): void {
   const take = takeNotes && takeNotes.length > 0 ? takeNotes : null
@@ -129,7 +132,7 @@ export function useChordPlayback({
             ticks: Math.max(1, Math.round((note.beats * ppq) / LEGATO)),
             velocity: note.velocity,
           }))
-        : rhythmHits(events, rhythm, beatsPerBar).flatMap((hit) => {
+        : rhythmHits(events, rhythm, beatsPerBar, barOffsetBeats).flatMap((hit) => {
         const voicing = voiceChord(hit.chord)
         if (!voicing) return []
         return [
@@ -146,7 +149,7 @@ export function useChordPlayback({
     return () => {
       part.dispose()
     }
-  }, [enabled, events, role, withBass, rhythm, beatsPerBar, take])
+  }, [enabled, events, role, withBass, rhythm, beatsPerBar, barOffsetBeats, take])
 
   // Play/pause: on pause the chord stops; on play from the middle of a chord,
   // that chord sounds as soon as the Transport moves (after any count-in).

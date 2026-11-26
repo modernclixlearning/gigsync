@@ -91,6 +91,32 @@ describe('useDrumPlayback', () => {
     expect(kit.hit).toHaveBeenCalledWith('snare', 2, 1)
   })
 
+  it('an anacrusis moves the bar lines: the pattern starts at the first complete bar', () => {
+    // Two beats of pickup: the song's beat 2 is the 1 of the bar, so it plays the pattern's step 0.
+    renderHook(() => useDrumPlayback({ enabled: true, isPlaying: true, pattern: 'rock', beatsPerBar: 4, barOffsetBeats: 2 }))
+    tone.transport.getTicksAtTime.mockReturnValue(2 * 192) // beat 2 = the 1 of the first bar
+    tone.loops[0].callback(1)
+    expect(kit.hit).toHaveBeenCalledWith('kick', 1, 1)
+    expect(kit.hit).toHaveBeenCalledWith('hat', 1, 1)
+    expect(kit.hit).not.toHaveBeenCalledWith('snare', expect.anything(), expect.anything())
+
+    kit.hit.mockClear()
+    tone.transport.getTicksAtTime.mockReturnValue(3 * 192) // beat 3 = the 2 of that bar: the snare
+    tone.loops[0].callback(2)
+    expect(kit.hit).toHaveBeenCalledWith('snare', 2, 1)
+
+    // The pickup is the end of a bar: beat 0 of the song is its 3 (the kick of the rock pattern)
+    // and beat 1 its 4 (the snare), not the 1 and the 2.
+    kit.hit.mockClear()
+    tone.transport.getTicksAtTime.mockReturnValue(0)
+    tone.loops[0].callback(3)
+    expect(kit.hit.mock.calls.map((call) => call[0]).sort()).toEqual(['hat', 'kick'])
+    kit.hit.mockClear()
+    tone.transport.getTicksAtTime.mockReturnValue(192)
+    tone.loops[0].callback(4)
+    expect(kit.hit).toHaveBeenCalledWith('snare', 4, 1)
+  })
+
   it('tears the loop and the kit down', () => {
     const { unmount } = renderHook(() => useDrumPlayback({ enabled: true, isPlaying: true, pattern: 'rock', beatsPerBar: 4 }))
     unmount()

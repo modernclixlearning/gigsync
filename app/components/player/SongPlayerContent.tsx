@@ -25,6 +25,7 @@ import { bandRoleNotes, withBandRoleNotes } from '~/lib/audio/bandPatterns'
 import { TrackEditor } from '~/components/player/TrackEditor'
 import { TunerDialog } from '~/components/tuner/TunerDialog'
 import { MetronomeDialog } from '~/components/metronome/MetronomeDialog'
+import { barPositionAt } from '~/lib/timeline/anacrusis'
 import { useLiveMonitor } from '~/hooks/useLiveMonitor'
 import { useMIDIAccess } from '~/hooks/useMIDIAccess'
 import { loadLiveMonitorPrefs, saveLiveMonitorPrefs, type LiveMonitorPrefs, type MonitorRole } from '~/lib/midi/liveMonitor'
@@ -351,7 +352,8 @@ export function SongPlayerContent({
     isPlaying: metronomeIsPlaying,
     sound: 'classic',
     volume: playbackPrefs.metronomeVolume / 100,
-    accentFirst: true
+    accentFirst: true,
+    barOffsetBeats: autoScroll.barOffsetBeats
   })
 
   const parseTimeSignature = (signature: string): number => {
@@ -359,6 +361,8 @@ export function SongPlayerContent({
     return beats || 4
   }
   const beatsPerBar = parseTimeSignature(song.timeSignature)
+  // Bar and beat as a musician counts them: from the first complete bar when the song starts with a pickup.
+  const barPosition = barPositionAt(autoScroll.currentBeat, autoScroll.barOffsetBeats, beatsPerBar)
 
   // ── Transport: restart, count-in, end of song, next song ──────────────────
   const countIn = useCountIn()
@@ -534,6 +538,7 @@ export function SongPlayerContent({
     withBass: !playbackPrefs.bassEnabled,
     rhythm: song.band?.chordRhythm,
     beatsPerBar,
+    barOffsetBeats: autoScroll.barOffsetBeats,
     takeNotes: keysTakeNotes,
   })
   // Bass: the root note only, mono.
@@ -546,6 +551,7 @@ export function SongPlayerContent({
     voice: playbackPrefs.bassVoice,
     rhythm: song.band?.bassRhythm,
     beatsPerBar,
+    barOffsetBeats: autoScroll.barOffsetBeats,
     takeNotes: bassTakeNotes,
   })
   // Mini drum machine.
@@ -555,6 +561,7 @@ export function SongPlayerContent({
     pattern: playbackPrefs.drumPattern,
     songPattern: song.band?.drums,
     beatsPerBar,
+    barOffsetBeats: autoScroll.barOffsetBeats,
     volume: playbackPrefs.drumsVolume / 100,
     takeNotes: activeTakeNotes(song.band?.takes?.drums),
   })
@@ -975,7 +982,7 @@ export function SongPlayerContent({
                 <div className="flex items-center gap-2">
                   <VisualBeat
                     count={beatsPerBar}
-                    activeIndex={autoScroll.currentBeatInBar + 1}
+                    activeIndex={barPosition.beatInBar + 1}
                     isPlaying={true}
                     variant="circles"
                     glow={true}
@@ -1045,8 +1052,8 @@ export function SongPlayerContent({
         player.state.isPlaying &&
         !autoScroll.hasFallback && (
           <BeatIndicator
-            beat={autoScroll.currentBeatInBar + 1}
-            bar={autoScroll.currentBar}
+            beat={barPosition.beatInBar + 1}
+            bar={barPosition.bar}
           />
         )}
 
