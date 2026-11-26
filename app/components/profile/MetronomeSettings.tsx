@@ -1,4 +1,5 @@
 import type { AppSettings } from '~/types/profile'
+import { TimeSignaturePicker } from '~/components/metronome/TimeSignaturePicker'
 import {
   SettingsSection,
   SettingsRow,
@@ -11,7 +12,6 @@ export interface MetronomeSettingsProps {
   onUpdate: (updates: Partial<AppSettings['metronome']>) => void
 }
 
-const TIME_SIGNATURES = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '12/8'] as const
 const SOUNDS = ['classic', 'woodblock', 'sticks', 'electronic', 'silent'] as const
 
 export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps) {
@@ -28,17 +28,11 @@ export function MetronomeSettings({ settings, onUpdate }: MetronomeSettingsProps
       </SettingsRow>
 
       <SettingsRow label="Compás" description="Compás por defecto">
-        <select
+        <TimeSignaturePicker
           value={settings.defaultTimeSignature}
-          onChange={(e) => onUpdate({ defaultTimeSignature: e.target.value })}
-          className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#232948] text-slate-900 dark:text-white border-0 focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
-        >
-          {TIME_SIGNATURES.map((sig) => (
-            <option key={sig} value={sig}>
-              {sig}
-            </option>
-          ))}
-        </select>
+          onChange={(defaultTimeSignature) => onUpdate({ defaultTimeSignature })}
+          selectClassName="h-10 w-20 rounded-lg bg-slate-100 dark:bg-[#232948] px-3 text-slate-900 dark:text-white border-0 focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+        />
       </SettingsRow>
 
       <SettingsRow label="Sonido del click" description="Timbre del metrónomo">

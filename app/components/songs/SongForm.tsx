@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { cn } from '~/lib/utils'
 import { SongYouTubeField } from '~/components/songs/SongYouTubeField'
+import { TimeSignaturePicker } from '~/components/metronome/TimeSignaturePicker'
 import type { CreateSongInput } from '~/types'
 
 interface SongFormProps {
@@ -25,7 +26,6 @@ export const SONG_KEYS = [
   'A', 'Am', 'A#', 'A#m', 
   'B', 'Bm'
 ]
-const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '2/4', '5/4', '7/8']
 
 export function SongForm({
   data,
@@ -154,23 +154,17 @@ export function SongForm({
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Time Signature
           </label>
-          <select
-            value={data.timeSignature}
-            onChange={(e) => handleChange('timeSignature', e.target.value)}
-            className={cn(
-              'w-full px-4 py-3 rounded-xl',
+          <TimeSignaturePicker
+            value={data.timeSignature ?? '4/4'}
+            onChange={(signature) => handleChange('timeSignature', signature)}
+            selectClassName={cn(
+              'h-12 min-w-0 flex-1 px-3 rounded-xl',
               'bg-white dark:bg-[#1a1f36]',
               'border border-slate-200 dark:border-slate-700',
               'text-slate-900 dark:text-white',
               'focus:outline-none focus:ring-2 focus:ring-indigo-500'
             )}
-          >
-            {TIME_SIGNATURES.map((sig) => (
-              <option key={sig} value={sig}>
-                {sig}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>
